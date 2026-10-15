@@ -1,3 +1,865 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* =====================================================================
+   TRUSTA Design System
+   ---------------------------------------------------------------------
+   Tema terang & gelap dikendalikan oleh class "dark" pada <html>.
+   - Terang  : :root (default)
+   - Gelap   : html.dark
+   Preferensi tema disimpan di localStorage ("trusta-theme") oleh
+   resources/js/theme.js (dan skrip kecil di <head> agar tidak berkedip).
+   ===================================================================== */
+
+:root {
+    color-scheme: light;
+
+    /* Token semantik */
+    --bg-page: #f1f5f9;
+    --bg-page-2: #e8edf4;
+    --bg-sidebar: #ffffff;
+    --bg-header: rgba(255, 255, 255, 0.88);
+    --bg-tabs: #e8edf4;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --surface-3: #e2e8f0;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --hover-bg: rgba(15, 23, 42, 0.05);
+    --text-strong: #0f172a;
+    --text: #1e293b;
+    --text-muted: #475569;
+    --text-dim: #64748b;
+    --text-faint: #94a3b8;
+    --accent: #0f766e;
+    --accent-hover: #115e59;
+    --accent-soft: rgba(15, 118, 110, 0.1);
+    --accent-border: rgba(15, 118, 110, 0.25);
+    --gold: #8a6a12;
+    --gold-soft: rgba(138, 106, 18, 0.1);
+    --gold-border: rgba(138, 106, 18, 0.25);
+    --danger: #dc2626;
+    --danger-soft: rgba(220, 38, 38, 0.08);
+    --danger-border: rgba(220, 38, 38, 0.25);
+    --input-bg: #ffffff;
+    --input-border: #cbd5e1;
+    --tooltip-bg: #0f172a;
+    --tooltip-text: #f1f5f9;
+    --scrollbar: rgba(15, 23, 42, 0.18);
+    --shadow-pop: 0 10px 25px -5px rgba(15, 23, 42, 0.18);
+
+    /* Ukuran */
+    --sidebar-width: 250px;
+    --sidebar-collapsed: 0px;
+    --header-height: 52px;
+
+    /* Nama lama (dipakai di banyak view). Semua kini punya nilai. */
+    --trusta-navy: var(--bg-page);
+    --trusta-navy-light: var(--surface-2);
+    --trusta-sidebar: var(--bg-sidebar);
+    --trusta-teal: var(--accent);
+    --trusta-teal-light: #14b8a6;
+    --trusta-gold: var(--gold);
+    --trusta-gray: var(--text-dim);
+    --trusta-surface: var(--surface-2);
+    --trusta-card: var(--surface);
+    --trusta-dark: var(--surface-3);
+    --trusta-darker: #ffffff; /* teks di atas tombol teal */
+    --trusta-border: var(--border);
+    --trusta-bg: var(--bg-page);
+    --trusta-primary: var(--accent);
+    --trusta-text-primary: var(--text-strong);
+    --trusta-text-muted: var(--text-muted);
+}
+
+html.dark {
+    color-scheme: dark;
+
+    --bg-page: #0a0f1e;
+    --bg-page-2: #0e1525;
+    --bg-sidebar: #0d1321;
+    --bg-header: rgba(10, 15, 30, 0.85);
+    --bg-tabs: #070b16;
+    --surface: #1e293b;
+    --surface-2: #111827;
+    --surface-3: #1a1f2e;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --hover-bg: rgba(255, 255, 255, 0.05);
+    --text-strong: #f1f5f9;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --text-faint: #475569;
+    --accent: #14b8a6;
+    --accent-hover: #2dd4bf;
+    --accent-soft: rgba(20, 184, 166, 0.12);
+    --accent-border: rgba(20, 184, 166, 0.22);
+    --gold: #c9a84c;
+    --gold-soft: rgba(201, 168, 76, 0.08);
+    --gold-border: rgba(201, 168, 76, 0.18);
+    --danger: #f87171;
+    --danger-soft: rgba(239, 68, 68, 0.08);
+    --danger-border: rgba(239, 68, 68, 0.22);
+    --input-bg: rgba(15, 23, 42, 0.6);
+    --input-border: rgba(255, 255, 255, 0.1);
+    --tooltip-bg: #1e293b;
+    --tooltip-text: #e2e8f0;
+    --scrollbar: rgba(255, 255, 255, 0.1);
+    --shadow-pop: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+
+    --trusta-darker: #0a0f1e;
+    --trusta-dark: #111827;
+    --trusta-surface: #1a1f2e;
+    --trusta-card: #1e293b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-page);
+    color: var(--text);
+    margin: 0;
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* Halaman tamu (login/registrasi): boleh scroll */
+body.guest-body { overflow: auto; height: auto; min-height: 100vh; }
+
+h1, h2, h3, h4, h5, h6, .font-poppins { font-family: 'Poppins', sans-serif; }
+
+/* Utilitas warna bawaan TRUSTA */
+.bg-trusta-navy { background-color: var(--bg-page); }
+.bg-trusta-navy-light { background-color: var(--surface-2); }
+.bg-trusta-surface { background-color: var(--surface-3); }
+.text-trusta-teal { color: var(--accent); }
+.text-trusta-gold { color: var(--gold); }
+.border-trusta-teal { border-color: var(--accent); }
+.border-trusta-gold { border-color: var(--gold); }
+
+/* ===== Layout ===== */
+.app-layout { display: flex; height: 100vh; overflow: hidden; }
+
+/* ===== Sidebar ===== */
+.sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 40;
+    overflow: hidden;
+}
+.sidebar.collapsed { width: 0; min-width: 0; border-right: none; }
+.sidebar.collapsed .sidebar-inner { opacity: 0; pointer-events: none; }
+.sidebar-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: var(--sidebar-width);
+    transition: opacity 0.2s ease;
+}
+
+.sidebar-logo {
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.sidebar-logo a { text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.sidebar-logo .logo-text {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    color: var(--text-strong);
+}
+.sidebar-logo .logo-text span { color: var(--gold); }
+.sidebar-logo .logo-sub {
+    font-size: 0.45rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+
+.sidebar-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 10px; }
+.sidebar-nav::-webkit-scrollbar { width: 3px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 10px; }
+
+.nav-section-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    padding: 8px 12px 4px;
+    margin-top: 8px;
+}
+.nav-section-label:first-child { margin-top: 0; }
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 7px 12px;
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    margin: 1px 0;
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+}
+.nav-item:hover { background: var(--hover-bg); color: var(--text-strong); }
+.nav-item.active {
+    background: linear-gradient(135deg, var(--accent-soft), transparent);
+    color: var(--accent);
+    font-weight: 600;
+}
+.nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--accent);
+    border-radius: 0 3px 3px 0;
+}
+.nav-item svg, .nav-item .nav-icon { width: 17px; height: 17px; margin-right: 10px; flex-shrink: 0; opacity: 0.75; }
+.nav-item.active svg, .nav-item.active .nav-icon { opacity: 1; color: var(--accent); }
+
+.nav-parent { user-select: none; }
+.nav-parent .nav-chevron { width: 14px; height: 14px; margin-left: auto; margin-right: 0; transition: transform 0.2s ease; opacity: 0.5; }
+.nav-parent.open .nav-chevron { transform: rotate(180deg); }
+
+.nav-children { overflow: hidden; max-height: 0; transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.nav-children.show { max-height: 600px; }
+
+.nav-child {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px 6px 40px;
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    margin: 0 0 1px;
+    position: relative;
+}
+.nav-child::before {
+    content: '';
+    position: absolute;
+    left: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--border-strong);
+    transition: background 0.15s ease;
+}
+.nav-child:hover { color: var(--text-strong); background: var(--hover-bg); }
+.nav-child:hover::before { background: var(--text-muted); }
+.nav-child.active { color: var(--accent); font-weight: 600; }
+.nav-child.active::before { background: var(--accent); box-shadow: 0 0 6px var(--accent-border); }
+.nav-child.dot-orange::before { background: #f97316; box-shadow: 0 0 4px rgba(249, 115, 22, 0.5); }
+.nav-child.dot-blue::before { background: #3b82f6; box-shadow: 0 0 4px rgba(59, 130, 246, 0.5); }
+.nav-child.dot-green::before { background: #22c55e; box-shadow: 0 0 4px rgba(34, 197, 94, 0.5); }
+.nav-child.dot-purple::before { background: #a855f7; box-shadow: 0 0 4px rgba(168, 85, 247, 0.5); }
+
+/* Sidebar user */
+.sidebar-user { padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.sidebar-user-info { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.sidebar-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #14b8a6, #0d9488);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+.sidebar-user-name { font-size: 0.78rem; font-weight: 600; color: var(--text-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-user-role { font-size: 0.62rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-logout-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--hover-bg);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.sidebar-logout-btn:hover { background: var(--danger-soft); border-color: var(--danger-border); color: var(--danger); }
+.sidebar-logout-btn svg { width: 14px; height: 14px; }
+
+/* ===== Konten utama ===== */
+.main-content { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; min-width: 0; }
+
+.top-header {
+    height: var(--header-height);
+    background: var(--bg-header);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    flex-shrink: 0;
+    z-index: 30;
+}
+.top-header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.hamburger-btn, .header-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--hover-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+.hamburger-btn:hover, .header-icon-btn:hover { background: var(--surface-3); color: var(--text-strong); }
+.hamburger-btn svg { width: 18px; height: 18px; }
+.header-icon-btn svg { width: 16px; height: 16px; }
+
+.top-header-title h1 { font-size: 1rem; font-weight: 600; color: var(--text-strong); margin: 0; line-height: 1.3; }
+.top-header-title p { font-size: 0.68rem; color: var(--text-dim); margin: 0; }
+.top-header-right { display: flex; align-items: center; gap: 8px; }
+
+/* Tombol ganti tema */
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+html.dark .theme-toggle .icon-sun { display: block; }
+html.dark .theme-toggle .icon-moon { display: none; }
+.theme-toggle-floating {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 60;
+    background: var(--surface);
+    box-shadow: var(--shadow-pop);
+}
+
+.page-content {
+    flex: 1;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 20px 24px;
+    background: linear-gradient(180deg, var(--bg-page) 0%, var(--bg-page-2) 100%);
+}
+.page-content::-webkit-scrollbar { width: 5px; }
+.page-content::-webkit-scrollbar-track { background: transparent; }
+.page-content::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 10px; }
+
+/* ===== Alert ===== */
+.alert-success, .alert-error {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+.alert-success { background: var(--accent-soft); border: 1px solid var(--accent-border); color: var(--accent); }
+.alert-error { background: var(--danger-soft); border: 1px solid var(--danger-border); color: var(--danger); }
+.alert-success svg, .alert-error svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ===== Form ===== */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+input[type="month"],
+input[type="search"],
+input[type="password"],
+input[type="tel"],
+input[type="url"],
+select,
+textarea {
+    width: 100%;
+    font-size: 0.8rem !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--text-strong) !important;
+    transition: all 0.15s ease !important;
+    line-height: 1.5 !important;
+}
+input::placeholder, textarea::placeholder { color: var(--text-faint) !important; opacity: 1; }
+select option { background: var(--surface); color: var(--text-strong); }
+input:focus, select:focus, textarea:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent-soft) !important;
+    outline: none !important;
+}
+input:disabled, select:disabled, textarea:disabled, input[readonly] { opacity: 0.7; }
+textarea { min-height: 60px !important; }
+input[type="checkbox"], input[type="radio"] { width: auto; accent-color: var(--accent); }
+
+label { font-size: 0.75rem !important; font-weight: 500; color: var(--text-muted); margin-bottom: 4px !important; }
+
+/* ===== Tabel ===== */
+table { font-size: 0.8rem; }
+table thead th { font-size: 0.65rem !important; letter-spacing: 0.05em; padding: 8px 14px !important; }
+table tbody td { padding: 8px 14px !important; }
+
+.rounded-2xl { border-radius: 10px !important; }
+
+/* ===== Tombol ===== */
+.btn-primary {
+    padding: 7px 16px;
+    background: var(--accent);
+    color: var(--trusta-darker);
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 4px 12px var(--accent-border); }
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 35;
+    backdrop-filter: blur(4px);
+}
+
+@media (max-width: 768px) {
+    .sidebar { position: fixed; left: 0; top: 0; height: 100vh; z-index: 40; }
+    .sidebar.collapsed { transform: translateX(-100%); width: var(--sidebar-width); min-width: var(--sidebar-width); }
+    .sidebar-overlay.show { display: block; }
+    .page-content { padding: 14px 12px; }
+    .top-header { padding: 0 12px; }
+}
+
+.fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===== Badge ===== */
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.02em; }
+.badge-success { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
+.badge-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-border); }
+
+/* Tooltip */
+[data-tooltip] { position: relative; }
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    font-size: 0.7rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-top: 4px;
+    border: 1px solid var(--border);
+    z-index: 70;
+}
+
+.company-badge {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--gold-soft);
+    border: 1px solid var(--gold-border);
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--gold);
+}
+@media (min-width: 768px) { .company-badge { display: flex; } }
+
+/* ===== Tab halaman ===== */
+.app-tabs-container {
+    display: flex;
+    background: var(--bg-tabs);
+    padding: 12px 16px 0;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.app-tabs-container::-webkit-scrollbar { display: none; }
+.app-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--surface-3);
+    color: var(--text-muted);
+    border-radius: 8px 8px 0 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    border-bottom: none;
+}
+.app-tab:hover { background: var(--border-strong); color: var(--text-strong); }
+.app-tab.active { background: var(--bg-page); color: var(--accent); border-color: var(--border); }
+.app-tab-close {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: inherit;
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+.app-tab-close:hover { opacity: 1; background: var(--hover-bg); }
+.app-tab.active .app-tab-close { background: var(--accent-soft); color: var(--accent); }
+.app-tab.active .app-tab-close:hover { background: var(--accent); color: var(--trusta-darker); }
+
+/* ===== Tom Select (dropdown pencarian) ===== */
+.ts-wrapper { width: 100%; }
+.ts-control {
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--text-strong) !important;
+    padding: 6px 10px !important;
+    min-height: 34px !important;
+    box-shadow: none !important;
+    border-radius: 6px !important;
+}
+.ts-control.focus, .ts-wrapper.focus .ts-control {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent-soft) !important;
+}
+.ts-control > input, .ts-control .item { color: var(--text-strong) !important; }
+.ts-control > input::placeholder { color: var(--text-faint) !important; }
+.ts-dropdown {
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border-strong) !important;
+    color: var(--text-strong) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--shadow-pop) !important;
+    z-index: 80;
+}
+.ts-dropdown .ts-dropdown-content { max-height: 250px !important; }
+.ts-dropdown .option { padding: 8px 12px !important; cursor: pointer; color: var(--text-strong); }
+.ts-dropdown .option:hover, .ts-dropdown .active { background-color: var(--accent) !important; color: var(--trusta-darker) !important; }
+.ts-dropdown .no-results, .ts-dropdown .optgroup-header { color: var(--text-muted) !important; background: transparent !important; }
+td .ts-wrapper { width: 100%; }
+td .ts-control { border-radius: 4px !important; }
+
+/* ===== Panel dokumen terkait (antar-fitur) ===== */
+.related-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 14px;
+}
+.related-panel-head {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-strong);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.related-group { padding: 8px 16px 10px; border-bottom: 1px solid var(--border); }
+.related-group:last-child { border-bottom: none; }
+.related-group-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+}
+.related-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 8px;
+    margin: 0 -8px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.78rem;
+    color: var(--text);
+    transition: background 0.15s ease;
+}
+.related-item:hover { background: var(--hover-bg); }
+.related-item .ri-main { font-weight: 600; color: var(--accent); }
+.related-item .ri-meta { color: var(--text-dim); font-size: 0.7rem; white-space: nowrap; }
+.related-empty { font-size: 0.75rem; color: var(--text-dim); padding: 2px 0; }
+.link-doc { color: var(--accent); font-weight: 600; text-decoration: none; }
+.link-doc:hover { text-decoration: underline; }
+/* =====================================================================
+   PEMETAAN TEMA — dihasilkan dari kelas yang dipakai di resources/views.
+   View TRUSTA ditulis dengan palet gelap (text-white, bg-gray-800, ...).
+   Aturan di bawah membalik palet itu saat html TIDAK punya class "dark".
+   ===================================================================== */
+html:not(.dark) .active\:bg-gray-900:active{background-color:#f8fafc}
+html:not(.dark) .bg-\[\#0F172A\]\/50{background-color:rgba(241,245,249,0.5)}
+html:not(.dark) .bg-\[\#0F172A\]{background-color:#f1f5f9}
+html:not(.dark) .bg-\[\#0f172a\]{background-color:#f1f5f9}
+html:not(.dark) .bg-\[\#1E293B\]{background-color:#ffffff}
+html:not(.dark) .bg-\[\#1a2333\]{background-color:#f1f5f9}
+html:not(.dark) .bg-\[\#1e293b\]{background-color:#ffffff}
+html:not(.dark) .bg-amber-900\/50{background-color:#fef3c7}
+html:not(.dark) .bg-blue-900\/30{background-color:#dbeafe}
+html:not(.dark) .bg-blue-900\/50{background-color:#dbeafe}
+html:not(.dark) .bg-emerald-900\/30{background-color:#d1fae5}
+html:not(.dark) .bg-emerald-900\/50{background-color:#d1fae5}
+html:not(.dark) .bg-gray-700{background-color:#e2e8f0}
+html:not(.dark) .bg-gray-800\/20{background-color:rgba(255,255,255,0.2)}
+html:not(.dark) .bg-gray-800\/30{background-color:rgba(255,255,255,0.3)}
+html:not(.dark) .bg-gray-800\/40{background-color:rgba(255,255,255,0.4)}
+html:not(.dark) .bg-gray-800\/50{background-color:rgba(255,255,255,0.5)}
+html:not(.dark) .bg-gray-800\/60{background-color:rgba(255,255,255,0.6)}
+html:not(.dark) .bg-gray-800\/80{background-color:rgba(255,255,255,0.8)}
+html:not(.dark) .bg-gray-800{background-color:#ffffff}
+html:not(.dark) .bg-gray-900\/30{background-color:rgba(248,250,252,0.3)}
+html:not(.dark) .bg-gray-900\/50{background-color:rgba(248,250,252,0.5)}
+html:not(.dark) .bg-gray-900\/60{background-color:rgba(248,250,252,0.6)}
+html:not(.dark) .bg-gray-900{background-color:#f8fafc}
+html:not(.dark) .bg-orange-900\/50{background-color:#ffedd5}
+html:not(.dark) .bg-purple-900\/30{background-color:#f3e8ff}
+html:not(.dark) .bg-purple-900\/50{background-color:#f3e8ff}
+html:not(.dark) .bg-red-900\/10{background-color:#fee2e2}
+html:not(.dark) .bg-red-900\/30{background-color:#fee2e2}
+html:not(.dark) .bg-red-900\/50{background-color:#fee2e2}
+html:not(.dark) .bg-red-950\/50{background-color:#fee2e2}
+html:not(.dark) .bg-slate-700\/50{background-color:rgba(226,232,240,0.5)}
+html:not(.dark) .bg-yellow-900\/30{background-color:#fef9c3}
+html:not(.dark) .bg-yellow-900\/50{background-color:#fef9c3}
+html:not(.dark) .border-\[\#0a0f1e\]{border-color:#e2e8f0}
+html:not(.dark) .border-\[\#1E293B\]{border-color:#e2e8f0}
+html:not(.dark) .border-blue-800\/50{border-color:#93c5fd}
+html:not(.dark) .border-blue-800{border-color:#93c5fd}
+html:not(.dark) .border-emerald-800\/50{border-color:#6ee7b7}
+html:not(.dark) .border-gray-500\/20{border-color:rgba(148,163,184,0.12)}
+html:not(.dark) .border-gray-600{border-color:#cbd5e1}
+html:not(.dark) .border-gray-700\/30{border-color:rgba(148,163,184,0.18)}
+html:not(.dark) .border-gray-700\/50{border-color:rgba(148,163,184,0.3)}
+html:not(.dark) .border-gray-700{border-color:#e2e8f0}
+html:not(.dark) .border-gray-800{border-color:#e8edf4}
+html:not(.dark) .border-gray-900{border-color:#e2e8f0}
+html:not(.dark) .border-purple-800{border-color:#d8b4fe}
+html:not(.dark) .border-red-800\/50{border-color:#fca5a5}
+html:not(.dark) .border-red-800{border-color:#fca5a5}
+html:not(.dark) .border-red-900\/30{border-color:#fca5a5}
+html:not(.dark) .border-yellow-800{border-color:#fde047}
+html:not(.dark) .divide-gray-700\/50 > :not([hidden]) ~ :not([hidden]){border-color:rgba(148,163,184,0.3)}
+html:not(.dark) .divide-gray-800 > :not([hidden]) ~ :not([hidden]){border-color:#e8edf4}
+html:not(.dark) .divide-gray-800\/50 > :not([hidden]) ~ :not([hidden]){border-color:rgba(148,163,184,0.3)}
+html:not(.dark) .focus\:bg-gray-700:focus{background-color:#e2e8f0}
+html:not(.dark) .focus\:bg-gray-800:focus{background-color:#ffffff}
+html:not(.dark) .focus\:ring-offset-gray-800:focus{--tw-ring-offset-color:#ffffff}
+html:not(.dark) .focus\:ring-offset-gray-900:focus{--tw-ring-offset-color:#ffffff}
+html:not(.dark) .focus\:text-gray-500:focus{color:#5b6b82}
+html:not(.dark) .hover\:bg-\[\#0F172A\]\/30:hover{background-color:rgba(226,232,240,0.21)}
+html:not(.dark) .hover\:bg-\[\#0F172A\]\/50:hover{background-color:rgba(226,232,240,0.35)}
+html:not(.dark) .hover\:bg-\[\#0f172a\]:hover{background-color:#f1f5f9}
+html:not(.dark) .hover\:bg-gray-600:hover{background-color:#cbd5e1}
+html:not(.dark) .hover\:bg-gray-700:hover{background-color:#e2e8f0}
+html:not(.dark) .hover\:bg-gray-700\/20:hover{background-color:rgba(15,23,42,0.08)}
+html:not(.dark) .hover\:bg-gray-700\/30:hover{background-color:rgba(15,23,42,0.12)}
+html:not(.dark) .hover\:bg-gray-800\/30:hover{background-color:rgba(255,255,255,0.3)}
+html:not(.dark) .hover\:bg-gray-800\/50:hover{background-color:rgba(255,255,255,0.5)}
+html:not(.dark) .hover\:bg-red-900\/50:hover{background-color:#fee2e2}
+html:not(.dark) .hover\:bg-yellow-900\/50:hover{background-color:#fef9c3}
+html:not(.dark) .hover\:text-blue-300:hover{color:#1e40af}
+html:not(.dark) .hover\:text-gray-300:hover{color:#334155}
+html:not(.dark) .hover\:text-gray-500:hover{color:#5b6b82}
+html:not(.dark) .hover\:text-red-300:hover{color:#b91c1c}
+html:not(.dark) .hover\:text-red-400:hover{color:#dc2626}
+html:not(.dark) .hover\:text-teal-300:hover{color:#0f766e}
+html:not(.dark) .hover\:text-white:hover{color:#0f172a}
+html:not(.dark) .text-amber-300\/80{color:#92400e}
+html:not(.dark) .text-amber-300{color:#92400e}
+html:not(.dark) .text-amber-400{color:#b45309}
+html:not(.dark) .text-blue-300{color:#1e40af}
+html:not(.dark) .text-blue-400{color:#1d4ed8}
+html:not(.dark) .text-emerald-400{color:#047857}
+html:not(.dark) .text-gray-100{color:#0f172a}
+html:not(.dark) .text-gray-200{color:#1e293b}
+html:not(.dark) .text-gray-300{color:#334155}
+html:not(.dark) .text-gray-400{color:#475569}
+html:not(.dark) .text-gray-500{color:#5b6b82}
+html:not(.dark) .text-gray-600{color:#64748b}
+html:not(.dark) .text-green-400{color:#15803d}
+html:not(.dark) .text-orange-400{color:#c2410c}
+html:not(.dark) .text-purple-400{color:#7e22ce}
+html:not(.dark) .text-red-200{color:#991b1b}
+html:not(.dark) .text-red-300{color:#b91c1c}
+html:not(.dark) .text-red-400{color:#dc2626}
+html:not(.dark) .text-slate-300{color:#334155}
+html:not(.dark) .text-slate-400{color:#475569}
+html:not(.dark) .text-slate-500{color:#64748b}
+html:not(.dark) .text-white{color:#0f172a}
+html:not(.dark) .text-yellow-400{color:#a16207}
+html:not(.dark) .text-yellow-500{color:#a16207}
+html:not(.dark) .bg-yellow-600{background-color:#a16207}
+html:not(.dark) .hover\:bg-yellow-500:hover{background-color:#b45309}
+/* teks putih tetap putih di atas latar berwarna solid */
+html:not(.dark) .bg-blue-500.text-white,html:not(.dark) .bg-blue-600.text-white,html:not(.dark) .bg-blue-700.text-white,html:not(.dark) .bg-green-500.text-white,html:not(.dark) .bg-green-600.text-white,html:not(.dark) .bg-emerald-500.text-white,html:not(.dark) .bg-emerald-600.text-white,html:not(.dark) .bg-red-500.text-white,html:not(.dark) .bg-red-600.text-white,html:not(.dark) .bg-red-700.text-white,html:not(.dark) .bg-red-800.text-white,html:not(.dark) .bg-teal-600.text-white,html:not(.dark) .bg-teal-700.text-white,html:not(.dark) .bg-indigo-500.text-white,html:not(.dark) .bg-indigo-600.text-white,html:not(.dark) .bg-yellow-600.text-white,html:not(.dark) .bg-purple-500.text-white,html:not(.dark) .bg-pink-500.text-white,html:not(.dark) .bg-orange-500.text-white,html:not(.dark) .btn-primary.text-white,html:not(.dark) .bg-black.text-white,html:not(.dark) .sidebar-user-avatar.text-white,html:not(.dark) .bg-blue-500 .text-white:not([class*="bg-"]),html:not(.dark) .bg-blue-600 .text-white:not([class*="bg-"]),html:not(.dark) .bg-blue-700 .text-white:not([class*="bg-"]),html:not(.dark) .bg-green-500 .text-white:not([class*="bg-"]),html:not(.dark) .bg-green-600 .text-white:not([class*="bg-"]),html:not(.dark) .bg-emerald-500 .text-white:not([class*="bg-"]),html:not(.dark) .bg-emerald-600 .text-white:not([class*="bg-"]),html:not(.dark) .bg-red-500 .text-white:not([class*="bg-"]),html:not(.dark) .bg-red-600 .text-white:not([class*="bg-"]),html:not(.dark) .bg-red-700 .text-white:not([class*="bg-"]),html:not(.dark) .bg-red-800 .text-white:not([class*="bg-"]),html:not(.dark) .bg-teal-600 .text-white:not([class*="bg-"]),html:not(.dark) .bg-teal-700 .text-white:not([class*="bg-"]),html:not(.dark) .bg-indigo-500 .text-white:not([class*="bg-"]),html:not(.dark) .bg-indigo-600 .text-white:not([class*="bg-"]),html:not(.dark) .bg-yellow-600 .text-white:not([class*="bg-"]),html:not(.dark) .bg-purple-500 .text-white:not([class*="bg-"]),html:not(.dark) .bg-pink-500 .text-white:not([class*="bg-"]),html:not(.dark) .bg-orange-500 .text-white:not([class*="bg-"]),html:not(.dark) .btn-primary .text-white:not([class*="bg-"]),html:not(.dark) .bg-black .text-white:not([class*="bg-"]),html:not(.dark) .sidebar-user-avatar .text-white:not([class*="bg-"]){color:#ffffff}
+
+/* =====================================================================
+   Mode GELAP — kelas bergaya terang (bawaan Breeze) tidak lagi menghasilkan
+   teks gelap di atas latar gelap.
+   ===================================================================== */
+html.dark .bg-white:not(#printableArea):not(#printableArea *){background-color:#1e293b}
+html.dark .bg-gray-50:not(#printableArea):not(#printableArea *){background-color:#111827}
+html.dark .bg-gray-100:not(#printableArea):not(#printableArea *){background-color:#1e293b}
+html.dark .bg-emerald-50:not(#printableArea):not(#printableArea *){background-color:rgba(16,185,129,.12)}
+html.dark .bg-indigo-50:not(#printableArea):not(#printableArea *){background-color:rgba(99,102,241,.12)}
+html.dark .bg-red-100:not(#printableArea):not(#printableArea *){background-color:rgba(239,68,68,.15)}
+html.dark .bg-green-100:not(#printableArea):not(#printableArea *){background-color:rgba(34,197,94,.15)}
+html.dark .bg-orange-100:not(#printableArea):not(#printableArea *){background-color:rgba(249,115,22,.15)}
+html.dark .text-gray-500:not(#printableArea):not(#printableArea *){color:#8794aa}
+html.dark .text-gray-600:not(#printableArea):not(#printableArea *){color:#7c8aa0}
+html.dark .text-gray-900:not(#printableArea):not(#printableArea *){color:#f1f5f9}
+html.dark .text-gray-800:not(#printableArea):not(#printableArea *){color:#f1f5f9}
+html.dark .text-gray-700:not(#printableArea):not(#printableArea *){color:#cbd5e1}
+html.dark .text-black:not(#printableArea):not(#printableArea *){color:#f1f5f9}
+html.dark .text-slate-900:not(#printableArea):not(#printableArea *){color:#f1f5f9}
+html.dark .text-slate-600:not(#printableArea):not(#printableArea *){color:#94a3b8}
+html.dark .text-red-600:not(#printableArea):not(#printableArea *){color:#f87171}
+html.dark .text-red-700:not(#printableArea):not(#printableArea *){color:#fca5a5}
+html.dark .text-green-600:not(#printableArea):not(#printableArea *){color:#4ade80}
+html.dark .text-green-700:not(#printableArea):not(#printableArea *){color:#86efac}
+html.dark .text-emerald-700:not(#printableArea):not(#printableArea *){color:#6ee7b7}
+html.dark .text-orange-700:not(#printableArea):not(#printableArea *){color:#fdba74}
+html.dark .text-indigo-700:not(#printableArea):not(#printableArea *){color:#a5b4fc}
+html.dark .border-gray-100:not(#printableArea):not(#printableArea *){border-color:#334155}
+html.dark .border-gray-200:not(#printableArea):not(#printableArea *){border-color:#334155}
+html.dark .border-gray-300:not(#printableArea):not(#printableArea *){border-color:#475569}
+html.dark .border-slate-300:not(#printableArea):not(#printableArea *){border-color:#475569}
+html.dark .hover\:bg-gray-50:hover:not(#printableArea):not(#printableArea *){background-color:#334155}
+html.dark .hover\:bg-gray-100:hover:not(#printableArea):not(#printableArea *){background-color:#334155}
+html.dark .hover\:bg-slate-50:hover:not(#printableArea):not(#printableArea *){background-color:#334155}
+html.dark .hover\:text-gray-900:hover:not(#printableArea):not(#printableArea *){color:#ffffff}
+html.dark .hover\:text-gray-800:hover:not(#printableArea):not(#printableArea *){color:#ffffff}
+html.dark .hover\:text-gray-700:hover:not(#printableArea):not(#printableArea *){color:#ffffff}
+html.dark .hover\:text-slate-900:hover:not(#printableArea):not(#printableArea *){color:#ffffff}
+html.dark .focus\:bg-gray-100:focus:not(#printableArea):not(#printableArea *){background-color:#334155}
+html.dark .focus\:bg-gray-50:focus:not(#printableArea):not(#printableArea *){background-color:#334155}
+html.dark .focus\:text-gray-800:focus:not(#printableArea):not(#printableArea *){color:#ffffff}
+html.dark .focus\:text-gray-700:focus:not(#printableArea):not(#printableArea *){color:#ffffff}
+html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]){border-color:#334155}
+/* tombol teal bertulisan gelap tetap gelap */
+html.dark .bg-trusta-teal.text-gray-900:not(#printableArea), html.dark .bg-teal-400.text-gray-900:not(#printableArea), html.dark .bg-trusta-teal .text-gray-900:not(#printableArea){color:#0f172a}
+/* lembar dokumen (faktur/laporan) selalu terang, juga di mode gelap */
+html.dark #printableArea{background-color:#ffffff;color:#111827}
+
+/* =====================================================================
+   Gaya inline (style="...") yang ditulis untuk mode gelap.
+   Dibatasi ke area aplikasi agar tidak mengubah dokumen ekspor/cetak.
+   ===================================================================== */
+html:not(.dark) .page-content [style*="color: #fff"]:not([style*="background"]),
+html:not(.dark) .page-content [style*="color:#fff"]:not([style*="background"]),
+html:not(.dark) .page-content [style*="color: #ffffff"]:not([style*="background"]),
+html:not(.dark) .page-content [style*="color: white"]:not([style*="background"]) { color: var(--text-strong) !important; }
+
+html:not(.dark) .page-content [style*="color: #94a3b8"],
+html:not(.dark) .page-content [style*="color:#94a3b8"],
+html:not(.dark) .page-content [style*="color: #cbd5e1"],
+html:not(.dark) .page-content [style*="color: #9ca3af"],
+html:not(.dark) .page-content [style*="color: #e2e8f0"] { color: var(--text-muted) !important; }
+
+html:not(.dark) .page-content [style*="color:#f87171"],
+html:not(.dark) .page-content [style*="color: #f87171"],
+html:not(.dark) .page-content [style*="color: #ef4444"] { color: #dc2626 !important; }
+
+html:not(.dark) .page-content [style*="color: #14b8a6"],
+html:not(.dark) .page-content [style*="color:#14b8a6"] { color: var(--accent) !important; }
+html:not(.dark) .page-content [style*="color: #fb923c"] { color: #c2410c !important; }
+html:not(.dark) .page-content [style*="color: #0ea5e9"] { color: #0369a1 !important; }
+html:not(.dark) .page-content [style*="color: #10b981"] { color: #047857 !important; }
+html:not(.dark) .page-content [style*="color: #fbbf24"] { color: #b45309 !important; }
+html:not(.dark) .page-content [style*="color: #60a5fa"] { color: #1d4ed8 !important; }
+
+html:not(.dark) .page-content [style*="background: rgba(30,41,59,0.5"],
+html:not(.dark) .page-content [style*="background: rgba(30,41,59,0.6"],
+html:not(.dark) .page-content [style*="background:rgba(30,41,59,0.5"],
+html:not(.dark) .page-content [style*="background-color: rgba(30,41,59,0.5"] { background: var(--surface) !important; }
+html:not(.dark) .page-content [style*="background: rgba(30,41,59,0.3"],
+html:not(.dark) .page-content [style*="background: rgba(30,41,59,0.4"],
+html:not(.dark) .page-content [style*="background: rgba(15,23,42"],
+html:not(.dark) .page-content [style*="background: rgba(0,0,0,0.2"] { background: var(--surface-2) !important; }
+
+html:not(.dark) .page-content [style*="rgba(255,255,255,0.0"],
+html:not(.dark) .page-content [style*="rgba(255,255,255,0.1"] { border-color: var(--border) !important; }
+
+/* Daftar & tabel: baris & kepala tabel memakai warna tema */
+html:not(.dark) .page-content table thead { background-color: var(--surface-2); }
+
+/* Cetak selalu terang */
+@media print {
+    .sidebar, .top-header, .app-tabs-container, .theme-toggle-floating, .no-print { display: none !important; }
+    body, .app-layout, .main-content, .page-content { overflow: visible !important; height: auto !important; background: #fff !important; }
+}
+
+/* Teks aksen berwarna arbitrer (halaman login/registrasi) */
+html:not(.dark) .text-\[\#14B8A6\] { color: #0f766e; }
+html:not(.dark) .text-\[\#C9A84C\] { color: #8a6a12; }
+
+/* Mode gelap: gaya inline yang ditulis untuk latar terang / teks redup */
+html.dark .page-content [style*="color: #475569"]:not(#printableArea *),
+html.dark .page-content [style*="color:#475569"]:not(#printableArea *),
+html.dark .page-content [style*="color: #334155"]:not(#printableArea *) { color: #8794aa !important; }
+html.dark .page-content [style*="background: #f8fafc"]:not(#printableArea *),
+html.dark .page-content [style*="background:#f8fafc"]:not(#printableArea *),
+html.dark .page-content [style*="background: #f1f5f9"]:not(#printableArea *) { background: #1e293b !important; }
+
+/* tombol berlatar teal selalu bertulisan gelap (kontras) */
+html:not(.dark) .bg-trusta-teal.text-white,
+html.dark .bg-trusta-teal.text-white { color: #0f172a; }
+html.dark .bg-yellow-600 { background-color: #a16207; }

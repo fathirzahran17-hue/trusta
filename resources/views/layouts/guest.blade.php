@@ -11,13 +11,14 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|poppins:400,500,600,700,800&display=swap" rel="stylesheet" />
 
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <!-- Tema terang/gelap (diterapkan sebelum render agar tidak berkedip) -->
+        @include('partials.theme-head')
 
-        <!-- Alpine.js (Bypass Hosting Restrictions) -->
-        <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+        <!-- Scripts (Alpine.js sudah dibundel di app.js) -->
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans text-gray-900 antialiased bg-[#0F172A]">
+    <body class="guest-body font-sans text-gray-900 antialiased bg-[#0F172A]">
+        @include('partials.theme-toggle', ['floating' => true])
         {{ $slot }}
     </body>
 </html>

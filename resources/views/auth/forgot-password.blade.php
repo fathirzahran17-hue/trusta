@@ -1,11 +1,4 @@
 <x-guest-layout>
-    <!-- Custom Styles for Auth -->
-    <style>
-        body {
-            background-color: #0F172A; /* trusta-navy */
-            color: #F8FAFC;
-        }
-    </style>
 
     <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-[#0F172A]">
         
