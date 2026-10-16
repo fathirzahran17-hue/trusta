@@ -133,7 +133,21 @@ class DashboardController extends Controller
             'overdue' => PurchaseInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->where('due_date', '<', $today)->sum('amount_due'),
         ];
 
+        // Peringatan: piutang/hutang jatuh tempo dan stok menipis
+        $overdueAr = SalesInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->where('due_date', '<', $today);
+        $overdueAp = PurchaseInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->where('due_date', '<', $today);
+        $lowStockCount = \App\Models\Product::where('company_id', $companyId)->where('type', 'goods')->where('is_active', true)->get()
+            ->filter(fn ($p) => $p->stock <= 5)->count();
+        $alerts = [
+            'overdue_ar_count' => (clone $overdueAr)->count(),
+            'overdue_ar_amount' => (float) (clone $overdueAr)->sum('amount_due'),
+            'overdue_ap_count' => (clone $overdueAp)->count(),
+            'overdue_ap_amount' => (float) (clone $overdueAp)->sum('amount_due'),
+            'low_stock' => $lowStockCount,
+        ];
+
         return view('client.dashboard.index', compact(
+            'alerts',
             'recentActivities', 'upcomingEvents', 
             'salesTrend', 'salesTrendLabels',
             'revenue', 'cogs', 'expense', 'netProfit',

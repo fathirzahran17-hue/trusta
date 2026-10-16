@@ -176,4 +176,25 @@ class DocumentFlowTest extends TestCase
         $this->get('/client/purchases/receipts/' . \App\Models\ItemReceipt::firstOrFail()->id)->assertOk();
         $this->get('/client/dashboard')->assertOk();
     }
+
+    public function test_global_search_finds_documents_and_is_scoped_to_company(): void
+    {
+        $this->createPurchaseAndReceive(1);
+        $this->getJson('/client/search?q=PO-T')->assertOk()->assertJsonFragment(['label' => 'PO-T-1']);
+        $this->getJson('/client/search?q=Pelanggan')->assertOk()->assertJsonFragment(['group' => 'Pelanggan']);
+        $this->getJson('/client/search?q=x')->assertOk()->assertExactJson(['results' => []]);
+
+        // Perusahaan lain tidak boleh terlihat
+        $other = Company::create(['name' => 'PT Lain', 'email' => 'o@example.com', 'fiscal_year_start' => 1, 'is_active' => true]);
+        Customer::create(['company_id' => $other->id, 'name' => 'Rahasia Pelanggan', 'default_term_days' => 30, 'is_active' => true]);
+        $this->getJson('/client/search?q=Rahasia')->assertOk()->assertExactJson(['results' => []]);
+    }
+
+    public function test_dashboard_shows_overdue_and_low_stock_alerts(): void
+    {
+        $this->createPurchaseAndReceive(2); // stok 2 (<= 5)
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'invoice_date' => date('Y-m-d', strtotime('-40 days')),
+            'due_date' => date('Y-m-d', strtotime('-10 days')), 'products' => [$this->product->id], 'quantities' => [1], 'prices' => [10000], 'discounts' => [0]]);
+        $this->get('/client/dashboard')->assertOk()->assertSee('hutang jatuh tempo')->assertSee('stok menipis');
+    }
 }

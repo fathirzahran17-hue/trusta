@@ -5,6 +5,7 @@
     <div class="mb-6 flex flex-wrap gap-3 justify-between items-center no-print">
         <a href="{{ $backUrl }}" class="text-trusta-teal hover:underline flex items-center text-sm">&larr; Kembali ke {{ $backLabel }}</a>
         <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="window.print()" class="px-4 py-2 border border-gray-600 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors">Cetak</button>
             @foreach($actions as $a)
                 <a href="{{ $a['url'] }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors">{{ $a['label'] }}</a>
             @endforeach

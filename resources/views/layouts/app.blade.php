@@ -279,6 +279,9 @@
                             </div>
                         @endif
 
+                        @if(!auth()->user()->isSuperAdmin())
+                            @include('partials.global-search')
+                        @endif
                         @include('partials.theme-toggle')
 
                         <a href="{{ route('profile.edit') }}" class="header-icon-btn" data-tooltip="Profil Akun">
