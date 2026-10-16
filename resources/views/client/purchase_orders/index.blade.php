@@ -52,7 +52,7 @@
                     @forelse ($orders as $order)
                         <tr class="hover:bg-gray-700/20 transition-colors">
                             <td class="px-6 py-4 font-medium text-white">
-                                {{ $order->po_number }}
+                                <a href="{{ route('client.purchases.orders.show', $order) }}" class="link-doc">{{ $order->po_number }}</a>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="text-white">{{ $order->supplier->name ?? '-' }}</div>

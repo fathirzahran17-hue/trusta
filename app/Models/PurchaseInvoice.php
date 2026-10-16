@@ -37,6 +37,11 @@ class PurchaseInvoice extends Model
         return $this->belongsTo(Supplier::class);
     }
 
+    public function returns(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PurchaseReturn::class);
+    }
+
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class, 'po_id');

@@ -199,9 +199,11 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::get('sales/orders', [\App\Http\Controllers\Client\SalesOrderController::class, 'index'])->name('sales.orders');
     Route::get('sales/orders/create', [\App\Http\Controllers\Client\SalesOrderController::class, 'create'])->name('sales.orders.create');
     Route::post('sales/orders', [\App\Http\Controllers\Client\SalesOrderController::class, 'store'])->name('sales.orders.store');
+    Route::get('sales/orders/{salesOrder}', [\App\Http\Controllers\Client\SalesOrderController::class, 'show'])->whereNumber('salesOrder')->name('sales.orders.show');
     Route::get('sales/deliveries', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'index'])->name('sales.deliveries');
     Route::get('sales/deliveries/create', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'create'])->name('sales.deliveries.create');
     Route::post('sales/deliveries', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'store'])->name('sales.deliveries.store');
+    Route::get('sales/deliveries/{deliveryOrder}', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'show'])->whereNumber('deliveryOrder')->name('sales.deliveries.show');
     Route::get('sales/down-payments', [\App\Http\Controllers\Client\SalesDownPaymentController::class, 'index'])->name('sales.down_payments');
     Route::get('sales/down-payments/create', [\App\Http\Controllers\Client\SalesDownPaymentController::class, 'create'])->name('sales.down_payments.create');
     Route::post('sales/down-payments', [\App\Http\Controllers\Client\SalesDownPaymentController::class, 'store'])->name('sales.down_payments.store');
@@ -215,9 +217,11 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::get('purchases/orders', [\App\Http\Controllers\Client\PurchaseOrderController::class, 'index'])->name('purchases.orders');
     Route::get('purchases/orders/create', [\App\Http\Controllers\Client\PurchaseOrderController::class, 'create'])->name('purchases.orders.create');
     Route::post('purchases/orders', [\App\Http\Controllers\Client\PurchaseOrderController::class, 'store'])->name('purchases.orders.store');
+    Route::get('purchases/orders/{purchaseOrder}', [\App\Http\Controllers\Client\PurchaseOrderController::class, 'show'])->whereNumber('purchaseOrder')->name('purchases.orders.show');
     Route::get('purchases/receipts', [\App\Http\Controllers\Client\ItemReceiptController::class, 'index'])->name('purchases.receipts');
     Route::get('purchases/receipts/create', [\App\Http\Controllers\Client\ItemReceiptController::class, 'create'])->name('purchases.receipts.create');
     Route::post('purchases/receipts', [\App\Http\Controllers\Client\ItemReceiptController::class, 'store'])->name('purchases.receipts.store');
+    Route::get('purchases/receipts/{itemReceipt}', [\App\Http\Controllers\Client\ItemReceiptController::class, 'show'])->whereNumber('itemReceipt')->name('purchases.receipts.show');
     Route::get('purchases/down-payments', [\App\Http\Controllers\Client\PurchaseDownPaymentController::class, 'index'])->name('purchases.down_payments');
     Route::get('purchases/down-payments/create', [\App\Http\Controllers\Client\PurchaseDownPaymentController::class, 'create'])->name('purchases.down_payments.create');
     Route::post('purchases/down-payments', [\App\Http\Controllers\Client\PurchaseDownPaymentController::class, 'store'])->name('purchases.down_payments.store');

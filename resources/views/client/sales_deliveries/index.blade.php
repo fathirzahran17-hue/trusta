@@ -52,7 +52,7 @@
                     @forelse ($deliveries as $do)
                         <tr class="hover:bg-gray-700/20 transition-colors">
                             <td class="px-6 py-4 font-medium text-white">
-                                {{ $do->delivery_number }}
+                                <a href="{{ route('client.sales.deliveries.show', $do) }}" class="link-doc">{{ $do->delivery_number }}</a>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="text-white">{{ $do->customer->name ?? '-' }}</div>
@@ -61,7 +61,7 @@
                                 {{ $do->delivery_date->format('d M Y') }}
                             </td>
                             <td class="px-6 py-4">
-                                {{ $do->salesOrder->order_number ?? '-' }}
+                                @if($do->salesOrder)<a href="{{ route('client.sales.orders.show', $do->salesOrder) }}" class="link-doc">{{ $do->salesOrder->order_number }}</a>@else - @endif
                             </td>
                             <td class="px-6 py-4 text-center">
                                 @if($do->status == 'shipped')

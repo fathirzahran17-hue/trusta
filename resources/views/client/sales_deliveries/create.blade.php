@@ -35,7 +35,7 @@
                         <select name="customer_id" id="customer_id" required>
                             <option value="">-- Pilih Pelanggan --</option>
                             @foreach($customers as $cust)
-                                <option value="{{ $cust->id }}" {{ old('customer_id') == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
+                                <option value="{{ $cust->id }}" {{ old('customer_id', optional($prefill['order'])->customer_id) == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -45,7 +45,7 @@
                         <select name="sales_order_id" id="sales_order_id">
                             <option value="">-- Pilih SO (Opsional) --</option>
                             @foreach($salesOrders as $so)
-                                <option value="{{ $so->id }}" {{ old('sales_order_id') == $so->id ? 'selected' : '' }}>{{ $so->order_number }}</option>
+                                <option value="{{ $so->id }}" {{ old('sales_order_id', optional($prefill['order'])->id) == $so->id ? 'selected' : '' }}>{{ $so->order_number }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -212,4 +212,5 @@
             updateRemoveButtons();
         });
     </script>
+    @include('partials.prefill-rows', ['rows' => $prefill['rows']])
 </x-app-layout>

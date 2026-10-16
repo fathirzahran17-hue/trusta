@@ -23,6 +23,45 @@ class SalesOrderController extends Controller
         return view('client.sales_orders.index', compact('orders'));
     }
 
+    public function show(SalesOrder $salesOrder)
+    {
+        abort_if($salesOrder->company_id !== auth()->user()->company_id, 403);
+        $salesOrder->load(['customer', 'details.product']);
+
+        $lines = $salesOrder->details->map(function ($d) {
+            $gross = (float) $d->quantity * (float) $d->unit_price;
+            return [
+                'name' => optional($d->product)->name ?? '-',
+                'description' => $d->description,
+                'quantity' => (float) $d->quantity,
+                'price' => (float) $d->unit_price,
+                'total' => $gross - $gross * ((float) ($d->discount_percent ?? 0) / 100),
+            ];
+        })->all();
+
+        return view('client.documents.show', [
+            'title' => 'Pesanan Penjualan',
+            'number' => $salesOrder->order_number,
+            'backUrl' => route('client.sales.orders'),
+            'backLabel' => 'Daftar Pesanan Penjualan',
+            'meta' => [
+                'Tanggal' => optional($salesOrder->order_date)->format('d M Y'),
+                'Pelanggan' => optional($salesOrder->customer)->name,
+                'No. PO Pelanggan' => $salesOrder->customer_po_number,
+                'Status' => $salesOrder->status,
+                'Catatan' => $salesOrder->notes,
+            ],
+            'lines' => $lines,
+            'showPrices' => true,
+            'total' => (float) $salesOrder->total,
+            'actions' => [
+                ['label' => 'Buat Pengiriman', 'url' => route('client.sales.deliveries.create', ['sales_order_id' => $salesOrder->id])],
+                ['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['sales_order_id' => $salesOrder->id])],
+            ],
+            'groups' => \App\Services\DocumentLinker::relatedForSalesOrder($salesOrder),
+        ]);
+    }
+
     public function create()
     {
         $customers = Customer::where('company_id', auth()->user()->company_id)->orderBy('name')->get();

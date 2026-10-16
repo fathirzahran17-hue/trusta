@@ -46,13 +46,16 @@ class PurchaseInvoiceController extends Controller
         $nextId = $lastInvoice ? (intval(substr($lastInvoice->invoice_number, -4)) + 1) : 1;
         $invoiceNumber = 'PI-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             
-        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber'));
+        $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('po_id'), auth()->user()->company_id);
+
+        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
+            'po_id' => 'nullable|integer',
             'supplier_invoice_no' => 'nullable|string|max:100',
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:invoice_date',
@@ -127,9 +130,7 @@ class PurchaseInvoiceController extends Controller
 
             // 3. JURNAL OTOMATIS (Automated Bookkeeping)
             // Cari Akun Hutang Usaha (Account Payable)
-            $apAccount = Account::where('company_id', auth()->user()->company_id)
-                ->where('type', 'account_payable')
-                ->first();
+            $apAccount = \App\Services\AccountResolver::payable(auth()->user()->company_id);
                 
             if (!$apAccount) {
                 throw new \Exception('Akun Hutang Usaha (Account Payable) belum disiapkan di Master Data COA.');
@@ -196,6 +197,7 @@ class PurchaseInvoiceController extends Controller
                 'invoice_number' => $invoiceNumber,
                 'supplier_invoice_no' => $request->supplier_invoice_no,
                 'supplier_id' => $request->supplier_id,
+                'po_id' => $request->po_id ? optional(\App\Models\PurchaseOrder::where('company_id', auth()->user()->company_id)->find($request->po_id))->id : null,
                 'invoice_date' => $request->invoice_date,
                 'due_date' => $request->due_date,
                 'status' => 'unpaid',

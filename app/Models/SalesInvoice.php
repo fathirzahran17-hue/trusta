@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class SalesInvoice extends Model
 {
     protected $fillable = [
-        'company_id', 'invoice_number', 'customer_id', 'quote_id',
+        'company_id', 'invoice_number', 'customer_id', 'quote_id', 'sales_order_id',
         'invoice_date', 'due_date', 'status', 'subtotal',
         'discount_percent', 'discount_amount', 'tax_id', 'tax_percent', 'tax_amount',
         'total', 'amount_paid', 'amount_due', 'notes', 'journal_id', 'created_by'
@@ -40,6 +40,16 @@ class SalesInvoice extends Model
     public function quote(): BelongsTo
     {
         return $this->belongsTo(SalesQuote::class, 'quote_id');
+    }
+
+    public function returns(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SalesReturn::class);
+    }
+
+    public function salesOrder(): BelongsTo
+    {
+        return $this->belongsTo(SalesOrder::class, 'sales_order_id');
     }
 
     public function tax(): BelongsTo

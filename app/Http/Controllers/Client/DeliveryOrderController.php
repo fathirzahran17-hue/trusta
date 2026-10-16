@@ -52,7 +52,50 @@ class DeliveryOrderController extends Controller
         $nextId = $lastDO ? (intval(substr($lastDO->delivery_number, -4)) + 1) : 1;
         $deliveryNumber = 'DO-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             
-        return view('client.sales_deliveries.create', compact('customers', 'salesOrders', 'products', 'deliveryNumber'));
+        // Dari tombol "Buat Pengiriman" pada Pesanan Penjualan: isi pelanggan & baris barang otomatis
+        $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder($request->sales_order_id, $companyId);
+        $goodsIds = $products->pluck('id')->all();
+        $prefill['rows'] = array_values(array_filter($prefill['rows'], fn ($r) => in_array($r['product_id'], $goodsIds)));
+        if ($prefill['order'] && !$salesOrders->contains('id', $prefill['order']->id)) {
+            $salesOrders->push($prefill['order']);
+        }
+
+        return view('client.sales_deliveries.create', compact('customers', 'salesOrders', 'products', 'deliveryNumber', 'prefill'));
+    }
+
+    public function show(DeliveryOrder $deliveryOrder)
+    {
+        abort_if($deliveryOrder->company_id !== auth()->user()->company_id, 403);
+        $deliveryOrder->load(['customer', 'salesOrder', 'details.product']);
+
+        $lines = $deliveryOrder->details->map(fn ($d) => [
+            'name' => optional($d->product)->name ?? '-',
+            'description' => $d->description,
+            'quantity' => (float) $d->quantity,
+        ])->all();
+
+        return view('client.documents.show', [
+            'title' => 'Pengiriman Barang',
+            'number' => $deliveryOrder->delivery_number,
+            'backUrl' => route('client.sales.deliveries'),
+            'backLabel' => 'Daftar Pengiriman',
+            'meta' => [
+                'Tanggal' => optional($deliveryOrder->delivery_date)->format('d M Y'),
+                'Pelanggan' => optional($deliveryOrder->customer)->name,
+                'Pengemudi' => $deliveryOrder->driver_name,
+                'Plat Nomor' => $deliveryOrder->license_plate,
+                'Alamat Kirim' => $deliveryOrder->shipping_address,
+                'Status' => $deliveryOrder->status,
+                'Catatan' => $deliveryOrder->notes,
+            ],
+            'lines' => $lines,
+            'showPrices' => false,
+            'total' => null,
+            'actions' => $deliveryOrder->sales_order_id
+                ? [['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['sales_order_id' => $deliveryOrder->sales_order_id])]]
+                : [],
+            'groups' => \App\Services\DocumentLinker::relatedForDelivery($deliveryOrder),
+        ]);
     }
 
     public function store(Request $request)
