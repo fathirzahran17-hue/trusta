@@ -64,6 +64,35 @@
                     </table>
                 </div>
             </div>
+
+            @if(!empty($progress))
+            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-xl overflow-hidden">
+                <div class="px-6 pt-5 text-sm font-semibold text-gray-200">Progres Pesanan</div>
+                <div class="p-6 overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="text-gray-400">
+                                <th class="border-b border-gray-700 p-3">Produk / Jasa</th>
+                                <th class="border-b border-gray-700 p-3 text-right">Dipesan</th>
+                                <th class="border-b border-gray-700 p-3 text-right">{{ $progress['fulfilledLabel'] }}</th>
+                                <th class="border-b border-gray-700 p-3 text-right">Ditagih</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($progress['rows'] as $r)
+                                @php $fmt = fn($n) => rtrim(rtrim(number_format($n, 2, ',', '.'), '0'), ','); @endphp
+                                <tr>
+                                    <td class="border-b border-gray-700 p-3 text-white">{{ $r['name'] }}</td>
+                                    <td class="border-b border-gray-700 p-3 text-right tabular-nums">{{ $fmt($r['ordered']) }}</td>
+                                    <td class="border-b border-gray-700 p-3 text-right tabular-nums {{ !$r['is_goods'] ? 'text-gray-500' : ($r['fulfilled'] + 0.0001 >= $r['ordered'] ? 'text-green-400' : 'text-yellow-400') }}">{{ $r['is_goods'] ? $fmt($r['fulfilled']) : '-' }}</td>
+                                    <td class="border-b border-gray-700 p-3 text-right tabular-nums {{ $r['invoiced'] + 0.0001 >= $r['ordered'] ? 'text-green-400' : 'text-yellow-400' }}">{{ $fmt($r['invoiced']) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
         </div>
 
         <div>

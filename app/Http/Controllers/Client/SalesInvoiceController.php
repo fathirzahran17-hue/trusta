@@ -71,6 +71,18 @@ class SalesInvoiceController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        $so = $request->sales_order_id ? \App\Models\SalesOrder::where('company_id', auth()->user()->company_id)->find($request->sales_order_id) : null;
+        if ($request->sales_order_id && !$so) {
+            return back()->withInput()->with('error', 'Pesanan Penjualan tidak ditemukan.');
+        }
+        if ($so) {
+            try {
+                \App\Services\OrderProgress::assertWithinRemaining(\App\Services\OrderProgress::forSalesOrder($so), 'invoiced', \App\Services\OrderProgress::requested($request->products, $request->quantities), 'faktur');
+            } catch (\DomainException $e) {
+                return back()->withInput()->with('error', $e->getMessage());
+            }
+        }
+
         try {
             DB::beginTransaction();
 
@@ -195,7 +207,7 @@ class SalesInvoiceController extends Controller
                 'company_id' => auth()->user()->company_id,
                 'invoice_number' => $invoiceNumber,
                 'customer_id' => $request->customer_id,
-                'sales_order_id' => $request->sales_order_id ? optional(\App\Models\SalesOrder::where('company_id', auth()->user()->company_id)->find($request->sales_order_id))->id : null,
+                'sales_order_id' => $so?->id,
                 'invoice_date' => $request->invoice_date,
                 'due_date' => $request->due_date,
                 'status' => 'unpaid',
@@ -286,6 +298,9 @@ class SalesInvoiceController extends Controller
             }
 
             DB::commit();
+            if ($so) {
+                \App\Services\OrderProgress::syncSalesOrder($so->fresh());
+            }
             return redirect()->route('client.sales-invoices.index')->with('success', 'Faktur Penjualan berhasil dibuat dan Jurnal telah tercatat otomatis.');
 
         } catch (\Exception $e) {

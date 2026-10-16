@@ -72,6 +72,18 @@ class PurchaseInvoiceController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        $po = $request->po_id ? \App\Models\PurchaseOrder::where('company_id', auth()->user()->company_id)->find($request->po_id) : null;
+        if ($request->po_id && !$po) {
+            return back()->withInput()->with('error', 'Pesanan Pembelian tidak ditemukan.');
+        }
+        if ($po) {
+            try {
+                \App\Services\OrderProgress::assertWithinRemaining(\App\Services\OrderProgress::forPurchaseOrder($po), 'invoiced', \App\Services\OrderProgress::requested($request->products, $request->quantities), 'faktur');
+            } catch (\DomainException $e) {
+                return back()->withInput()->with('error', $e->getMessage());
+            }
+        }
+
         try {
             DB::beginTransaction();
 
@@ -151,14 +163,26 @@ class PurchaseInvoiceController extends Controller
             $expenseGroups = [];
             foreach ($items as $item) {
                 $prod = Product::find($item['product_id']);
-                if (!$prod->expense_account_id) {
-                    throw new \Exception('Produk ' . $prod->name . ' belum dipetakan ke Akun Biaya/HPP (Expense Account).');
+
+                // Barang dagang -> Persediaan (stok bertambah lewat Penerimaan Barang);
+                // jasa / non-stok -> akun biaya yang dipetakan pada produk.
+                if ($prod->type === 'goods') {
+                    $invAcc = \App\Services\AccountResolver::inventory(auth()->user()->company_id);
+                    if (!$invAcc) {
+                        throw new \Exception('Akun Persediaan belum disiapkan di Master Data COA.');
+                    }
+                    $targetAccountId = $invAcc->id;
+                } else {
+                    if (!$prod->expense_account_id) {
+                        throw new \Exception('Produk ' . $prod->name . ' belum dipetakan ke Akun Biaya (Expense Account).');
+                    }
+                    $targetAccountId = $prod->expense_account_id;
                 }
-                
-                if (!isset($expenseGroups[$prod->expense_account_id])) {
-                    $expenseGroups[$prod->expense_account_id] = 0;
+
+                if (!isset($expenseGroups[$targetAccountId])) {
+                    $expenseGroups[$targetAccountId] = 0;
                 }
-                $expenseGroups[$prod->expense_account_id] += $item['total'];
+                $expenseGroups[$targetAccountId] += $item['total'];
             }
             
             foreach ($expenseGroups as $accountId => $amount) {
@@ -197,7 +221,7 @@ class PurchaseInvoiceController extends Controller
                 'invoice_number' => $invoiceNumber,
                 'supplier_invoice_no' => $request->supplier_invoice_no,
                 'supplier_id' => $request->supplier_id,
-                'po_id' => $request->po_id ? optional(\App\Models\PurchaseOrder::where('company_id', auth()->user()->company_id)->find($request->po_id))->id : null,
+                'po_id' => $po?->id,
                 'invoice_date' => $request->invoice_date,
                 'due_date' => $request->due_date,
                 'status' => 'unpaid',
@@ -221,6 +245,9 @@ class PurchaseInvoiceController extends Controller
             }
 
             DB::commit();
+            if ($po) {
+                \App\Services\OrderProgress::syncPurchaseOrder($po->fresh());
+            }
             return redirect()->route('client.purchase-invoices.index')->with('success', 'Faktur Pembelian berhasil dicatat dan di-Jurnal secara otomatis.');
 
         } catch (\Exception $e) {

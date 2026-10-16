@@ -58,6 +58,7 @@ class SalesOrderController extends Controller
                 ['label' => 'Buat Pengiriman', 'url' => route('client.sales.deliveries.create', ['sales_order_id' => $salesOrder->id])],
                 ['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['sales_order_id' => $salesOrder->id])],
             ],
+            'progress' => ['fulfilledLabel' => 'Terkirim', 'rows' => \App\Services\OrderProgress::forSalesOrder($salesOrder)],
             'groups' => \App\Services\DocumentLinker::relatedForSalesOrder($salesOrder),
         ]);
     }

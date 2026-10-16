@@ -44,7 +44,7 @@ class DashboardController extends Controller
             $totalSales = SalesInvoice::where('company_id', $companyId)
                 ->whereDate('invoice_date', $date->format('Y-m-d'))
                 ->where('status', '!=', 'void')
-                ->sum('amount_due');
+                ->sum('total');
             $salesTrend[] = $totalSales;
         }
 
@@ -117,18 +117,18 @@ class DashboardController extends Controller
 
         // 7. Penjualan Overview
         $salesOverview = [
-            'total' => SalesInvoice::where('company_id', $companyId)->where('status', '!=', 'void')->sum('amount_due'),
+            'total' => SalesInvoice::where('company_id', $companyId)->where('status', '!=', 'void')->sum('total'),
             'unpaid' => SalesInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->sum('amount_due'),
-            'paid' => SalesInvoice::where('company_id', $companyId)->where('status', 'paid')->sum('amount_due'),
+            'paid' => SalesInvoice::where('company_id', $companyId)->where('status', '!=', 'void')->sum('amount_paid'),
             'not_due' => SalesInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->where('due_date', '>=', $today)->sum('amount_due'),
             'overdue' => SalesInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->where('due_date', '<', $today)->sum('amount_due'),
         ];
 
         // 8. Pembelian Overview
         $purchaseOverview = [
-            'total' => PurchaseInvoice::where('company_id', $companyId)->where('status', '!=', 'void')->sum('amount_due'),
+            'total' => PurchaseInvoice::where('company_id', $companyId)->where('status', '!=', 'void')->sum('total'),
             'unpaid' => PurchaseInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->sum('amount_due'),
-            'paid' => PurchaseInvoice::where('company_id', $companyId)->where('status', 'paid')->sum('amount_due'),
+            'paid' => PurchaseInvoice::where('company_id', $companyId)->where('status', '!=', 'void')->sum('amount_paid'),
             'not_due' => PurchaseInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->where('due_date', '>=', $today)->sum('amount_due'),
             'overdue' => PurchaseInvoice::where('company_id', $companyId)->whereNotIn('status', ['paid', 'void'])->where('due_date', '<', $today)->sum('amount_due'),
         ];

@@ -17,7 +17,7 @@ use App\Models\SalesOrder;
 class DocumentLinker
 {
     /** Data awal form dari Pesanan Penjualan: pelanggan + baris barang. */
-    public static function prefillFromSalesOrder($id, int $companyId): array
+    public static function prefillFromSalesOrder($id, int $companyId, string $mode = 'invoiced'): array
     {
         $order = $id ? SalesOrder::with('details')->where('company_id', $companyId)->find($id) : null;
         if (!$order) {
@@ -32,11 +32,11 @@ class DocumentLinker
             'discount' => (float) ($d->discount_percent ?? 0),
         ])->values()->all();
 
-        return ['order' => $order, 'rows' => $rows];
+        return ['order' => $order, 'rows' => self::limitToRemaining($rows, OrderProgress::remaining(OrderProgress::forSalesOrder($order), $mode))];
     }
 
     /** Data awal form dari Pesanan Pembelian: pemasok + baris barang. */
-    public static function prefillFromPurchaseOrder($id, int $companyId): array
+    public static function prefillFromPurchaseOrder($id, int $companyId, string $mode = 'invoiced'): array
     {
         $order = $id ? PurchaseOrder::with('items')->where('company_id', $companyId)->find($id) : null;
         if (!$order) {
@@ -51,7 +51,24 @@ class DocumentLinker
             'discount' => (float) ($i->discount_percent ?? 0),
         ])->values()->all();
 
-        return ['order' => $order, 'rows' => $rows];
+        return ['order' => $order, 'rows' => self::limitToRemaining($rows, OrderProgress::remaining(OrderProgress::forPurchaseOrder($order), $mode))];
+    }
+
+    /** Batasi jumlah tiap baris ke sisa pesanan (per produk); baris yang sudah habis dibuang. */
+    private static function limitToRemaining(array $rows, array $remaining): array
+    {
+        $out = [];
+        foreach ($rows as $r) {
+            $left = $remaining[$r['product_id']] ?? 0;
+            if ($left <= 0) {
+                continue;
+            }
+            $r['quantity'] = min($r['quantity'], $left);
+            $remaining[$r['product_id']] = $left - $r['quantity'];
+            $out[] = $r;
+        }
+
+        return $out;
     }
 
     /**
