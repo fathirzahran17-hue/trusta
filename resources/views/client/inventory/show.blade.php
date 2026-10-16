@@ -52,11 +52,28 @@
                                     <span class="px-2 py-1 bg-emerald-900/30 text-emerald-400 text-xs rounded font-medium border border-emerald-800/50">Faktur Beli</span>
                                 @elseif($m->reference_type == 'sales_invoice')
                                     <span class="px-2 py-1 bg-blue-900/30 text-blue-400 text-xs rounded font-medium border border-blue-800/50">Faktur Jual</span>
+                                @elseif($m->reference_type == 'delivery_order')
+                                    <span class="px-2 py-1 bg-blue-900/30 text-blue-400 text-xs rounded font-medium border border-blue-800/50">Pengiriman</span>
+                                @elseif($m->reference_type == 'item_receipt')
+                                    <span class="px-2 py-1 bg-emerald-900/30 text-emerald-400 text-xs rounded font-medium border border-emerald-800/50">Penerimaan</span>
                                 @else
                                     <span class="text-gray-400">{{ $m->reference_type }}</span>
                                 @endif
                                 <br>
-                                <span class="text-xs text-gray-500 mt-1 block">ID Ref: {{ $m->reference_id }}</span>
+                                @php
+                                    $refUrl = match($m->reference_type) {
+                                        'delivery_order' => route('client.sales.deliveries.show', $m->reference_id),
+                                        'item_receipt' => route('client.purchases.receipts.show', $m->reference_id),
+                                        'sales_invoice' => route('client.sales-invoices.show', $m->reference_id),
+                                        'purchase_invoice' => route('client.purchase-invoices.show', $m->reference_id),
+                                        default => null,
+                                    };
+                                @endphp
+                                @if($refUrl)
+                                    <a href="{{ $refUrl }}" class="text-xs link-doc mt-1 block">Lihat dokumen #{{ $m->reference_id }}</a>
+                                @else
+                                    <span class="text-xs text-gray-500 mt-1 block">ID Ref: {{ $m->reference_id }}</span>
+                                @endif
                             </td>
                             <td class="p-4 text-gray-400">{{ $m->notes ?? '-' }}</td>
                             <td class="p-4 text-center font-bold text-emerald-400">
