@@ -235,45 +235,20 @@ class PurchaseInvoiceController extends Controller
         return view('client.purchase_invoices.show', compact('purchase_invoice'));
     }
 
-    public function purchaseOrders()
-    {
-        $companyId = auth()->user()->company_id;
-        $orders = \App\Models\PurchaseOrder::where('company_id', $companyId)->with('supplier')->orderBy('order_date', 'desc')->paginate(20);
-        return view('client.purchase_invoices.purchase_orders', compact('orders'));
-    }
 
-    public function itemReceipts()
-    {
-        $companyId = auth()->user()->company_id;
-        $orders = \App\Models\PurchaseOrder::where('company_id', $companyId)->whereIn('status', ['received', 'converted'])->with('supplier')->orderBy('order_date', 'desc')->paginate(20);
-        return view('client.purchase_invoices.item_receipts', compact('orders'));
-    }
 
-    public function downPayments()
-    {
-        $companyId = auth()->user()->company_id;
-        $payments = \App\Models\CashTransaction::where('company_id', $companyId)->where('type', 'out')->where('description', 'like', '%uang muka%')->orderBy('date', 'desc')->paginate(20);
-        return view('client.purchase_invoices.down_payments', compact('payments'));
-    }
 
     public function purchasePayments()
     {
         $companyId = auth()->user()->company_id;
-        $payments = \App\Models\CashTransaction::where('company_id', $companyId)->where('type', 'out')->orderBy('date', 'desc')->paginate(20);
+        $payments = \App\Models\Journal::where('company_id', $companyId)
+            ->where('ref_number', 'like', 'SP-%')
+            ->with('details.account')
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->paginate(20);
         return view('client.purchase_invoices.purchase_payments', compact('payments'));
     }
 
-    public function purchaseReturns()
-    {
-        $companyId = auth()->user()->company_id;
-        $returns = \App\Models\PurchaseReturn::where('company_id', $companyId)->with(['purchaseInvoice.supplier'])->orderBy('return_date', 'desc')->paginate(20);
-        return view('client.purchase_invoices.purchase_returns', compact('returns'));
-    }
 
-    public function paymentOrders()
-    {
-        $companyId = auth()->user()->company_id;
-        $payments = \App\Models\CashTransaction::where('company_id', $companyId)->where('type', 'out')->where('amount', '>=', 1000000)->orderBy('date', 'desc')->paginate(20);
-        return view('client.purchase_invoices.payment_orders', compact('payments'));
-    }
 }

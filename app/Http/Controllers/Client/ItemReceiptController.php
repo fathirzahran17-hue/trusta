@@ -38,7 +38,7 @@ class ItemReceiptController extends Controller
             
         $products = Product::where('company_id', $companyId)
             ->where('is_active', true)
-            ->where('type', 'product')
+            ->where('type', 'goods')
             ->orderBy('name')
             ->get();
             

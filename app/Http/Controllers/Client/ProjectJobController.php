@@ -63,6 +63,31 @@ class ProjectJobController extends Controller
         return redirect()->route('client.project-jobs.index')->with('success', 'Kartu Job berhasil ditambahkan.');
     }
 
+    public function show(ProjectJob $projectJob)
+    {
+        if ($projectJob->company_id !== auth()->user()->company_id) {
+            abort(403);
+        }
+
+        $details = $projectJob->journalDetails()
+            ->with(['journal', 'account'])
+            ->get()
+            ->sortByDesc(fn ($d) => optional($d->journal)->transaction_date);
+
+        $income = 0;
+        $expense = 0;
+        foreach ($details as $d) {
+            $type = optional($d->account)->type;
+            if (in_array($type, ['revenue', 'other_income'])) {
+                $income += ($d->credit - $d->debit);
+            } elseif (in_array($type, ['cost_of_sales', 'expense', 'other_expense'])) {
+                $expense += ($d->debit - $d->credit);
+            }
+        }
+
+        return view('client.project_jobs.show', compact('projectJob', 'details', 'income', 'expense'));
+    }
+
     public function edit(ProjectJob $projectJob)
     {
         if ($projectJob->company_id !== auth()->user()->company_id) {

@@ -110,7 +110,7 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::resource('suppliers', \App\Http\Controllers\Client\SupplierController::class);
 
     // Pajak
-    Route::resource('taxes', \App\Http\Controllers\Client\TaxController::class);
+    Route::resource('taxes', \App\Http\Controllers\Client\TaxController::class)->except(['show']);
 
     // Transaksi / Kas & Bank
     Route::get('cash-bank', [\App\Http\Controllers\Client\CashBankController::class, 'index'])->name('cash-bank.index');
@@ -209,7 +209,7 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::get('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'index'])->name('sales.returns');
     Route::get('sales/returns/create', [\App\Http\Controllers\Client\SalesReturnController::class, 'create'])->name('sales.returns.create');
     Route::post('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'store'])->name('sales.returns.store');
-    Route::resource('sales-invoices', \App\Http\Controllers\Client\SalesInvoiceController::class);
+    Route::resource('sales-invoices', \App\Http\Controllers\Client\SalesInvoiceController::class)->only(['index','create','store','show']);
     
     // Pembelian
     Route::get('purchases/orders', [\App\Http\Controllers\Client\PurchaseOrderController::class, 'index'])->name('purchases.orders');
@@ -225,7 +225,7 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::get('purchases/returns', [\App\Http\Controllers\Client\PurchaseReturnController::class, 'index'])->name('purchases.returns');
     Route::get('purchases/returns/create', [\App\Http\Controllers\Client\PurchaseReturnController::class, 'create'])->name('purchases.returns.create');
     Route::post('purchases/returns', [\App\Http\Controllers\Client\PurchaseReturnController::class, 'store'])->name('purchases.returns.store');
-    Route::resource('purchase-invoices', \App\Http\Controllers\Client\PurchaseInvoiceController::class);
+    Route::resource('purchase-invoices', \App\Http\Controllers\Client\PurchaseInvoiceController::class)->only(['index','create','store','show']);
 });
 
 

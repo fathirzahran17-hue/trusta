@@ -300,38 +300,19 @@ class SalesInvoiceController extends Controller
         return view('client.sales_invoices.show', compact('sales_invoice'));
     }
 
-    public function salesOrders()
-    {
-        $companyId = auth()->user()->company_id;
-        $quotes = \App\Models\SalesQuote::where('company_id', $companyId)->with('customer')->orderBy('quote_date', 'desc')->paginate(20);
-        return view('client.sales_invoices.sales_orders', compact('quotes'));
-    }
 
-    public function deliveryOrders()
-    {
-        $companyId = auth()->user()->company_id;
-        $invoices = \App\Models\SalesInvoice::where('company_id', $companyId)->whereIn('status', ['sent', 'paid'])->with('customer')->orderBy('invoice_date', 'desc')->paginate(20);
-        return view('client.sales_invoices.delivery_orders', compact('invoices'));
-    }
 
-    public function downPayments()
-    {
-        $companyId = auth()->user()->company_id;
-        $payments = \App\Models\CashTransaction::where('company_id', $companyId)->where('type', 'in')->where('description', 'like', '%uang muka%')->orderBy('date', 'desc')->paginate(20);
-        return view('client.sales_invoices.down_payments', compact('payments'));
-    }
 
     public function salesReceipts()
     {
         $companyId = auth()->user()->company_id;
-        $receipts = \App\Models\CashTransaction::where('company_id', $companyId)->where('type', 'in')->orderBy('date', 'desc')->paginate(20);
+        $receipts = \App\Models\Journal::where('company_id', $companyId)
+            ->where('ref_number', 'like', 'RC-%')
+            ->with('details.account')
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->paginate(20);
         return view('client.sales_invoices.sales_receipts', compact('receipts'));
     }
 
-    public function salesReturns()
-    {
-        $companyId = auth()->user()->company_id;
-        $returns = \App\Models\SalesReturn::where('company_id', $companyId)->with(['salesInvoice.customer'])->orderBy('return_date', 'desc')->paginate(20);
-        return view('client.sales_invoices.sales_returns', compact('returns'));
-    }
 }

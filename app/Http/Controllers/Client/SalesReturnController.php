@@ -108,7 +108,7 @@ class SalesReturnController extends Controller
 
             foreach ($items as $item) {
                 $product = Product::find($item['product_id']);
-                if ($product && $product->type == 'product') {
+                if ($product && $product->type === 'goods') {
                     $totalHpp += ($product->buy_price * $item['quantity']);
                 }
 

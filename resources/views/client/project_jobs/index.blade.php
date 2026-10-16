@@ -41,7 +41,7 @@
                                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                                         <td class="border-b dark:border-slate-700 p-4">{{ $job->code ?? '-' }}</td>
                                         <td class="border-b dark:border-slate-700 p-4 font-medium">
-                                            {{ $job->name }}
+                                            <a href="{{ route('client.project-jobs.show', $job) }}" class="text-trusta-teal hover:underline">{{ $job->name }}</a>
                                             <div class="text-xs text-slate-400 mt-1">{{ $job->description ?? '' }}</div>
                                         </td>
                                         <td class="border-b dark:border-slate-700 p-4 text-right font-mono text-sm text-green-400">Rp {{ number_format($job->income_total, 2, ',', '.') }}</td>
