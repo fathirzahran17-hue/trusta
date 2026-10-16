@@ -48,6 +48,16 @@ class SalesOrder extends Model
         return $this->hasMany(DeliveryOrder::class);
     }
 
+    public function downPayments()
+    {
+        return $this->hasMany(DownPayment::class, 'sales_order_id');
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(SalesInvoice::class, 'sales_order_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

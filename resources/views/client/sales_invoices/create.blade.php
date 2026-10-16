@@ -17,6 +17,7 @@
 
     <form action="{{ route('client.sales-invoices.store') }}" method="POST" id="invoiceForm">
         @csrf
+        @if($prefill['order'])<input type="hidden" name="sales_order_id" value="{{ $prefill['order']->id }}">@endif
         
         <div style="background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: visible; margin-bottom: 14px;">
             {{-- Header: Customer & Doc Info --}}
@@ -35,7 +36,7 @@
                         <select name="customer_id" id="customer_id" required>
                             <option value="">-- Pilih Pelanggan --</option>
                             @foreach($customers as $cust)
-                                <option value="{{ $cust->id }}" {{ old('customer_id') == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
+                                <option value="{{ $cust->id }}" {{ old('customer_id', optional($prefill['order'])->customer_id) == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -345,5 +346,6 @@
             updateRemoveButtons();
         });
     </script>
+    @include('partials.prefill-rows', ['rows' => $prefill['rows']])
 </x-app-layout>
 

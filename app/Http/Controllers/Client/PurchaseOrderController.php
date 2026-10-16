@@ -23,6 +23,42 @@ class PurchaseOrderController extends Controller
         return view('client.purchase_orders.index', compact('orders'));
     }
 
+    public function show(PurchaseOrder $purchaseOrder)
+    {
+        abort_if($purchaseOrder->company_id !== auth()->user()->company_id, 403);
+        $purchaseOrder->load(['supplier', 'items.product']);
+
+        $lines = $purchaseOrder->items->map(fn ($i) => [
+            'name' => optional($i->product)->name ?? '-',
+            'description' => $i->description,
+            'quantity' => (float) $i->quantity,
+            'price' => (float) $i->unit_price,
+            'total' => (float) $i->total,
+        ])->all();
+
+        return view('client.documents.show', [
+            'title' => 'Pesanan Pembelian',
+            'number' => $purchaseOrder->po_number,
+            'backUrl' => route('client.purchases.orders'),
+            'backLabel' => 'Daftar Pesanan Pembelian',
+            'meta' => [
+                'Tanggal' => optional($purchaseOrder->order_date)->format('d M Y'),
+                'Perkiraan Tiba' => optional($purchaseOrder->expected_date)->format('d M Y'),
+                'Pemasok' => optional($purchaseOrder->supplier)->name,
+                'Status' => $purchaseOrder->status,
+                'Catatan' => $purchaseOrder->notes,
+            ],
+            'lines' => $lines,
+            'showPrices' => true,
+            'total' => (float) $purchaseOrder->total,
+            'actions' => [
+                ['label' => 'Buat Penerimaan', 'url' => route('client.purchases.receipts.create', ['purchase_order_id' => $purchaseOrder->id])],
+                ['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['po_id' => $purchaseOrder->id])],
+            ],
+            'groups' => \App\Services\DocumentLinker::relatedForPurchaseOrder($purchaseOrder),
+        ]);
+    }
+
     public function create()
     {
         $suppliers = Supplier::where('company_id', auth()->user()->company_id)->orderBy('name')->get();

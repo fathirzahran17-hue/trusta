@@ -46,13 +46,16 @@ class SalesInvoiceController extends Controller
         $nextId = $lastInvoice ? (intval(substr($lastInvoice->invoice_number, -4)) + 1) : 1;
         $invoiceNumber = 'INV-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             
-        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber'));
+        $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder(request('sales_order_id'), auth()->user()->company_id);
+
+        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'customer_id' => 'required|exists:customers,id',
+            'sales_order_id' => 'nullable|integer',
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:invoice_date',
             'products' => 'required|array|min:1',
@@ -126,9 +129,7 @@ class SalesInvoiceController extends Controller
 
             // 3. JURNAL OTOMATIS (Automated Bookkeeping)
             // Cari Akun Piutang (Account Receivable)
-            $arAccount = Account::where('company_id', auth()->user()->company_id)
-                ->where('type', 'account_receivable')
-                ->first();
+            $arAccount = \App\Services\AccountResolver::receivable(auth()->user()->company_id);
                 
             if (!$arAccount) {
                 throw new \Exception('Akun Piutang Usaha (Account Receivable) belum disiapkan di Master Data COA.');
@@ -194,6 +195,7 @@ class SalesInvoiceController extends Controller
                 'company_id' => auth()->user()->company_id,
                 'invoice_number' => $invoiceNumber,
                 'customer_id' => $request->customer_id,
+                'sales_order_id' => $request->sales_order_id ? optional(\App\Models\SalesOrder::where('company_id', auth()->user()->company_id)->find($request->sales_order_id))->id : null,
                 'invoice_date' => $request->invoice_date,
                 'due_date' => $request->due_date,
                 'status' => 'unpaid',
@@ -259,8 +261,8 @@ class SalesInvoiceController extends Controller
 
             // 6. Jurnal HPP (Jika ada barang dagang)
             if ($totalCogs > 0) {
-                $hppAccount = Account::where('company_id', auth()->user()->company_id)->where('type', 'cost_of_sales')->first();
-                $inventoryAccount = Account::where('company_id', auth()->user()->company_id)->where('type', 'asset')->where('name', 'like', '%persediaan%')->first();
+                $hppAccount = \App\Services\AccountResolver::cogs(auth()->user()->company_id);
+                $inventoryAccount = \App\Services\AccountResolver::inventory(auth()->user()->company_id);
                 
                 if ($hppAccount && $inventoryAccount) {
                     // Debit HPP
@@ -300,38 +302,19 @@ class SalesInvoiceController extends Controller
         return view('client.sales_invoices.show', compact('sales_invoice'));
     }
 
-    public function salesOrders()
-    {
-        $companyId = auth()->user()->company_id;
-        $quotes = \App\Models\SalesQuote::where('company_id', $companyId)->with('customer')->orderBy('quote_date', 'desc')->paginate(20);
-        return view('client.sales_invoices.sales_orders', compact('quotes'));
-    }
 
-    public function deliveryOrders()
-    {
-        $companyId = auth()->user()->company_id;
-        $invoices = \App\Models\SalesInvoice::where('company_id', $companyId)->whereIn('status', ['sent', 'paid'])->with('customer')->orderBy('invoice_date', 'desc')->paginate(20);
-        return view('client.sales_invoices.delivery_orders', compact('invoices'));
-    }
 
-    public function downPayments()
-    {
-        $companyId = auth()->user()->company_id;
-        $payments = \App\Models\CashTransaction::where('company_id', $companyId)->where('type', 'in')->where('description', 'like', '%uang muka%')->orderBy('date', 'desc')->paginate(20);
-        return view('client.sales_invoices.down_payments', compact('payments'));
-    }
 
     public function salesReceipts()
     {
         $companyId = auth()->user()->company_id;
-        $receipts = \App\Models\CashTransaction::where('company_id', $companyId)->where('type', 'in')->orderBy('date', 'desc')->paginate(20);
+        $receipts = \App\Models\Journal::where('company_id', $companyId)
+            ->where('ref_number', 'like', 'RC-%')
+            ->with('details.account')
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->paginate(20);
         return view('client.sales_invoices.sales_receipts', compact('receipts'));
     }
 
-    public function salesReturns()
-    {
-        $companyId = auth()->user()->company_id;
-        $returns = \App\Models\SalesReturn::where('company_id', $companyId)->with(['salesInvoice.customer'])->orderBy('return_date', 'desc')->paginate(20);
-        return view('client.sales_invoices.sales_returns', compact('returns'));
-    }
 }

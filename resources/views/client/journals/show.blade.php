@@ -65,9 +65,9 @@
                                 <td class="px-4 py-4 text-gray-400 italic">{{ $detail->description ?: '-' }}</td>
                                 <td class="px-4 py-4 text-gray-400">
                                     @if($detail->projectJob)
-                                        <span class="px-2 py-1 bg-slate-700/50 rounded-full text-xs text-slate-300">
+                                        <a href="{{ route('client.project-jobs.show', $detail->projectJob) }}" class="px-2 py-1 bg-slate-700/50 rounded-full text-xs text-slate-300 hover:text-trusta-teal">
                                             {{ $detail->projectJob->code ? $detail->projectJob->code.' - ' : '' }}{{ $detail->projectJob->name }}
-                                        </span>
+                                        </a>
                                     @else
                                         -
                                     @endif
@@ -107,5 +107,16 @@
                 </div>
             </div>
         </div>
+    </div>
+    @php
+        $src = \App\Services\DocumentLinker::sourceOfJournal($journal);
+        $jobs = $journal->details->pluck('projectJob')->filter()->unique('id');
+        $relGroups = [
+            ['label' => 'Dokumen Sumber', 'items' => $src ? [['label' => $src['number'], 'url' => $src['url'], 'meta' => $src['label']]] : []],
+            ['label' => 'Kartu Job', 'items' => $jobs->map(fn ($j) => ['label' => $j->name, 'url' => route('client.project-jobs.show', $j), 'meta' => $j->code])->values()->all()],
+        ];
+    @endphp
+    <div class="max-w-4xl mx-auto mt-6">
+        @include('partials.related-docs', ['groups' => $relGroups])
     </div>
 </x-app-layout>

@@ -32,7 +32,7 @@
                             <div class="pl-4 relative">
                                 <div class="absolute w-3 h-3 bg-trusta-teal rounded-full -left-[6.5px] border-2 border-[#1E293B] top-1"></div>
                                 <p class="text-xs text-gray-400">{{ $act->created_at->translatedFormat('d M') }} &bull; {{ $act->created_at->format('H:i') }}</p>
-                                <p class="text-sm text-gray-200 mt-1">Buat Jurnal Umum {{ $act->ref_number }}</p>
+                                <p class="text-sm text-gray-200 mt-1">Buat Jurnal Umum <a href="{{ route('client.journals.show', $act) }}" class="link-doc">{{ $act->ref_number }}</a></p>
                             </div>
                         @endforeach
                     </div>
@@ -59,7 +59,7 @@
                                     <div class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($event->due_date)->translatedFormat('M') }}</div>
                                 </div>
                                 <div class="flex-1 mt-1 border-l-2 border-green-500 pl-3">
-                                    <p class="text-xs text-gray-400 font-semibold mb-1">{{ $event->invoice_number }}</p>
+                                    <p class="text-xs text-gray-400 font-semibold mb-1"><a href="{{ route('client.purchase-invoices.show', $event) }}" class="link-doc">{{ $event->invoice_number }}</a></p>
                                     <p class="text-sm text-gray-200">Jatuh Tempo Utang, {{ $event->supplier->name ?? 'Supplier' }}</p>
                                 </div>
                             </div>
@@ -72,7 +72,7 @@
         <!-- 3. Tren Penjualan -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200">Tren Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">(7 hari terakhir)</span></h3>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.sales-report') }}" class="hover:text-trusta-teal">Tren Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">(7 hari terakhir)</span></a></h3>
                 <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 relative w-full h-full">
@@ -83,7 +83,7 @@
         <!-- 4. Laba / Rugi Tahun ini -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200">Laba/Rugi Tahun ini</h3>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.profit-loss') }}" class="hover:text-trusta-teal">Laba/Rugi Tahun ini</a></h3>
                 <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 flex items-center justify-between">
@@ -120,7 +120,7 @@
         <!-- 5. Arus Kas -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200">Arus Kas <span class="text-[10px] text-gray-400 ml-1 font-normal">(7 hari terakhir)</span></h3>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.cash-bank.index') }}" class="hover:text-trusta-teal">Arus Kas <span class="text-[10px] text-gray-400 ml-1 font-normal">(7 hari terakhir)</span></a></h3>
                 <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 relative w-full h-full">
@@ -131,7 +131,7 @@
         <!-- 6. Beban Perusahaan -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200">Beban Perusahaan <span class="text-[10px] text-gray-400 ml-1 font-normal">(Tahun ini)</span></h3>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.profit-loss') }}" class="hover:text-trusta-teal">Beban Perusahaan <span class="text-[10px] text-gray-400 ml-1 font-normal">(Tahun ini)</span></a></h3>
                 <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 flex items-center">
@@ -166,7 +166,7 @@
         <!-- 7. Penjualan -->
         <div class="md:col-span-3 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-56">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200">Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">(Semua Data)</span></h3>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.sales-invoices.index') }}" class="hover:text-trusta-teal">Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">(Semua Data)</span></a></h3>
                 <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex flex-col flex-1">
@@ -211,7 +211,7 @@
         <!-- 8. Pembelian -->
         <div class="md:col-span-3 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-56">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200">Pembelian <span class="text-[10px] text-gray-400 ml-1 font-normal">(Semua Data)</span></h3>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.purchase-invoices.index') }}" class="hover:text-trusta-teal">Pembelian <span class="text-[10px] text-gray-400 ml-1 font-normal">(Semua Data)</span></a></h3>
                 <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex flex-col flex-1">

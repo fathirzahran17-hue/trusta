@@ -38,6 +38,21 @@ class PurchaseOrder extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function downPayments(): HasMany
+    {
+        return $this->hasMany(DownPayment::class, 'purchase_order_id');
+    }
+
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(ItemReceipt::class, 'purchase_order_id');
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(PurchaseInvoice::class, 'po_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseOrderItem::class);

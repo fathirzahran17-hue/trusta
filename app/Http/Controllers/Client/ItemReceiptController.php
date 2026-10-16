@@ -38,7 +38,7 @@ class ItemReceiptController extends Controller
             
         $products = Product::where('company_id', $companyId)
             ->where('is_active', true)
-            ->where('type', 'product')
+            ->where('type', 'goods')
             ->orderBy('name')
             ->get();
             
@@ -54,7 +54,48 @@ class ItemReceiptController extends Controller
         $nextId = $lastReceipt ? (intval(substr($lastReceipt->receipt_number, -4)) + 1) : 1;
         $receiptNumber = 'IR-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             
-        return view('client.item_receipts.create', compact('suppliers', 'purchaseOrders', 'products', 'warehouses', 'receiptNumber'));
+        // Dari tombol "Buat Penerimaan" pada Pesanan Pembelian: isi pemasok & baris barang otomatis
+        $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('purchase_order_id'), $companyId);
+        $goodsIds = $products->pluck('id')->all();
+        $prefill['rows'] = array_values(array_filter($prefill['rows'], fn ($r) => in_array($r['product_id'], $goodsIds)));
+        if ($prefill['order'] && !$purchaseOrders->contains('id', $prefill['order']->id)) {
+            $purchaseOrders->push($prefill['order']);
+        }
+
+        return view('client.item_receipts.create', compact('suppliers', 'purchaseOrders', 'products', 'warehouses', 'receiptNumber', 'prefill'));
+    }
+
+    public function show(ItemReceipt $itemReceipt)
+    {
+        abort_if($itemReceipt->company_id !== auth()->user()->company_id, 403);
+        $itemReceipt->load(['supplier', 'purchaseOrder', 'details.product']);
+
+        $lines = $itemReceipt->details->map(fn ($d) => [
+            'name' => optional($d->product)->name ?? '-',
+            'description' => $d->description,
+            'quantity' => (float) $d->quantity,
+        ])->all();
+
+        return view('client.documents.show', [
+            'title' => 'Penerimaan Barang',
+            'number' => $itemReceipt->receipt_number,
+            'backUrl' => route('client.purchases.receipts'),
+            'backLabel' => 'Daftar Penerimaan',
+            'meta' => [
+                'Tanggal' => optional($itemReceipt->receipt_date)->format('d M Y'),
+                'Pemasok' => optional($itemReceipt->supplier)->name,
+                'No. Surat Jalan' => $itemReceipt->delivery_note_number,
+                'Status' => $itemReceipt->status,
+                'Catatan' => $itemReceipt->notes,
+            ],
+            'lines' => $lines,
+            'showPrices' => false,
+            'total' => null,
+            'actions' => $itemReceipt->purchase_order_id
+                ? [['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['po_id' => $itemReceipt->purchase_order_id])]]
+                : [],
+            'groups' => \App\Services\DocumentLinker::relatedForReceipt($itemReceipt),
+        ]);
     }
 
     public function store(Request $request)

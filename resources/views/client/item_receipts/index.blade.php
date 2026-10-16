@@ -52,7 +52,7 @@
                     @forelse ($receipts as $receipt)
                         <tr class="hover:bg-gray-700/20 transition-colors">
                             <td class="px-6 py-4 font-medium text-white">
-                                {{ $receipt->receipt_number }}
+                                <a href="{{ route('client.purchases.receipts.show', $receipt) }}" class="link-doc">{{ $receipt->receipt_number }}</a>
                                 @if($receipt->delivery_note_number)
                                 <div style="font-size: 0.65rem; color: #475569;">No. Surat Jalan: {{ $receipt->delivery_note_number }}</div>
                                 @endif
@@ -64,7 +64,7 @@
                                 {{ $receipt->receipt_date->format('d M Y') }}
                             </td>
                             <td class="px-6 py-4">
-                                {{ $receipt->purchaseOrder->po_number ?? '-' }}
+                                @if($receipt->purchaseOrder)<a href="{{ route('client.purchases.orders.show', $receipt->purchaseOrder) }}" class="link-doc">{{ $receipt->purchaseOrder->po_number }}</a>@else - @endif
                             </td>
                             <td class="px-6 py-4 text-center">
                                 @if($receipt->status == 'received')

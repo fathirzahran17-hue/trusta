@@ -169,4 +169,7 @@
             </div>
         </div>
     </div>
+    <div class="max-w-4xl mx-auto mt-6">
+        @include('partials.related-docs', ['groups' => \App\Services\DocumentLinker::relatedForPurchaseInvoice($purchase_invoice)])
+    </div>
 </x-app-layout>

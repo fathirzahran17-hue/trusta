@@ -53,7 +53,7 @@
                     @forelse ($orders as $order)
                         <tr class="hover:bg-gray-700/20 transition-colors">
                             <td class="px-6 py-4 font-medium text-white">
-                                {{ $order->order_number }}
+                                <a href="{{ route('client.sales.orders.show', $order) }}" class="link-doc">{{ $order->order_number }}</a>
                                 @if($order->customer_po_number)
                                 <div style="font-size: 0.65rem; color: #475569;">PO Cust: {{ $order->customer_po_number }}</div>
                                 @endif
@@ -61,7 +61,7 @@
                                     <div style="font-size: 0.65rem; color: #10b981; margin-top: 4px;">
                                         DO: 
                                         @foreach($order->deliveryOrders as $do)
-                                            <span style="background: rgba(16,185,129,0.1); padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(16,185,129,0.2);">{{ $do->delivery_number }}</span>
+                                            <a href="{{ route('client.sales.deliveries.show', $do) }}" style="background: rgba(16,185,129,0.1); padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(16,185,129,0.2);">{{ $do->delivery_number }}</a>
                                         @endforeach
                                     </div>
                                 @endif
