@@ -363,7 +363,7 @@ h1, h2, h3, h4, h5, h6, .font-poppins { font-family: 'Poppins', sans-serif; }
 .theme-toggle .icon-moon { display: block; }
 html.dark .theme-toggle .icon-sun { display: block; }
 html.dark .theme-toggle .icon-moon { display: none; }
-.theme-toggle-floating {
+.header-icon-btn.theme-toggle-floating {
     position: fixed;
     top: 14px;
     right: 14px;
@@ -878,3 +878,85 @@ html.dark .bg-yellow-600 { background-color: #a16207; }
 .gs-sub { color: var(--text-dim); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gs-empty { padding: 18px 16px; text-align: center; font-size: 0.8rem; color: var(--text-dim); }
 .gs-foot { padding: 8px 16px; border-top: 1px solid var(--border); font-size: 0.68rem; color: var(--text-dim); }
+
+/* ===== Halaman autentikasi (login, registrasi, lupa/reset password) =====
+   Seluruhnya memakai token tema sehingga terang & gelap konsisten.
+   Panel merek di kiri sengaja selalu gelap (identitas merek). */
+.auth-shell { min-height: 100vh; display: grid; grid-template-columns: 1fr; background: var(--bg-page); }
+.auth-brand { display: none; position: relative; overflow: hidden; padding: 48px 56px; color: #e2e8f0;
+    background: radial-gradient(900px 500px at 0% 0%, rgba(20, 184, 166, 0.22), transparent 60%),
+                linear-gradient(150deg, #0a0f1e 0%, #0f172a 55%, #0c2f31 100%); }
+.auth-brand::after { content: ''; position: absolute; right: -120px; bottom: -120px; width: 380px; height: 380px; border-radius: 50%;
+    border: 1px solid rgba(20, 184, 166, 0.25); box-shadow: 0 0 0 60px rgba(20, 184, 166, 0.05), 0 0 0 120px rgba(20, 184, 166, 0.03); }
+.auth-brand-inner { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: calc(100vh - 96px); }
+.auth-logo { font-family: 'Poppins', sans-serif; font-weight: 700; letter-spacing: 0.22em; font-size: 2.1rem; color: #fff; display: inline-flex; align-items: baseline; }
+.auth-logo span { color: #c9a84c; }
+.auth-logo-line { height: 2px; width: 100%; max-width: 190px; background: #14b8a6; margin: 8px 0 8px; }
+.auth-tagline { font-size: 0.7rem; letter-spacing: 0.22em; text-transform: uppercase; color: #94a3b8; }
+.auth-headline { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 1.9rem; line-height: 1.25; color: #f8fafc; margin: 56px 0 14px; max-width: 420px; }
+.auth-lead { color: #94a3b8; font-size: 0.95rem; line-height: 1.6; max-width: 420px; }
+.auth-points { list-style: none; padding: 0; margin: 32px 0 0; display: grid; gap: 14px; }
+.auth-points li { display: flex; gap: 12px; align-items: flex-start; font-size: 0.88rem; color: #cbd5e1; }
+.auth-points svg { flex: none; width: 20px; height: 20px; padding: 3px; border-radius: 6px; color: #2dd4bf; background: rgba(20, 184, 166, 0.14); }
+.auth-brand-foot { font-size: 0.72rem; color: #64748b; }
+
+.auth-main { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 72px 20px 32px; }
+.auth-mobile-brand { margin-bottom: 22px; text-align: center; }
+.auth-mobile-brand .auth-logo { font-size: 1.7rem; color: var(--text-strong); }
+.auth-mobile-brand .auth-logo span { color: var(--gold); }
+.auth-card { width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 34px 30px; box-shadow: var(--shadow-pop); }
+.auth-title { font-family: 'Poppins', sans-serif; font-size: 1.45rem; font-weight: 600; color: var(--text-strong); margin: 0 0 6px; }
+.auth-sub { font-size: 0.86rem; color: var(--text-dim); margin: 0 0 24px; line-height: 1.5; }
+.auth-field { margin-top: 16px; }
+.auth-field:first-of-type { margin-top: 0; }
+.auth-label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+.auth-label .req { color: var(--danger); }
+.auth-input-wrap { position: relative; }
+.auth-card input[type="text"], .auth-card input[type="email"], .auth-card input[type="password"], .auth-card input[type="search"] {
+    display: block; width: 100%; padding: 11px 13px; font-size: 0.92rem; color: var(--text-strong); background: var(--input-bg);
+    border: 1px solid var(--input-border); border-radius: 10px; outline: none; box-shadow: none; transition: border-color .15s, box-shadow .15s; }
+.auth-card input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.auth-card input::placeholder { color: var(--text-faint); }
+.auth-eye { position: absolute; inset: 0 0 0 auto; width: 42px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); background: transparent; border: none; cursor: pointer; }
+.auth-eye:hover { color: var(--text-strong); }
+.auth-eye svg { width: 19px; height: 19px; }
+.auth-hint { margin-top: 6px; font-size: 0.74rem; color: var(--text-dim); }
+.auth-error, .auth-card ul.text-red-600 { margin: 6px 0 0; padding: 0; list-style: none; font-size: 0.78rem; color: var(--danger); }
+.auth-status { margin-bottom: 16px; padding: 10px 12px; font-size: 0.82rem; border-radius: 10px; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-border); }
+.auth-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 0.82rem; }
+.auth-check { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); cursor: pointer; }
+.auth-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.auth-link { color: var(--accent); font-weight: 500; text-decoration: none; }
+.auth-link:hover { text-decoration: underline; }
+.auth-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 22px; padding: 12px 16px;
+    font-size: 0.82rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: var(--accent);
+    border: 1px solid transparent; border-radius: 10px; cursor: pointer; transition: background .15s, transform .05s; }
+html.dark .auth-btn { color: #0f172a; background: #14b8a6; }
+.auth-btn:hover { background: var(--accent-hover); }
+html.dark .auth-btn:hover { background: #2dd4bf; }
+.auth-btn:active { transform: translateY(1px); }
+.auth-btn-ghost { background: var(--surface); color: var(--text-strong); border-color: var(--border-strong); margin-top: 0; text-transform: none; letter-spacing: 0; font-size: 0.88rem; font-weight: 500; text-decoration: none; }
+html.dark .auth-btn-ghost { background: var(--surface-2); color: var(--text-strong); }
+.auth-btn-ghost:hover { background: var(--hover-bg); }
+html.dark .auth-btn-ghost:hover { background: var(--surface-3); }
+.auth-sep { display: flex; align-items: center; gap: 12px; margin: 20px 0; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
+.auth-sep::before, .auth-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.auth-foot { margin-top: 22px; text-align: center; font-size: 0.84rem; color: var(--text-dim); }
+.auth-note { margin-top: 18px; text-align: center; font-size: 0.72rem; color: var(--text-faint); }
+/* Komponen Breeze (confirm/verify/reset) di dalam kartu */
+.auth-card label.block { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); }
+.auth-card button[type="submit"]:not(.auth-btn) { margin-top: 18px; padding: 10px 18px; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; background: var(--accent); border: none; border-radius: 10px; cursor: pointer; }
+html.dark .auth-card button[type="submit"]:not(.auth-btn) { color: #0f172a; background: #14b8a6; }
+.auth-card .text-gray-600, .auth-card .text-sm.text-gray-600 { color: var(--text-dim); }
+.auth-card .underline { color: var(--accent); }
+
+@media (min-width: 1024px) {
+    .auth-shell { grid-template-columns: minmax(420px, 46%) 1fr; }
+    .auth-brand { display: block; }
+    .auth-mobile-brand { display: none; }
+    .auth-main { padding: 48px 40px; }
+}
+@media (max-width: 480px) { .auth-card { padding: 26px 20px; border-radius: 14px; } }
+
+[x-cloak] { display: none !important; }
