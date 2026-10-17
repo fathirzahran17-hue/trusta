@@ -413,13 +413,21 @@ select,
 textarea {
     width: 100%;
     font-size: 0.8rem !important;
-    padding: 6px 10px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
     border-radius: 6px !important;
     background-color: var(--input-bg) !important;
     border: 1px solid var(--input-border) !important;
     color: var(--text-strong) !important;
     transition: all 0.15s ease !important;
     line-height: 1.5 !important;
+}
+/* Padding horizontal default berspesifisitas nol agar utilitas (pl-10, px-*) dan kelas lokal
+   (mis. input dengan awalan "Rp" atau ikon) tidak tertimpa. */
+:where(input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="month"],
+       input[type="search"], input[type="password"], input[type="tel"], input[type="url"], select, textarea) {
+    padding-left: 10px;
+    padding-right: 10px;
 }
 input::placeholder, textarea::placeholder { color: var(--text-faint) !important; opacity: 1; }
 select option { background: var(--surface); color: var(--text-strong); }
