@@ -22,6 +22,7 @@ class PreferenceController extends Controller
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
             'npwp' => 'nullable|string|max:30',
+            'logo' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:1024',
             'fiscal_year_start' => 'nullable|integer|between:1,12',
             'address' => 'nullable|string',
             'default_tax_rate' => 'nullable|numeric|min:0|max:100',
@@ -58,6 +59,17 @@ class PreferenceController extends Controller
             if (array_key_exists($notNull, $validated) && $validated[$notNull] === null) {
                 unset($validated[$notNull]);
             }
+        }
+
+        unset($validated['logo']);
+        if ($request->hasFile('logo')) {
+            $file = $request->file('logo');
+            $dir = public_path('uploads/logos');
+            if (! is_dir($dir)) mkdir($dir, 0755, true);
+            $name = 'company-' . $company->id . '-' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move($dir, $name);
+            if ($company->logo_path && file_exists(public_path($company->logo_path))) @unlink(public_path($company->logo_path));
+            $validated['logo_path'] = 'uploads/logos/' . $name;
         }
 
         $oldData = $company->only(array_keys($validated));

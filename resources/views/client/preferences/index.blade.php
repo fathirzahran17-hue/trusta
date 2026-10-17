@@ -205,8 +205,19 @@
                 </div>
 
                 <!-- Form Area -->
-                <form action="{{ route('client.settings.preferences.update') }}" method="POST" class="pref-form-area" x-show="activeTab === 'info'">
+                <form action="{{ route('client.settings.preferences.update') }}" method="POST" enctype="multipart/form-data" class="pref-form-area" x-show="activeTab === 'info'">
                     @csrf
+                    <div class="pref-form-group">
+                        <div class="pref-label">Logo Perusahaan</div>
+                        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                            @if($company->logo_url)<img src="{{ $company->logo_url }}" alt="Logo" class="pref-logo-preview">@endif
+                            <div>
+                                <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="pref-input" style="max-width: 320px;" />
+                                <div style="font-size:.7rem; color: var(--text-dim); margin-top:4px;">PNG/JPG/WEBP, maks 1 MB. Tampil di header dan kop laporan.</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="pref-form-group">
                         <div class="pref-label">Nama <span class="text-red-500">*</span></div>
                         <input type="text" name="name" class="pref-input" value="{{ old('name', $company->name) }}" required />

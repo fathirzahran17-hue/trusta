@@ -58,6 +58,7 @@
 
     <div class="rpt-paper">
         <div class="rpt-head">
+            @if($company?->logo_url)<img src="{{ $company->logo_url }}" alt="" class="rpt-logo">@endif
             <div class="rpt-co">{{ $company->name ?? 'Perusahaan' }}</div>
             @if($company?->address || $company?->npwp)
                 <div class="rpt-co-sub">{{ $company->address }}@if($company->npwp) &nbsp;|&nbsp; NPWP: {{ $company->npwp }}@endif</div>

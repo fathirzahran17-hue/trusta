@@ -107,4 +107,10 @@ class Company extends Model
     {
         return $this->activeSubscription?->plan;
     }
+
+    /** URL logo perusahaan (disimpan di public/uploads/logos agar jalan tanpa storage:link di hosting). */
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo_path && file_exists(public_path($this->logo_path)) ? asset($this->logo_path) : null;
+    }
 }

@@ -1060,3 +1060,10 @@ html.dark .rpt-note.good { color: #4ade80; } html.dark .rpt-note.bad { color: #f
 @media (max-width: 640px) {
     .rpt-head, .rpt-body { padding-left: 14px; padding-right: 14px; margin-left: 0; margin-right: 0; }
 }
+
+/* Logo */
+.sidebar-logo .logo-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.sidebar-logo .logo-mark { width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; }
+.company-badge-logo { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; background: #fff; flex-shrink: 0; }
+.pref-logo-preview { width: 64px; height: 64px; object-fit: contain; border-radius: 10px; border: 1px solid var(--border-strong); background: #fff; }
+.rpt-logo, .print-logo { max-height: 52px; max-width: 160px; object-fit: contain; margin: 0 auto 6px; display: block; }

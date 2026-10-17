@@ -43,7 +43,10 @@
                         @else
                             <a href="{{ route('client.dashboard') }}">
                         @endif
-                            <div class="logo-text">TRUST<span>A</span></div>
+                            <div class="logo-row">
+                                <img src="{{ asset('favicon.svg') }}" alt="" class="logo-mark" width="26" height="26">
+                                <div class="logo-text">TRUST<span>A</span></div>
+                            </div>
                             <div class="logo-sub">Trusted Accounting Solution</div>
                         </a>
                     </div>
@@ -112,7 +115,11 @@
                     <div class="top-header-right">
                         @if(!auth()->user()->isSuperAdmin() && auth()->user()->company)
                             <div class="company-badge">
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                @if(auth()->user()->company->logo_url)
+                                    <img src="{{ auth()->user()->company->logo_url }}" alt="" class="company-badge-logo">
+                                @else
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                @endif
                                 {{ auth()->user()->company->name }}
                             </div>
                         @endif

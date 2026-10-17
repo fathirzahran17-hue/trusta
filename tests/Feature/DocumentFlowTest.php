@@ -249,4 +249,15 @@ class DocumentFlowTest extends TestCase
         $this->assertSame(4, (int) $company->fiscal_year_start);
         $this->get('/client/settings/preferences')->assertOk();
     }
+
+    public function test_company_logo_upload_shows_in_header_and_reports(): void
+    {
+        $file = \Illuminate\Http\UploadedFile::fake()->image('logo.png', 120, 120);
+        $this->post('/client/settings/preferences', ['name' => 'PT Uji', 'logo' => $file])->assertSessionHasNoErrors();
+        $company = $this->user->company->fresh();
+        $this->assertNotNull($company->logo_url);
+        $this->get('/client/dashboard')->assertSee('company-badge-logo', false);
+        $this->get('/client/reports/profit-loss?export=pdf')->assertSee('print-logo', false);
+        @unlink(public_path($company->logo_path));
+    }
 }

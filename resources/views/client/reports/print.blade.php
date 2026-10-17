@@ -16,6 +16,7 @@
     .bar a { background: #334155; }
     .sheet { background: #fff; width: {{ $land ? '297mm' : '210mm' }}; max-width: 100%; margin: 16px auto; padding: 14mm 12mm; box-shadow: 0 4px 20px rgba(0,0,0,.15); }
     .head { text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 8px; margin-bottom: 10px; }
+    .print-logo { max-height: 48px; max-width: 150px; object-fit: contain; margin: 0 auto 4px; display: block; }
     .co { font-size: 15px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .sub { font-size: 8.5px; color: #475569; margin-top: 2px; }
     .title { font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; margin-top: 8px; color: #0f766e; }
@@ -55,7 +56,8 @@
 </div>
 <div class="sheet">
     <div class="head">
-        <div class="co">{{ $company->name ?? 'Perusahaan' }}</div>
+        @if($company?->logo_url)<img src="{{ $company->logo_url }}" alt="" class="print-logo">@endif
+            <div class="co">{{ $company->name ?? 'Perusahaan' }}</div>
         @if($company?->address || $company?->npwp)
             <div class="sub">{{ $company->address }}@if($company->npwp) &nbsp;|&nbsp; NPWP: {{ $company->npwp }}@endif</div>
         @endif
