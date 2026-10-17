@@ -89,7 +89,7 @@ class PurchaseOrderController extends Controller
     {
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'po_number' => 'required|string|max:100',
+            'po_number' => 'required|string|max:30',
             'order_date' => 'required|date',
             'products' => 'required|array|min:1',
             'products.*' => 'required|exists:products,id',

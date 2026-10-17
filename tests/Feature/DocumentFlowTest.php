@@ -197,4 +197,56 @@ class DocumentFlowTest extends TestCase
             'due_date' => date('Y-m-d', strtotime('-10 days')), 'products' => [$this->product->id], 'quantities' => [1], 'prices' => [10000], 'discounts' => [0]]);
         $this->get('/client/dashboard')->assertOk()->assertSee('hutang jatuh tempo')->assertSee('stok menipis');
     }
+
+    public function test_all_reports_render_and_export_in_every_format(): void
+    {
+        $po = $this->createPurchaseAndReceive(10);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-9',
+            'invoice_date' => date('Y-m-d', strtotime('-50 days')), 'due_date' => date('Y-m-d', strtotime('-40 days')),
+            'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertRedirect();
+
+        $routes = ['integrated', 'profit-loss', 'balance-sheet', 'general-ledger', 'trial-balance', 'receivable-aging', 'receivable-summary',
+            'sales-report', 'payable-aging', 'payable-summary', 'purchase-report', 'inventory-stock'];
+
+        foreach ($routes as $r) {
+            $this->get("/client/reports/{$r}")->assertOk()->assertSee('PT Uji');
+            $this->get("/client/reports/{$r}?export=pdf")->assertOk()->assertSee('window.print');
+            $this->get("/client/reports/{$r}?export=csv")->assertOk();
+
+            $xlsx = $this->get("/client/reports/{$r}?export=excel");
+            $xlsx->assertOk();
+            $tmp = tempnam(sys_get_temp_dir(), 'rpt') . '.xlsx';
+            file_put_contents($tmp, $xlsx->streamedContent());
+            $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmp)->getActiveSheet();
+            $this->assertSame('PT UJI', $sheet->getCell('A1')->getValue(), $r);
+            unlink($tmp);
+        }
+
+        // Hutang 100.000 belum jatuh tempo >30 hari -> muncul di umur hutang & rekap
+        $this->get('/client/reports/payable-aging')->assertSee('100.000');
+        $this->get('/client/reports/payable-summary')->assertSee('Pemasok')->assertSee('100.000');
+        $this->get('/client/reports/inventory-stock')->assertSee('Barang');
+        // Neraca seimbang setelah pembelian kredit
+        $this->get('/client/reports/balance-sheet')->assertSee('Neraca seimbang');
+        $this->get('/client/reports/trial-balance')->assertSee('Seimbang');
+        $this->get('/client/reports')->assertOk()->assertSee('Umur Piutang');
+    }
+
+    public function test_preferences_tabs_save_independently_and_tolerate_empty_fields(): void
+    {
+        $company = $this->user->company;
+        $this->post('/client/settings/preferences', ['name' => 'PT Uji', 'phone' => '0812', 'email' => '', 'npwp' => '', 'fiscal_year_start' => ''])
+            ->assertSessionHasNoErrors();
+        $company->refresh();
+        $this->assertSame(1, (int) $company->fiscal_year_start);
+        $this->assertTrue((bool) $company->warn_below_cost, 'tab info tidak boleh mereset checkbox tab lain');
+
+        $this->post('/client/settings/preferences', ['name' => 'PT Uji', 'warn_below_cost' => '0', 'default_tax_rate' => '12', 'fiscal_year_start' => 4])
+            ->assertSessionHasNoErrors();
+        $company->refresh();
+        $this->assertFalse((bool) $company->warn_below_cost);
+        $this->assertEquals(12, (float) $company->default_tax_rate);
+        $this->assertSame(4, (int) $company->fiscal_year_start);
+        $this->get('/client/settings/preferences')->assertOk();
+    }
 }

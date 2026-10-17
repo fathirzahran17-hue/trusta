@@ -26,7 +26,7 @@ class CustomerController extends Controller
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
-            'npwp' => 'nullable|string|max:50',
+            'npwp' => 'nullable|string|max:30',
             'default_term_days' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
         ]);
@@ -60,7 +60,7 @@ class CustomerController extends Controller
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
-            'npwp' => 'nullable|string|max:50',
+            'npwp' => 'nullable|string|max:30',
             'default_term_days' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
         ]);
@@ -126,7 +126,7 @@ class CustomerController extends Controller
                     $invoice->invoice_number,
                     $invoice->due_date,
                     $invoice->status,
-                    $invoice->grand_total,
+                    $invoice->total,
                     $invoice->amount_due,
                 ];
             }
