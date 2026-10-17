@@ -55,7 +55,7 @@ class ItemReceiptController extends Controller
         $receiptNumber = 'IR-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             
         // Dari tombol "Buat Penerimaan" pada Pesanan Pembelian: isi pemasok & baris barang otomatis
-        $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('purchase_order_id'), $companyId);
+        $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('purchase_order_id'), $companyId, 'fulfilled');
         $goodsIds = $products->pluck('id')->all();
         $prefill['rows'] = array_values(array_filter($prefill['rows'], fn ($r) => in_array($r['product_id'], $goodsIds)));
         if ($prefill['order'] && !$purchaseOrders->contains('id', $prefill['order']->id)) {
@@ -112,6 +112,20 @@ class ItemReceiptController extends Controller
             'quantities.*' => 'required|numeric|min:0.01',
         ]);
 
+        $companyId = auth()->user()->company_id;
+        $requested = \App\Services\OrderProgress::requested($request->products, $request->quantities);
+        $po = $request->purchase_order_id ? PurchaseOrder::where('company_id', $companyId)->find($request->purchase_order_id) : null;
+        if ($request->purchase_order_id && !$po) {
+            return back()->withInput()->with('error', 'Pesanan Pembelian tidak ditemukan.');
+        }
+        try {
+            if ($po && $request->status == 'received') {
+                \App\Services\OrderProgress::assertWithinRemaining(\App\Services\OrderProgress::forPurchaseOrder($po), 'fulfilled', $requested, 'penerimaan');
+            }
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
         try {
             DB::beginTransaction();
 
@@ -121,7 +135,7 @@ class ItemReceiptController extends Controller
                 'company_id' => $companyId,
                 'supplier_id' => $request->supplier_id,
                 'warehouse_id' => $request->warehouse_id,
-                'purchase_order_id' => $request->purchase_order_id,
+                'purchase_order_id' => $po?->id,
                 'receipt_number' => $request->receipt_number,
                 'receipt_date' => $request->receipt_date,
                 'delivery_note_number' => $request->delivery_note_number,
@@ -147,7 +161,7 @@ class ItemReceiptController extends Controller
             }
 
             // Jika status received, catat mutasi stok dan perbarui Moving Average (HPP)
-            if ($request->status == 'received' && $totalValue > 0) {
+            if ($request->status == 'received') {
                 
                 foreach ($request->products as $index => $productId) {
                     $qty = floatval($request->quantities[$index]);
@@ -184,17 +198,12 @@ class ItemReceiptController extends Controller
                         ]);
                     }
                 }
-                
-                // Update PO status jika ada
-                if ($request->purchase_order_id) {
-                    $po = PurchaseOrder::find($request->purchase_order_id);
-                    if ($po) {
-                        $po->update(['status' => 'received']);
-                    }
-                }
             }
 
             DB::commit();
+            if ($po) {
+                \App\Services\OrderProgress::syncPurchaseOrder($po->fresh());
+            }
             return redirect()->route('client.purchases.receipts')->with('success', 'Penerimaan Barang berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();

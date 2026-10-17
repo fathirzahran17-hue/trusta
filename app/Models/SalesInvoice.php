@@ -42,6 +42,11 @@ class SalesInvoice extends Model
         return $this->belongsTo(SalesQuote::class, 'quote_id');
     }
 
+    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(InvoicePayment::class, 'sales_invoice_id');
+    }
+
     public function returns(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(SalesReturn::class);

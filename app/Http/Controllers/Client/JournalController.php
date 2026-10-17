@@ -117,7 +117,7 @@ class JournalController extends Controller
     {
         $request->validate([
             'transaction_date' => 'required|date',
-            'ref_number' => 'required|string|max:100',
+            'ref_number' => 'required|string|max:30',
             'description' => 'required|string',
             'accounts' => 'required|array|min:2',
             'accounts.*' => 'required|exists:accounts,id',
@@ -217,7 +217,7 @@ class JournalController extends Controller
 
         $request->validate([
             'transaction_date' => 'required|date',
-            'ref_number' => 'required|string|max:100',
+            'ref_number' => 'required|string|max:30',
             'description' => 'required|string',
             'accounts' => 'required|array|min:2',
             'accounts.*' => 'required|exists:accounts,id',

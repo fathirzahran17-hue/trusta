@@ -11,6 +11,10 @@ class Company extends Model
     protected $fillable = [
         'name', 'address', 'phone', 'email', 'npwp',
         'logo_path', 'fiscal_year_start', 'is_active', 'is_premium',
+        'default_tax_rate', 'tax_rounding', 'default_sales_term', 'warn_below_cost', 'default_purchase_term',
+        'prevent_over_receive', 'prevent_prior_transactions', 'closing_date', 'notify_approver',
+        'max_attachment_size', 'allowed_attachment_types', 'custom_customer_attr_1', 'custom_item_attr_1',
+        'price_decimal_format', 'default_language', 'inventory_costing_method',
     ];
 
     protected $casts = [
@@ -102,5 +106,11 @@ class Company extends Model
     public function currentPlan(): ?Plan
     {
         return $this->activeSubscription?->plan;
+    }
+
+    /** URL logo perusahaan (disimpan di public/uploads/logos agar jalan tanpa storage:link di hosting). */
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo_path && file_exists(public_path($this->logo_path)) ? asset($this->logo_path) : null;
     }
 }

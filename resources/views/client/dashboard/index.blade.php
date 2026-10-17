@@ -14,6 +14,29 @@
         </select>
     </div>
 
+    @if($alerts['overdue_ar_count'] || $alerts['overdue_ap_count'] || $alerts['low_stock'])
+    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        @if($alerts['overdue_ar_count'])
+            <a href="{{ route('client.sales-invoices.index') }}" class="block rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-400 hover:bg-red-500/20 transition-colors">
+                <div class="font-semibold">{{ $alerts['overdue_ar_count'] }} piutang jatuh tempo</div>
+                <div class="text-xs opacity-90">Sisa tagihan Rp {{ number_format($alerts['overdue_ar_amount'], 0, ',', '.') }}</div>
+            </a>
+        @endif
+        @if($alerts['overdue_ap_count'])
+            <a href="{{ route('client.purchase-invoices.index') }}" class="block rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-500 hover:bg-yellow-500/20 transition-colors">
+                <div class="font-semibold">{{ $alerts['overdue_ap_count'] }} hutang jatuh tempo</div>
+                <div class="text-xs opacity-90">Perlu dibayar Rp {{ number_format($alerts['overdue_ap_amount'], 0, ',', '.') }}</div>
+            </a>
+        @endif
+        @if($alerts['low_stock'])
+            <a href="{{ route('client.inventory.minimum_stock') }}" class="block rounded-lg border border-orange-500/40 bg-orange-500/10 p-3 text-sm text-orange-400 hover:bg-orange-500/20 transition-colors">
+                <div class="font-semibold">{{ $alerts['low_stock'] }} barang stok menipis</div>
+                <div class="text-xs opacity-90">Stok 5 atau kurang</div>
+            </a>
+        @endif
+    </div>
+    @endif
+
     <!-- 6 Column Grid -->
     <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
         

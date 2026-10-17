@@ -55,6 +55,7 @@ class PurchaseOrderController extends Controller
                 ['label' => 'Buat Penerimaan', 'url' => route('client.purchases.receipts.create', ['purchase_order_id' => $purchaseOrder->id])],
                 ['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['po_id' => $purchaseOrder->id])],
             ],
+            'progress' => ['fulfilledLabel' => 'Diterima', 'rows' => \App\Services\OrderProgress::forPurchaseOrder($purchaseOrder)],
             'groups' => \App\Services\DocumentLinker::relatedForPurchaseOrder($purchaseOrder),
         ]);
     }
@@ -88,7 +89,7 @@ class PurchaseOrderController extends Controller
     {
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'po_number' => 'required|string|max:100',
+            'po_number' => 'required|string|max:30',
             'order_date' => 'required|date',
             'products' => 'required|array|min:1',
             'products.*' => 'required|exists:products,id',

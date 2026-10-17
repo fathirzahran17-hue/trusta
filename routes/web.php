@@ -211,6 +211,11 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::get('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'index'])->name('sales.returns');
     Route::get('sales/returns/create', [\App\Http\Controllers\Client\SalesReturnController::class, 'create'])->name('sales.returns.create');
     Route::post('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'store'])->name('sales.returns.store');
+    Route::get('search', [\App\Http\Controllers\Client\SearchController::class, 'index'])->name('search');
+    Route::post('sales-invoices/{sales_invoice}/payments', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'storeSales'])->name('sales-invoices.payments.store');
+    Route::post('sales-invoices/{sales_invoice}/void', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'voidSales'])->name('sales-invoices.void');
+    Route::post('purchase-invoices/{purchase_invoice}/payments', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'storePurchase'])->name('purchase-invoices.payments.store');
+    Route::post('purchase-invoices/{purchase_invoice}/void', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'voidPurchase'])->name('purchase-invoices.void');
     Route::resource('sales-invoices', \App\Http\Controllers\Client\SalesInvoiceController::class)->only(['index','create','store','show']);
     
     // Pembelian

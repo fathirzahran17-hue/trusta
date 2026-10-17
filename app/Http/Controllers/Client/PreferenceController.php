@@ -19,10 +19,11 @@ class PreferenceController extends Controller
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:50',
+            'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
-            'npwp' => 'nullable|string|max:50',
-            'fiscal_year_start' => 'nullable|date',
+            'npwp' => 'nullable|string|max:30',
+            'logo' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:1024',
+            'fiscal_year_start' => 'nullable|integer|between:1,12',
             'address' => 'nullable|string',
             'default_tax_rate' => 'nullable|numeric|min:0|max:100',
             'tax_rounding' => 'nullable|string',
@@ -42,11 +43,34 @@ class PreferenceController extends Controller
             'inventory_costing_method' => 'nullable|in:average,fifo',
         ]);
 
-        // Default booleans to false if not present in request (since checkboxes don't send anything when unchecked)
-        $validated['warn_below_cost'] = $request->has('warn_below_cost');
-        $validated['prevent_over_receive'] = $request->has('prevent_over_receive');
-        $validated['prevent_prior_transactions'] = $request->has('prevent_prior_transactions');
-        $validated['notify_approver'] = $request->has('notify_approver');
+        // Checkbox mengirim hidden 0 + 1, jadi hanya form yang memuatnya yang mengubah nilai boolean
+        foreach (['warn_below_cost', 'prevent_over_receive', 'prevent_prior_transactions', 'notify_approver'] as $flag) {
+            if ($request->exists($flag)) {
+                $validated[$flag] = $request->boolean($flag);
+            } else {
+                unset($validated[$flag]);
+            }
+        }
+
+        // Kolom yang tidak boleh NULL di database: bila form mengirim kosong, pertahankan nilai lama
+        foreach (['fiscal_year_start', 'default_tax_rate', 'tax_rounding', 'default_sales_term', 'default_purchase_term',
+                  'max_attachment_size', 'allowed_attachment_types', 'price_decimal_format', 'default_language',
+                  'inventory_costing_method'] as $notNull) {
+            if (array_key_exists($notNull, $validated) && $validated[$notNull] === null) {
+                unset($validated[$notNull]);
+            }
+        }
+
+        unset($validated['logo']);
+        if ($request->hasFile('logo')) {
+            $file = $request->file('logo');
+            $dir = public_path('uploads/logos');
+            if (! is_dir($dir)) mkdir($dir, 0755, true);
+            $name = 'company-' . $company->id . '-' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move($dir, $name);
+            if ($company->logo_path && file_exists(public_path($company->logo_path))) @unlink(public_path($company->logo_path));
+            $validated['logo_path'] = 'uploads/logos/' . $name;
+        }
 
         $oldData = $company->only(array_keys($validated));
         $company->update($validated);

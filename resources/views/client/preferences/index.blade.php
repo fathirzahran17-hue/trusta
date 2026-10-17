@@ -205,8 +205,19 @@
                 </div>
 
                 <!-- Form Area -->
-                <form action="{{ route('client.settings.preferences.update') }}" method="POST" class="pref-form-area" x-show="activeTab === 'info'">
+                <form action="{{ route('client.settings.preferences.update') }}" method="POST" enctype="multipart/form-data" class="pref-form-area" x-show="activeTab === 'info'">
                     @csrf
+                    <div class="pref-form-group">
+                        <div class="pref-label">Logo Perusahaan</div>
+                        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                            @if($company->logo_url)<img src="{{ $company->logo_url }}" alt="Logo" class="pref-logo-preview">@endif
+                            <div>
+                                <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="pref-input" style="max-width: 320px;" />
+                                <div style="font-size:.7rem; color: var(--text-dim); margin-top:4px;">PNG/JPG/WEBP, maks 1 MB. Tampil di header dan kop laporan.</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="pref-form-group">
                         <div class="pref-label">Nama <span class="text-red-500">*</span></div>
                         <input type="text" name="name" class="pref-input" value="{{ old('name', $company->name) }}" required />
@@ -228,14 +239,11 @@
                     </div>
 
                     <div class="pref-form-group">
-                        <div class="pref-label">Tgl Mulai Data / Tahun Fiskal</div>
-                        <input type="date" name="fiscal_year_start" class="pref-input" value="{{ old('fiscal_year_start', $company->fiscal_year_start) }}" style="max-width: 200px;" />
-                    </div>
-
-                    <div class="pref-form-group">
-                        <div class="pref-label">Periode Akuntansi</div>
-                        <select class="pref-input" style="max-width: 250px;">
-                            <option>Januari - Desember</option>
+                        <div class="pref-label">Awal Tahun Fiskal</div>
+                        <select name="fiscal_year_start" class="pref-input" style="max-width: 250px;">
+                            @foreach(['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] as $i => $bulan)
+                                <option value="{{ $i + 1 }}" @selected((int) old('fiscal_year_start', $company->fiscal_year_start ?: 1) === $i + 1)>{{ $bulan }}</option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -361,6 +369,7 @@
                     </div>
                     <div class="pref-form-group">
                         <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
+                            <input type="hidden" name="warn_below_cost" value="0" />
                             <input type="checkbox" name="warn_below_cost" value="1" {{ old('warn_below_cost', $company->warn_below_cost) ? 'checked' : '' }} style="margin-right: 12px; width: 16px; height: 16px;" />
                             <span>Beri peringatan jika harga jual di bawah Harga Pokok</span>
                         </label>
@@ -386,6 +395,7 @@
                     </div>
                     <div class="pref-form-group">
                         <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
+                            <input type="hidden" name="prevent_over_receive" value="0" />
                             <input type="checkbox" name="prevent_over_receive" value="1" {{ old('prevent_over_receive', $company->prevent_over_receive) ? 'checked' : '' }} style="margin-right: 12px; width: 16px; height: 16px;" />
                             <span>Cegah penerimaan barang jika melebihi kuantitas pesanan</span>
                         </label>
@@ -413,6 +423,7 @@
                     <h3 style="font-size: 1.1rem; font-weight: 600; color: var(--trusta-teal); margin-bottom: 20px;">Pembatasan & Keamanan</h3>
                     <div class="pref-form-group">
                         <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
+                            <input type="hidden" name="prevent_prior_transactions" value="0" />
                             <input type="checkbox" name="prevent_prior_transactions" value="1" {{ old('prevent_prior_transactions', $company->prevent_prior_transactions) ? 'checked' : '' }} style="margin-right: 12px; width: 16px; height: 16px;" />
                             <span>Cegah transaksi sebelum Tanggal Mulai Data</span>
                         </label>
@@ -436,6 +447,7 @@
                     <p style="margin-bottom: 16px; font-size: 0.9rem; color: var(--trusta-text-muted);">Gunakan menu khusus "Penyetuju Transaksi" untuk mengatur struktur hierarki approval secara detail.</p>
                     <div class="pref-form-group">
                         <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
+                            <input type="hidden" name="notify_approver" value="0" />
                             <input type="checkbox" name="notify_approver" value="1" {{ old('notify_approver', $company->notify_approver) ? 'checked' : '' }} style="margin-right: 12px; width: 16px; height: 16px;" />
                             <span>Kirim notifikasi email kepada Penyetuju saat ada transaksi baru</span>
                         </label>

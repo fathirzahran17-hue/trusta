@@ -45,6 +45,10 @@
                         <p class="text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">Status Pembayaran</p>
                         @if($sales_invoice->status == 'paid')
                             <span class="inline-block bg-green-100 text-green-700 font-bold px-3 py-1 rounded">LUNAS</span>
+                        @elseif($sales_invoice->status == 'partial')
+                            <span class="inline-block bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded">DIBAYAR SEBAGIAN</span>
+                        @elseif($sales_invoice->status == 'void')
+                            <span class="inline-block bg-gray-200 text-gray-700 font-bold px-3 py-1 rounded">DIBATALKAN</span>
                         @else
                             <span class="inline-block bg-orange-100 text-orange-700 font-bold px-3 py-1 rounded">BELUM LUNAS</span>
                         @endif
@@ -167,6 +171,7 @@
         </div>
     </div>
     <div class="max-w-4xl mx-auto mt-6">
+        @include('partials.invoice-payment-panel', ['invoice' => $sales_invoice, 'kind' => 'sales'])
         @include('partials.related-docs', ['groups' => \App\Services\DocumentLinker::relatedForSalesInvoice($sales_invoice)])
     </div>
 </x-app-layout>

@@ -53,7 +53,7 @@ class DeliveryOrderController extends Controller
         $deliveryNumber = 'DO-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             
         // Dari tombol "Buat Pengiriman" pada Pesanan Penjualan: isi pelanggan & baris barang otomatis
-        $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder($request->sales_order_id, $companyId);
+        $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder($request->sales_order_id, $companyId, 'fulfilled');
         $goodsIds = $products->pluck('id')->all();
         $prefill['rows'] = array_values(array_filter($prefill['rows'], fn ($r) => in_array($r['product_id'], $goodsIds)));
         if ($prefill['order'] && !$salesOrders->contains('id', $prefill['order']->id)) {
@@ -111,6 +111,28 @@ class DeliveryOrderController extends Controller
             'quantities.*' => 'required|numeric|min:0.01',
         ]);
 
+        $companyId = auth()->user()->company_id;
+        $requested = \App\Services\OrderProgress::requested($request->products, $request->quantities);
+        $so = $request->sales_order_id ? SalesOrder::where('company_id', $companyId)->find($request->sales_order_id) : null;
+        if ($request->sales_order_id && !$so) {
+            return back()->withInput()->with('error', 'Pesanan Penjualan tidak ditemukan.');
+        }
+        try {
+            if ($so) {
+                \App\Services\OrderProgress::assertWithinRemaining(\App\Services\OrderProgress::forSalesOrder($so), 'fulfilled', $requested, 'pengiriman');
+            }
+            if ($request->status == 'shipped') {
+                foreach ($requested as $pid => $qty) {
+                    $p = Product::where('company_id', $companyId)->find($pid);
+                    if ($p && $p->type === 'goods' && $p->stock + 0.0001 < $qty) {
+                        throw new \DomainException("Stok {$p->name} tidak cukup (tersedia " . (float) $p->stock . ", diminta " . (float) $qty . ').');
+                    }
+                }
+            }
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
         try {
             DB::beginTransaction();
 
@@ -119,7 +141,7 @@ class DeliveryOrderController extends Controller
             $deliveryOrder = DeliveryOrder::create([
                 'company_id' => $companyId,
                 'customer_id' => $request->customer_id,
-                'sales_order_id' => $request->sales_order_id,
+                'sales_order_id' => $so?->id,
                 'delivery_number' => $request->delivery_number,
                 'delivery_date' => $request->delivery_date,
                 'driver_name' => $request->driver_name,
@@ -169,6 +191,9 @@ class DeliveryOrderController extends Controller
             }
 
             DB::commit();
+            if ($so) {
+                \App\Services\OrderProgress::syncSalesOrder($so->fresh());
+            }
             return redirect()->route('client.sales.deliveries')->with('success', 'Pengiriman Pesanan berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();

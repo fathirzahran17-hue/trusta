@@ -5,6 +5,7 @@
     <div class="mb-6 flex flex-wrap gap-3 justify-between items-center no-print">
         <a href="{{ $backUrl }}" class="text-trusta-teal hover:underline flex items-center text-sm">&larr; Kembali ke {{ $backLabel }}</a>
         <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="window.print()" class="px-4 py-2 border border-gray-600 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors">Cetak</button>
             @foreach($actions as $a)
                 <a href="{{ $a['url'] }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors">{{ $a['label'] }}</a>
             @endforeach
@@ -64,6 +65,35 @@
                     </table>
                 </div>
             </div>
+
+            @if(!empty($progress))
+            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-xl overflow-hidden">
+                <div class="px-6 pt-5 text-sm font-semibold text-gray-200">Progres Pesanan</div>
+                <div class="p-6 overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="text-gray-400">
+                                <th class="border-b border-gray-700 p-3">Produk / Jasa</th>
+                                <th class="border-b border-gray-700 p-3 text-right">Dipesan</th>
+                                <th class="border-b border-gray-700 p-3 text-right">{{ $progress['fulfilledLabel'] }}</th>
+                                <th class="border-b border-gray-700 p-3 text-right">Ditagih</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($progress['rows'] as $r)
+                                @php $fmt = fn($n) => rtrim(rtrim(number_format($n, 2, ',', '.'), '0'), ','); @endphp
+                                <tr>
+                                    <td class="border-b border-gray-700 p-3 text-white">{{ $r['name'] }}</td>
+                                    <td class="border-b border-gray-700 p-3 text-right tabular-nums">{{ $fmt($r['ordered']) }}</td>
+                                    <td class="border-b border-gray-700 p-3 text-right tabular-nums {{ !$r['is_goods'] ? 'text-gray-500' : ($r['fulfilled'] + 0.0001 >= $r['ordered'] ? 'text-green-400' : 'text-yellow-400') }}">{{ $r['is_goods'] ? $fmt($r['fulfilled']) : '-' }}</td>
+                                    <td class="border-b border-gray-700 p-3 text-right tabular-nums {{ $r['invoiced'] + 0.0001 >= $r['ordered'] ? 'text-green-400' : 'text-yellow-400' }}">{{ $fmt($r['invoiced']) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
         </div>
 
         <div>

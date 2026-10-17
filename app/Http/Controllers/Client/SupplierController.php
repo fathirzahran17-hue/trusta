@@ -27,7 +27,7 @@ class SupplierController extends Controller
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'tax_address' => 'nullable|string',
-            'npwp' => 'nullable|string|max:50',
+            'npwp' => 'nullable|string|max:30',
             'default_term_days' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
         ]);
@@ -63,7 +63,7 @@ class SupplierController extends Controller
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'tax_address' => 'nullable|string',
-            'npwp' => 'nullable|string|max:50',
+            'npwp' => 'nullable|string|max:30',
             'default_term_days' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
         ]);
@@ -130,7 +130,7 @@ class SupplierController extends Controller
                     $invoice->invoice_number,
                     $invoice->due_date,
                     $invoice->status,
-                    $invoice->grand_total,
+                    $invoice->total,
                     $invoice->amount_due,
                 ];
             }

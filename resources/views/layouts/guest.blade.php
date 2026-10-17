@@ -17,8 +17,48 @@
         <!-- Scripts (Alpine.js sudah dibundel di app.js) -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="guest-body font-sans text-gray-900 antialiased bg-[#0F172A]">
+    <body class="guest-body font-sans antialiased">
         @include('partials.theme-toggle', ['floating' => true])
-        {{ $slot }}
+
+        <div class="auth-shell">
+            <aside class="auth-brand">
+                <div class="auth-brand-inner">
+                    <div>
+                        <div class="auth-logo">TRUST<span>A</span></div>
+                        <div class="auth-logo-line"></div>
+                        <div class="auth-tagline">Trusted Accounting Solution</div>
+
+                        <h2 class="auth-headline">Pembukuan yang rapi, dari pesanan sampai laporan.</h2>
+                        <p class="auth-lead">Satu tempat untuk penjualan, pembelian, persediaan, kas &amp; bank, hingga laporan keuangan. Semua saling terhubung.</p>
+
+                        <ul class="auth-points">
+                            <li>
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                Pesanan, pengiriman, faktur, dan pembayaran tertaut otomatis
+                            </li>
+                            <li>
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                Jurnal akuntansi dibuat otomatis dari setiap transaksi
+                            </li>
+                            <li>
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                Laporan laba rugi, neraca, dan umur piutang siap pakai
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="auth-brand-foot">&copy; {{ date('Y') }} TRUSTA. Trusted Accounting Solution.</div>
+                </div>
+            </aside>
+
+            <main class="auth-main">
+                <div class="auth-mobile-brand">
+                    <div class="auth-logo">TRUST<span>A</span></div>
+                    <div class="auth-tagline" style="margin-top:6px;">Trusted Accounting Solution</div>
+                </div>
+                <div class="auth-card">
+                    {{ $slot }}
+                </div>
+            </main>
+        </div>
     </body>
 </html>
