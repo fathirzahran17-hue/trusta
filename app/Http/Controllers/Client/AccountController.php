@@ -31,7 +31,9 @@ class AccountController extends Controller
             ->orderBy('code', 'asc')
             ->get();
             
-        return view('client.accounts.beginning_balance', compact('accounts'));
+        $opening = \App\Services\OpeningBalanceService::current($companyId);
+
+        return view('client.accounts.beginning_balance', compact('accounts', 'opening'));
     }
 
     public function storeBeginningBalance(Request $request)
@@ -45,106 +47,16 @@ class AccountController extends Controller
         ]);
 
         try {
-            \Illuminate\Support\Facades\DB::beginTransaction();
-
-            $totalDebit = 0;
-            $totalCredit = 0;
-
-            // Cari jurnal saldo awal yang sudah ada (jika pernah diinput)
-            $existingJournal = \App\Models\Journal::where('company_id', $companyId)
-                ->where('description', 'like', '%Saldo Awal%')
-                ->first();
-
-            if ($existingJournal) {
-                $existingJournal->details()->delete(); // Hapus detail lama
-                $journal = $existingJournal;
-                $journal->update([
-                    'transaction_date' => $request->date,
-                    'updated_by' => auth()->id()
-                ]);
-            } else {
-                $journal = \App\Models\Journal::create([
-                    'company_id' => $companyId,
-                    'ref_number' => 'JV-OB-' . time(),
-                    'type' => 'general',
-                    'transaction_date' => $request->date,
-                    'description' => 'Saldo Awal Sistem',
-                    'status' => 'posted',
-                    'created_by' => auth()->id(),
-                ]);
-            }
-
-            foreach ($request->balances as $accountId => $balance) {
-                if ($balance == 0) continue; // Skip jika 0
-
-                $account = Account::find($accountId);
-                if (!$account || $account->company_id != $companyId) continue;
-                
-                // Update kolom opening_balance di master account
-                $account->update(['opening_balance' => $balance]);
-
-                $debit = 0;
-                $credit = 0;
-
-                // Saldo normal
-                if ($account->normal_balance == 'debit') {
-                    if ($balance > 0) { $debit = $balance; } else { $credit = abs($balance); }
-                } else {
-                    if ($balance > 0) { $credit = $balance; } else { $debit = abs($balance); }
+            \Illuminate\Support\Facades\DB::transaction(function () use ($request, $companyId) {
+                $valid = Account::where('company_id', $companyId)->pluck('id')->flip();
+                $overrides = [];
+                foreach ($request->balances as $accountId => $balance) {
+                    if ($valid->has((int) $accountId)) $overrides[(int) $accountId] = (float) $balance;
                 }
-
-                $totalDebit += $debit;
-                $totalCredit += $credit;
-
-                \App\Models\JournalDetail::create([
-                    'journal_id' => $journal->id,
-                    'account_id' => $account->id,
-                    'description' => 'Saldo Awal ' . $account->name,
-                    'debit' => $debit,
-                    'credit' => $credit,
-                ]);
-            }
-
-            // Jika tidak balance, tampung selisihnya di Opening Balance Equity (Ekuitas Saldo Awal)
-            $difference = $totalDebit - $totalCredit;
-            
-            if ($difference != 0) {
-                $equityAccount = Account::where('company_id', $companyId)->where('name', 'like', '%Ekuitas Saldo Awal%')->first();
-                if (!$equityAccount) {
-                    $equityAccount = Account::create([
-                        'company_id' => $companyId,
-                        'code' => '3-9999',
-                        'name' => 'Ekuitas Saldo Awal',
-                        'type' => 'equity',
-                        'normal_balance' => 'credit',
-                        'is_system' => true,
-                    ]);
-                }
-
-                $debit = 0;
-                $credit = 0;
-
-                if ($difference > 0) {
-                    // Debit > Credit -> Kita perlu menambah Credit agar balance
-                    $credit = $difference;
-                } else {
-                    $debit = abs($difference);
-                }
-
-                \App\Models\JournalDetail::create([
-                    'journal_id' => $journal->id,
-                    'account_id' => $equityAccount->id,
-                    'description' => 'Penyeimbang Saldo Awal',
-                    'debit' => $debit,
-                    'credit' => $credit,
-                ]);
-            }
-
-            \Illuminate\Support\Facades\DB::commit();
+                \App\Services\OpeningBalanceService::set($companyId, $request->date, $overrides, auth()->id());
+            });
             return redirect()->route('client.accounts.index')->with('success', 'Saldo Awal berhasil disimpan dan dijurnal secara otomatis.');
-
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\DB::rollBack();
             return back()->with('error', 'Gagal menyimpan saldo awal: ' . $e->getMessage());
         }
     }
@@ -177,18 +89,24 @@ class AccountController extends Controller
             return back()->with('error', 'Kode Akun sudah digunakan!')->withInput();
         }
 
-        Account::create([
+        $account = Account::create([
             'company_id' => auth()->user()->company_id,
             'parent_id' => $request->parent_id,
             'code' => $request->code,
             'name' => $request->name,
             'type' => $request->type,
             'normal_balance' => $request->normal_balance,
-            'opening_balance' => $request->opening_balance ?? 0,
+            'opening_balance' => 0,
             'is_active' => $request->has('is_active') ? $request->is_active : true,
             'is_cash_bank' => $request->has('is_cash_bank'),
             'is_system' => false,
         ]);
+
+        if ((float) $request->opening_balance != 0.0) {
+            $cid = auth()->user()->company_id;
+            $date = \App\Services\OpeningBalanceService::journal($cid)?->transaction_date?->toDateString() ?? now()->toDateString();
+            \App\Services\OpeningBalanceService::set($cid, $date, [$account->id => (float) $request->opening_balance], auth()->id());
+        }
 
         return redirect()->route('client.accounts.index')->with('success', 'Akun berhasil ditambahkan.');
     }
@@ -197,6 +115,7 @@ class AccountController extends Controller
     {
         if ($account->company_id !== auth()->user()->company_id) abort(403);
         $parents = Account::where('company_id', auth()->user()->company_id)->where('id', '!=', $account->id)->orderBy('code', 'asc')->get();
+        $account->opening_balance = \App\Services\OpeningBalanceService::current($account->company_id)[$account->id] ?? $account->opening_balance;
         return view('client.accounts.edit', compact('account', 'parents'));
     }
 
@@ -226,12 +145,18 @@ class AccountController extends Controller
                 if ($exists) return back()->with('error', 'Kode Akun sudah digunakan!')->withInput();
                 $data['code'] = $request->code;
             }
-            if ($request->has('opening_balance')) {
-                $data['opening_balance'] = $request->opening_balance;
-            }
         }
 
         $account->update($data);
+
+        if (!$account->is_system && $request->has('opening_balance')) {
+            $cid = auth()->user()->company_id;
+            $current = \App\Services\OpeningBalanceService::current($cid)[$account->id] ?? (float) $account->opening_balance;
+            if (abs((float) $request->opening_balance - $current) >= 0.005) {
+                $date = \App\Services\OpeningBalanceService::journal($cid)?->transaction_date?->toDateString() ?? now()->toDateString();
+                \App\Services\OpeningBalanceService::set($cid, $date, [$account->id => (float) $request->opening_balance], auth()->id());
+            }
+        }
         return redirect()->route('client.accounts.index')->with('success', 'Akun berhasil diperbarui.');
     }
 

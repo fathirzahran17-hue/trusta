@@ -260,4 +260,29 @@ class DocumentFlowTest extends TestCase
         $this->get('/client/reports/profit-loss?export=pdf')->assertSee('print-logo', false);
         @unlink(public_path($company->logo_path));
     }
+
+    public function test_opening_balance_is_counted_once_and_balances(): void
+    {
+        $this->post('/client/accounts/beginning-balance', ['date' => date('Y-m-d'), 'balances' => [$this->cash->id => 100000000]])->assertSessionHas('success');
+        $this->assertEquals(100000000, $this->cash->fresh()->balance, 'saldo awal tidak boleh terhitung dua kali');
+        // simpan ulang tidak menggandakan
+        $this->post('/client/accounts/beginning-balance', ['date' => date('Y-m-d'), 'balances' => [$this->cash->id => 100000000]]);
+        $this->assertEquals(100000000, $this->cash->fresh()->balance);
+
+        $po = $this->createPurchaseAndReceive(25);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-1',
+            'invoice_date' => date('Y-m-d'), 'due_date' => date('Y-m-d'), 'products' => [$this->product->id], 'quantities' => [25], 'prices' => [10000], 'discounts' => [0]]);
+        $pi = PurchaseInvoice::firstOrFail();
+        $this->post("/client/purchase-invoices/{$pi->id}/payments", ['account_id' => $this->cash->id, 'amount' => $pi->total, 'payment_date' => date('Y-m-d')]);
+
+        $inv = Account::where('company_id', $this->user->company_id)->where('name', 'like', 'Persediaan Barang%')->first();
+        $this->assertEquals(99750000, $this->cash->fresh()->balance);
+        $this->assertEquals(250000, $inv->fresh()->balance);
+        $this->get('/client/reports/balance-sheet')->assertSee('Neraca seimbang');
+        $this->get('/client/reports/trial-balance')->assertSee('Seimbang');
+
+        // ubah lewat form akun juga tidak menggandakan
+        $this->put("/client/accounts/{$this->cash->id}", ['name' => $this->cash->name, 'type' => 'asset', 'normal_balance' => 'debit', 'opening_balance' => 50000000]);
+        $this->assertEquals(49750000, $this->cash->fresh()->balance);
+    }
 }
