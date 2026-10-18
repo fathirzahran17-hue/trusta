@@ -336,19 +336,4 @@ class SalesInvoiceController extends Controller
         return view('client.sales_invoices.show', compact('sales_invoice'));
     }
 
-
-
-
-    public function salesReceipts()
-    {
-        $companyId = auth()->user()->company_id;
-        $receipts = \App\Models\Journal::where('company_id', $companyId)
-            ->where('ref_number', 'like', 'RC-%')
-            ->with('details.account')
-            ->orderBy('transaction_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(20);
-        return view('client.sales_invoices.sales_receipts', compact('receipts'));
-    }
-
 }

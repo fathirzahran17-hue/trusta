@@ -20,8 +20,21 @@ class Account extends Model
 
     protected static function booted(): void
     {
+        // Akun aset bernama Kas.../Bank... otomatis ditandai kas/bank agar bisa dipakai di Penerimaan/Pembayaran
+        static::creating(function (Account $a) {
+            if (!$a->is_cash_bank && self::nameLooksLikeCashBank((string) $a->name, (string) $a->type)) {
+                $a->is_cash_bank = true;
+            }
+        });
         static::saved(fn () => self::$parentIdCache = null);
         static::deleted(fn () => self::$parentIdCache = null);
+    }
+
+    public static function nameLooksLikeCashBank(string $name, string $type): bool
+    {
+        return $type === 'asset'
+            && preg_match('/^(kas|bank)\b/i', trim($name)) === 1
+            && !preg_match('/(&|\bdan\b|\bsetara\b)/i', $name);
     }
 
     public function getIsHeaderAttribute(): bool

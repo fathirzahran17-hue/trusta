@@ -30,98 +30,177 @@ class InvoicePaymentService
         return $prefix . date('Ym', strtotime($date)) . '-' . str_pad($next, 4, '0', STR_PAD_LEFT);
     }
 
-    private static function refreshStatus($invoice): void
+    /** Terapkan perubahan jumlah dibayar secara inkremental (aman terhadap retur yang sudah mengurangi sisa tagihan). */
+    private static function applyPaid($invoice, float $delta): void
     {
-        $paid = round((float) $invoice->amount_paid, 2);
-        $total = round((float) $invoice->total, 2);
-        $invoice->amount_due = max(0, round($total - $paid, 2));
-        $invoice->status = $invoice->amount_due <= 0 ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid');
+        $paid = max(0, round((float) $invoice->amount_paid + $delta, 2));
+        $due = max(0, round((float) $invoice->amount_due - $delta, 2));
+        if ($due <= 0.004) {
+            $due = 0;
+        }
+        $invoice->amount_paid = $paid;
+        $invoice->amount_due = $due;
+        $invoice->status = $due <= 0 ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid');
         $invoice->save();
     }
 
-    /** Catat pembayaran dari pelanggan. */
+    /** Catat pembayaran dari pelanggan untuk satu faktur. */
     public static function paySales(SalesInvoice $inv, int $accountId, float $amount, string $date, ?string $notes, int $userId): InvoicePayment
     {
-        return self::pay($inv, 'sales', $accountId, $amount, $date, $notes, $userId);
+        return self::payMany('sales', (int) $inv->company_id, (int) $inv->customer_id, [$inv->id => $amount], $accountId, $date, $notes, $userId)[0];
     }
 
-    /** Catat pembayaran ke pemasok. */
+    /** Catat pembayaran ke pemasok untuk satu faktur. */
     public static function payPurchase(PurchaseInvoice $inv, int $accountId, float $amount, string $date, ?string $notes, int $userId): InvoicePayment
     {
-        return self::pay($inv, 'purchase', $accountId, $amount, $date, $notes, $userId);
+        return self::payMany('purchase', (int) $inv->company_id, (int) $inv->supplier_id, [$inv->id => $amount], $accountId, $date, $notes, $userId)[0];
     }
 
-    private static function pay($inv, string $kind, int $accountId, float $amount, string $date, ?string $notes, int $userId): InvoicePayment
+    /**
+     * Satu penerimaan/pembayaran yang dialokasikan ke beberapa faktur milik SATU pelanggan/pemasok.
+     * Menghasilkan satu jurnal (Kas vs Piutang/Hutang per faktur) dan satu baris pembayaran per faktur.
+     *
+     * @param array<int,float|string> $allocations [id faktur => jumlah]
+     * @return InvoicePayment[]
+     */
+    public static function payMany(string $kind, int $companyId, int $partyId, array $allocations, int $accountId, string $date, ?string $notes, int $userId): array
     {
-        $companyId = (int) $inv->company_id;
-
-        if ($inv->status === 'void') {
-            throw new \DomainException('Faktur yang sudah dibatalkan tidak dapat dibayar.');
-        }
-        $amount = round($amount, 2);
-        if ($amount <= 0) {
-            throw new \DomainException('Jumlah pembayaran harus lebih dari nol.');
-        }
-        if ($amount > round((float) $inv->amount_due, 2) + 0.001) {
-            throw new \DomainException('Jumlah pembayaran melebihi sisa tagihan (Rp ' . number_format($inv->amount_due, 0, ',', '.') . ').');
+        $allocations = array_filter(array_map(fn ($v) => round((float) $v, 2), $allocations), fn ($v) => $v > 0);
+        if (!$allocations) {
+            throw new \DomainException('Pilih minimal satu faktur dan isi jumlah yang dibayar.');
         }
 
         $cash = Account::where('company_id', $companyId)->where('is_cash_bank', true)->find($accountId);
         if (!$cash) {
             throw new \DomainException('Akun kas/bank tidak valid.');
         }
-
         $counter = $kind === 'sales' ? AccountResolver::receivable($companyId) : AccountResolver::payable($companyId);
         if (!$counter) {
             throw new \DomainException($kind === 'sales' ? 'Akun Piutang belum disiapkan di COA.' : 'Akun Hutang belum disiapkan di COA.');
         }
 
-        return DB::transaction(function () use ($inv, $kind, $cash, $counter, $amount, $date, $notes, $userId, $companyId) {
-            $prefix = $kind === 'sales' ? 'RC-' : 'SP-';
-            $ref = self::nextRef($companyId, $prefix, $date);
-            $party = $kind === 'sales' ? optional($inv->customer)->name : optional($inv->supplier)->name;
+        return DB::transaction(function () use ($kind, $companyId, $partyId, $allocations, $cash, $counter, $date, $notes, $userId) {
+            $model = $kind === 'sales' ? SalesInvoice::class : PurchaseInvoice::class;
+            $partyCol = $kind === 'sales' ? 'customer_id' : 'supplier_id';
+
+            // kunci baris faktur agar dua pembayaran bersamaan tidak melebihi sisa tagihan
+            $invoices = $model::where('company_id', $companyId)->whereIn('id', array_keys($allocations))->lockForUpdate()->get()->keyBy('id');
+
+            foreach ($allocations as $id => $amount) {
+                $inv = $invoices->get($id);
+                if (!$inv) {
+                    throw new \DomainException('Faktur tidak ditemukan.');
+                }
+                if ((int) $inv->{$partyCol} !== $partyId) {
+                    throw new \DomainException('Faktur ' . $inv->invoice_number . ' bukan milik ' . ($kind === 'sales' ? 'pelanggan' : 'pemasok') . ' yang dipilih.');
+                }
+                if ($inv->status === 'void') {
+                    throw new \DomainException('Faktur ' . $inv->invoice_number . ' sudah dibatalkan dan tidak dapat dibayar.');
+                }
+                if ($amount > round((float) $inv->amount_due, 2) + 0.001) {
+                    throw new \DomainException('Jumlah untuk faktur ' . $inv->invoice_number . ' melebihi sisa tagihan (Rp ' . number_format($inv->amount_due, 0, ',', '.') . ').');
+                }
+            }
+
+            $total = round(array_sum($allocations), 2);
+            $ref = self::nextRef($companyId, $kind === 'sales' ? 'RC-' : 'SP-', $date);
+            $first = $invoices->first();
+            $party = $kind === 'sales' ? optional($first->customer)->name : optional($first->supplier)->name;
+            $numbers = $invoices->pluck('invoice_number')->implode(', ');
 
             $journal = Journal::create([
                 'company_id' => $companyId,
                 'ref_number' => $ref,
                 'type' => 'auto_cash',
                 'transaction_date' => $date,
-                'description' => ($kind === 'sales' ? 'Pembayaran faktur ' : 'Pembayaran hutang faktur ') . $inv->invoice_number . ($party ? ' - ' . $party : ''),
+                'description' => ($kind === 'sales' ? 'Penerimaan pembayaran ' : 'Pembayaran hutang ') . $numbers . ($party ? ' - ' . $party : ''),
                 'status' => 'posted',
                 'created_by' => $userId,
             ]);
 
-            // Penjualan: Dr Kas, Cr Piutang. Pembelian: Dr Hutang, Cr Kas.
-            $lines = $kind === 'sales'
-                ? [[$cash->id, $amount, 0], [$counter->id, 0, $amount]]
-                : [[$counter->id, $amount, 0], [$cash->id, 0, $amount]];
-            foreach ($lines as [$accId, $debit, $credit]) {
+            // Penjualan: Dr Kas (total), Cr Piutang per faktur. Pembelian: Dr Hutang per faktur, Cr Kas (total).
+            JournalDetail::create([
+                'journal_id' => $journal->id, 'account_id' => $cash->id,
+                'debit' => $kind === 'sales' ? $total : 0, 'credit' => $kind === 'sales' ? 0 : $total,
+                'description' => ($kind === 'sales' ? 'Diterima dari ' : 'Dibayar kepada ') . ($party ?: '-'),
+            ]);
+            foreach ($allocations as $id => $amount) {
                 JournalDetail::create([
-                    'journal_id' => $journal->id,
-                    'account_id' => $accId,
-                    'debit' => $debit,
-                    'credit' => $credit,
-                    'description' => 'Pembayaran ' . $inv->invoice_number,
+                    'journal_id' => $journal->id, 'account_id' => $counter->id,
+                    'debit' => $kind === 'sales' ? 0 : $amount, 'credit' => $kind === 'sales' ? $amount : 0,
+                    'description' => 'Pelunasan ' . $invoices[$id]->invoice_number,
                 ]);
             }
+            JournalGuard::assertBalanced($journal);
 
-            $payment = InvoicePayment::create([
-                'company_id' => $companyId,
-                'sales_invoice_id' => $kind === 'sales' ? $inv->id : null,
-                'purchase_invoice_id' => $kind === 'purchase' ? $inv->id : null,
-                'payment_number' => $ref,
-                'payment_date' => $date,
-                'account_id' => $cash->id,
-                'amount' => $amount,
-                'notes' => $notes,
-                'journal_id' => $journal->id,
-                'created_by' => $userId,
-            ]);
+            $payments = [];
+            foreach ($allocations as $id => $amount) {
+                $inv = $invoices[$id];
+                $payments[] = InvoicePayment::create([
+                    'company_id' => $companyId,
+                    'sales_invoice_id' => $kind === 'sales' ? $id : null,
+                    'purchase_invoice_id' => $kind === 'purchase' ? $id : null,
+                    'payment_number' => $ref,
+                    'payment_date' => $date,
+                    'account_id' => $cash->id,
+                    'amount' => $amount,
+                    'notes' => $notes,
+                    'journal_id' => $journal->id,
+                    'created_by' => $userId,
+                ]);
+                self::applyPaid($inv, $amount);
+            }
 
-            $inv->amount_paid = round((float) $inv->amount_paid + $amount, 2);
-            self::refreshStatus($inv);
+            return $payments;
+        });
+    }
 
-            return $payment;
+    /**
+     * Batalkan satu penerimaan/pembayaran (seluruh alokasi pada jurnal yang sama):
+     * jurnal balik dibuat, sisa tagihan faktur dipulihkan, riwayat tetap tersimpan sebagai "dibatalkan".
+     */
+    public static function voidPayment(InvoicePayment $payment, int $userId): void
+    {
+        if ($payment->voided_at) {
+            throw new \DomainException('Pembayaran ini sudah dibatalkan.');
+        }
+
+        DB::transaction(function () use ($payment, $userId) {
+            $group = InvoicePayment::where('company_id', $payment->company_id)
+                ->whereNull('voided_at')
+                ->when($payment->journal_id, fn ($q) => $q->where('journal_id', $payment->journal_id), fn ($q) => $q->where('id', $payment->id))
+                ->lockForUpdate()->get();
+
+            $orig = $payment->journal_id ? Journal::with('details')->find($payment->journal_id) : null;
+            if ($orig) {
+                $rev = Journal::create([
+                    'company_id' => $payment->company_id,
+                    'ref_number' => self::nextRef((int) $payment->company_id, 'VOID-', now()->format('Y-m-d')),
+                    'type' => $orig->type,
+                    'transaction_date' => now()->format('Y-m-d'),
+                    'description' => 'Pembatalan ' . $orig->ref_number,
+                    'status' => 'posted',
+                    'created_by' => $userId,
+                ]);
+                foreach ($orig->details as $d) {
+                    JournalDetail::create([
+                        'journal_id' => $rev->id, 'account_id' => $d->account_id,
+                        'debit' => $d->credit, 'credit' => $d->debit,
+                        'description' => 'Balik: ' . $d->description,
+                    ]);
+                }
+                JournalGuard::assertBalanced($rev);
+            }
+
+            foreach ($group as $p) {
+                $inv = $p->sales_invoice_id ? SalesInvoice::find($p->sales_invoice_id) : PurchaseInvoice::find($p->purchase_invoice_id);
+                if ($inv && $inv->status !== 'void') {
+                    self::applyPaid($inv, -1 * (float) $p->amount);
+                }
+                $p->voided_at = now();
+                $p->voided_by = $userId;
+                $p->save();
+            }
         });
     }
 

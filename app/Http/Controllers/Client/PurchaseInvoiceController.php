@@ -271,20 +271,4 @@ class PurchaseInvoiceController extends Controller
         return view('client.purchase_invoices.show', compact('purchase_invoice'));
     }
 
-
-
-
-    public function purchasePayments()
-    {
-        $companyId = auth()->user()->company_id;
-        $payments = \App\Models\Journal::where('company_id', $companyId)
-            ->where('ref_number', 'like', 'SP-%')
-            ->with('details.account')
-            ->orderBy('transaction_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(20);
-        return view('client.purchase_invoices.purchase_payments', compact('payments'));
-    }
-
-
 }

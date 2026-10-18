@@ -369,4 +369,79 @@ class DocumentFlowTest extends TestCase
         $this->post('/client/fixed-assets/run-depreciation', ['date' => date('Y-m-t')]);
         $this->assertEquals(250000, $dep->fresh()->balance);
     }
+
+    public function test_settlement_flow_multi_invoice_receipt_partial_void_and_filters(): void
+    {
+        $cid = $this->user->company_id;
+        $today = date('Y-m-d');
+        $this->post('/client/accounts/beginning-balance', ['date' => $today, 'balances' => [$this->cash->id => 100000000]]);
+
+        $po = $this->createPurchaseAndReceive(10);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-9',
+            'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertSessionMissing('error');
+        foreach ([2, 3] as $q) {
+            $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => date('Y-m-d', strtotime('-10 days')), 'due_date' => date('Y-m-d', strtotime('-3 days')),
+                'products' => [$this->product->id], 'quantities' => [$q], 'prices' => [15000], 'discounts' => [0]])->assertSessionMissing('error');
+        }
+        [$a, $b] = SalesInvoice::orderBy('id')->get()->all();
+        $this->assertEquals([30000, 45000], [(float) $a->total, (float) $b->total]);
+
+        // halaman render
+        $this->get('/client/sales/receipts')->assertOk()->assertSee('Terima Pembayaran');
+        $this->get('/client/sales/settlement')->assertOk()->assertSee($a->invoice_number)->assertSee('Terlambat');
+        $this->get('/client/purchases/payments')->assertOk();
+        $this->get('/client/purchases/settlement?tab=all')->assertOk();
+        $this->get('/client/sales-invoices')->assertOk()->assertSee('Sisa');
+
+        // satu penerimaan untuk dua faktur: A lunas, B dicicil
+        $this->post('/client/sales/receipts', ['party_id' => $this->customer->id, 'account_id' => $this->cash->id, 'payment_date' => $today,
+            'alloc' => [$a->id => 30000, $b->id => 20000]])->assertSessionMissing('error')->assertSessionHas('success');
+        $this->assertEquals('paid', $a->fresh()->status);
+        $this->assertEquals('partial', $b->fresh()->status);
+        $this->assertEquals(25000, (float) $b->fresh()->amount_due);
+        $rc = \App\Models\InvoicePayment::where('sales_invoice_id', $a->id)->firstOrFail();
+        $this->assertEquals(2, \App\Models\InvoicePayment::where('journal_id', $rc->journal_id)->count());
+        $this->assertBooksBalanced();
+
+        // filter lunas / belum lunas
+        $this->get('/client/sales/settlement?tab=paid')->assertSee($a->invoice_number)->assertDontSee($b->invoice_number);
+        $this->get('/client/sales/settlement?tab=unpaid')->assertSee($b->invoice_number)->assertDontSee($a->invoice_number);
+
+        // kelebihan bayar & faktur milik pelanggan lain ditolak
+        $this->post('/client/sales/receipts', ['party_id' => $this->customer->id, 'account_id' => $this->cash->id, 'payment_date' => $today, 'alloc' => [$b->id => 30000]])->assertSessionHas('error');
+        $other = \App\Models\Customer::create(['company_id' => $cid, 'name' => 'Lain']);
+        $this->post('/client/sales/receipts', ['party_id' => $other->id, 'account_id' => $this->cash->id, 'payment_date' => $today, 'alloc' => [$b->id => 1000]])->assertSessionHas('error');
+
+        // batalkan penerimaan: kedua faktur kembali seperti semula
+        $this->post('/client/invoice-payments/' . $rc->id . '/void')->assertSessionHas('success');
+        $this->assertEquals('unpaid', $a->fresh()->status);
+        $this->assertEquals(30000, (float) $a->fresh()->amount_due);
+        $this->assertEquals('unpaid', $b->fresh()->status);
+        $this->assertEquals(45000, (float) $b->fresh()->amount_due);
+        $this->post('/client/invoice-payments/' . $rc->id . '/void')->assertSessionHas('error'); // tidak bisa dua kali
+        $this->assertBooksBalanced();
+
+        // retur lalu bayar sisanya: retur tidak boleh "hidup lagi"
+        $this->post('/client/sales/returns', ['customer_id' => $this->customer->id, 'sales_invoice_id' => $b->id, 'return_number' => 'SR-9',
+            'return_date' => $today, 'products' => [$this->product->id], 'quantities' => [1], 'prices' => [15000]])->assertSessionHas('success');
+        $this->assertEquals(30000, (float) $b->fresh()->amount_due);
+        $this->post('/client/sales/receipts', ['party_id' => $this->customer->id, 'account_id' => $this->cash->id, 'payment_date' => $today, 'alloc' => [$b->id => 10000]])->assertSessionHas('success');
+        $this->assertEquals(20000, (float) $b->fresh()->amount_due);
+        $this->post('/client/sales/receipts', ['party_id' => $this->customer->id, 'account_id' => $this->cash->id, 'payment_date' => $today, 'alloc' => [$b->id => 20000]])->assertSessionHas('success');
+        $this->assertEquals('paid', $b->fresh()->status);
+
+        // jurnal kas bebas ke akun Piutang ditolak (harus lewat menu penerimaan)
+        $ar = \App\Services\AccountResolver::receivable($cid);
+        $this->post('/client/cash-bank/receipts', ['receive_to' => $this->cash->id, 'transaction_date' => $today, 'description' => 'x',
+            'income_accounts' => [$ar->id], 'amounts' => [1000]])->assertSessionHas('error');
+
+        // pembelian: bayar faktur pemasok
+        $pi = PurchaseInvoice::firstOrFail();
+        $this->post('/client/purchases/payments', ['party_id' => $this->supplier->id, 'account_id' => $this->cash->id, 'payment_date' => $today, 'alloc' => [$pi->id => 40000]])->assertSessionHas('success');
+        $this->assertEquals('partial', $pi->fresh()->status);
+        $this->get('/client/purchases/settlement?tab=unpaid')->assertSee($pi->invoice_number);
+        $this->post('/client/purchases/payments', ['party_id' => $this->supplier->id, 'account_id' => $this->cash->id, 'payment_date' => $today, 'alloc' => [$pi->id => 60000]])->assertSessionHas('success');
+        $this->assertEquals('paid', $pi->fresh()->status);
+        $this->assertBooksBalanced();
+    }
 }
