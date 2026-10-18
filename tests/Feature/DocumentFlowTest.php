@@ -56,8 +56,8 @@ class DocumentFlowTest extends TestCase
         $this->customer = Customer::create(['company_id' => $company->id, 'name' => 'Pelanggan', 'default_term_days' => 30, 'is_active' => true]);
         $this->supplier = Supplier::create(['company_id' => $company->id, 'name' => 'Pemasok', 'default_term_days' => 30, 'is_active' => true]);
         $this->warehouse = Warehouse::create(['company_id' => $company->id, 'code' => 'WH1', 'name' => 'Gudang', 'is_active' => true]);
-        $rev = Account::where('company_id', $company->id)->where('type', 'revenue')->first();
-        $exp = Account::where('company_id', $company->id)->whereIn('type', ['cost_of_sales', 'expense'])->first();
+        $rev = Account::where('company_id', $company->id)->where('type', 'revenue')->where('name', 'Pendapatan Penjualan')->first();
+        $exp = Account::where('company_id', $company->id)->where('type', 'expense')->where('name', 'like', 'Biaya Transportasi%')->first();
         $this->product = Product::create(['company_id' => $company->id, 'name' => 'Barang', 'type' => 'goods', 'unit' => 'pcs',
             'sell_price' => 15000, 'buy_price' => 10000, 'is_active' => true, 'revenue_account_id' => $rev->id, 'expense_account_id' => $exp->id]);
 
@@ -284,5 +284,89 @@ class DocumentFlowTest extends TestCase
         // ubah lewat form akun juga tidak menggandakan
         $this->put("/client/accounts/{$this->cash->id}", ['name' => $this->cash->name, 'type' => 'asset', 'normal_balance' => 'debit', 'opening_balance' => 50000000]);
         $this->assertEquals(49750000, $this->cash->fresh()->balance);
+    }
+
+    private function assertBooksBalanced(): void
+    {
+        $this->get('/client/reports/trial-balance')->assertSee('Seimbang: total debit');
+        $this->get('/client/reports/balance-sheet')->assertSee('Neraca seimbang');
+    }
+
+    public function test_full_cycle_with_discount_tax_returns_and_advances_keeps_books_balanced(): void
+    {
+        $cid = $this->user->company_id;
+        $tax = \App\Models\Tax::create(['company_id' => $cid, 'name' => 'PPN 11%', 'rate' => 11, 'is_active' => true]); // tanpa akun terpilih -> dicari otomatis
+        $today = date('Y-m-d');
+
+        $this->post('/client/accounts/beginning-balance', ['date' => $today, 'balances' => [$this->cash->id => 100000000]]);
+
+        // Pembelian 10 pcs @10.000, diskon 10% + PPN 11%
+        $po = $this->createPurchaseAndReceive(10);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-1',
+            'invoice_date' => $today, 'due_date' => $today, 'discount_percent' => 10, 'tax_id' => $tax->id,
+            'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertSessionMissing('error');
+        $pi = PurchaseInvoice::firstOrFail();
+        $this->assertEquals(99900, (float) $pi->total); // 100.000 - 10% = 90.000 + 11% = 99.900
+        $this->assertBooksBalanced();
+
+        // Penjualan langsung 4 pcs @15.000, diskon 10%, PPN 11% -> stok keluar saat faktur
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'discount_percent' => 10, 'tax_id' => $tax->id,
+            'products' => [$this->product->id], 'quantities' => [4], 'prices' => [15000], 'discounts' => [0]])->assertSessionMissing('error');
+        $si = SalesInvoice::firstOrFail();
+        $this->assertEquals(59940, (float) $si->total); // 60.000 - 10% = 54.000 + 11% = 59.940
+        $this->assertEquals(6, $this->product->fresh()->stock);
+        $this->assertBooksBalanced();
+
+        // Stok tidak cukup ditolak
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [50], 'prices' => [15000], 'discounts' => [0]])->assertSessionHas('error');
+
+        // Retur penjualan 1 pcs: stok +1, sisa tagihan faktur berkurang (13.500 + 11% = 14.985)
+        $this->post('/client/sales/returns', ['customer_id' => $this->customer->id, 'sales_invoice_id' => $si->id, 'return_number' => 'SR-1',
+            'return_date' => $today, 'products' => [$this->product->id], 'quantities' => [1], 'prices' => [15000]])->assertSessionHas('success');
+        $this->assertEquals(7, $this->product->fresh()->stock);
+        $this->assertEquals(59940 - 14985, (float) $si->fresh()->amount_due);
+        // Retur berlebih ditolak
+        $this->post('/client/sales/returns', ['customer_id' => $this->customer->id, 'sales_invoice_id' => $si->id, 'return_number' => 'SR-2',
+            'return_date' => $today, 'products' => [$this->product->id], 'quantities' => [9], 'prices' => [15000]])->assertSessionHas('error');
+        $this->assertBooksBalanced();
+
+        // Retur pembelian 2 pcs: stok -2, hutang berkurang
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-1',
+            'return_date' => $today, 'products' => [$this->product->id], 'quantities' => [2], 'prices' => [10000]])->assertSessionHas('success');
+        $this->assertEquals(5, $this->product->fresh()->stock);
+        $this->assertEquals(99900 - 19980, (float) $pi->fresh()->amount_due);
+
+        // Uang muka tercatat sebagai kewajiban/aset, bukan mengurangi piutang/hutang
+        $this->post('/client/sales/down-payments', ['customer_id' => $this->customer->id, 'payment_number' => 'DP-S-1', 'payment_date' => $today, 'amount' => 1000000, 'account_id' => $this->cash->id])->assertSessionHas('success');
+        $this->post('/client/purchases/down-payments', ['supplier_id' => $this->supplier->id, 'payment_number' => 'DP-P-1', 'payment_date' => $today, 'amount' => 500000, 'account_id' => $this->cash->id])->assertSessionHas('success');
+        $advSales = Account::where('company_id', $cid)->where('name', 'Uang Muka Penjualan')->first();
+        $advPurch = Account::where('company_id', $cid)->where('name', 'Uang Muka Pembelian')->first();
+        $this->assertEquals(1000000, $advSales->fresh()->balance);
+        $this->assertEquals(500000, $advPurch->fresh()->balance);
+        $this->assertBooksBalanced();
+
+        // Laba rugi memuat HPP: laba kotor = pendapatan - HPP
+        $b = new \App\Services\Reports\ReportBuilder($cid);
+        $pl = $b->profitLoss(new \Illuminate\Http\Request());
+        $vals = collect($pl['summary'])->pluck('value', 'label');
+        $this->assertGreaterThan(0, $vals['Harga Pokok Penjualan']);
+        $this->get('/client/reports/profit-loss')->assertSee('LABA KOTOR');
+    }
+
+    public function test_depreciation_posts_balanced_journal_with_seeded_accounts(): void
+    {
+        $cid = $this->user->company_id;
+        \App\Models\FixedAsset::create(['company_id' => $cid, 'code' => 'FA-1', 'name' => 'Laptop', 'acquisition_date' => date('Y-m-d'),
+            'acquisition_cost' => 12000000, 'useful_life_months' => 48, 'salvage_value' => 0, 'depreciation_method' => 'straight_line',
+            'status' => 'aktif']);
+        $this->post('/client/fixed-assets/run-depreciation', ['date' => date('Y-m-t')])->assertSessionHas('success');
+        $dep = Account::where('company_id', $cid)->where('name', 'like', 'Biaya Penyusutan%')->first();
+        $this->assertEquals(250000, $dep->fresh()->balance);
+        $this->assertEquals(250000, (float) \App\Models\FixedAsset::first()->accumulated_depreciation);
+        // bulan yang sama tidak disusutkan dua kali
+        $this->post('/client/fixed-assets/run-depreciation', ['date' => date('Y-m-t')]);
+        $this->assertEquals(250000, $dep->fresh()->balance);
     }
 }

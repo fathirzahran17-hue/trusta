@@ -83,14 +83,13 @@ class PurchaseDownPaymentController extends Controller
                 'created_by' => auth()->id(),
             ]);
 
-            // Jurnal Pengeluaran Uang Muka (Debit Hutang, Credit Kas)
-            $cashAccount = Account::find($request->account_id);
-            $payableAccount = Account::where('company_id', $companyId)
-                ->where('type', 'liability')
-                ->where('name', 'like', '%Hutang Usaha%')
-                ->first();
+            // Jurnal Pengeluaran Uang Muka: Dr Uang Muka Pembelian (aset), Cr Kas/Bank
+            $cashAccount = Account::where('company_id', $companyId)->find($request->account_id);
+            $payableAccount = \App\Services\AccountResolver::purchaseAdvance($companyId);
+            if (!$cashAccount) throw new \Exception('Akun kas/bank tidak valid.');
+            if (!$payableAccount) throw new \Exception('Akun "Uang Muka Pembelian" belum ada di Bagan Akun.');
 
-            if ($cashAccount && $payableAccount) {
+            {
                 $journal = Journal::create([
                     'company_id' => $companyId,
                     'ref_number' => 'JV-DPP-' . time(),
@@ -119,6 +118,7 @@ class PurchaseDownPaymentController extends Controller
                     'credit' => $request->amount,
                 ]);
 
+                \App\Services\JournalGuard::assertBalanced($journal);
                 $downPayment->update(['journal_id' => $journal->id]);
             }
 

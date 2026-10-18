@@ -182,7 +182,8 @@ class PurchaseInvoiceController extends Controller
                 if (!isset($expenseGroups[$targetAccountId])) {
                     $expenseGroups[$targetAccountId] = 0;
                 }
-                $expenseGroups[$targetAccountId] += $item['total'];
+                // Diskon keseluruhan dibagi proporsional agar jurnal seimbang
+                $expenseGroups[$targetAccountId] += $item['total'] * (1 - $overallDiscPct / 100);
             }
             
             foreach ($expenseGroups as $accountId => $amount) {
@@ -196,10 +197,14 @@ class PurchaseInvoiceController extends Controller
             }
 
             // Baris 2: Pajak Pembelian (Debit) jika ada
-            if ($taxAmount > 0 && $taxModel && $taxModel->purchase_tax_account_id) {
+            if ($taxAmount > 0) {
+                $taxAcc = \App\Services\AccountResolver::inputTax(auth()->user()->company_id, $taxModel);
+                if (!$taxAcc) {
+                    throw new \Exception('Akun Pajak Masukan belum diatur untuk pajak "' . $taxModel->name . '". Atur di menu Pajak.');
+                }
                 \App\Models\JournalDetail::create([
                     'journal_id' => $journal->id,
-                    'account_id' => $taxModel->purchase_tax_account_id,
+                    'account_id' => $taxAcc->id,
                     'debit' => $taxAmount,
                     'credit' => 0,
                     'description' => 'Pajak Masukan ' . $taxModel->name,
@@ -243,6 +248,8 @@ class PurchaseInvoiceController extends Controller
                 $invoice->items()->create($item);
                 // Note: Mutasi stok fisik (InventoryMovement) sekarang HANYA ditangani oleh Penerimaan Barang (Item Receipt).
             }
+
+            \App\Services\JournalGuard::assertBalanced($journal);
 
             DB::commit();
             if ($po) {

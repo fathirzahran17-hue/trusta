@@ -178,7 +178,8 @@ class SalesInvoiceController extends Controller
                 if (!isset($revenueGroups[$prod->revenue_account_id])) {
                     $revenueGroups[$prod->revenue_account_id] = 0;
                 }
-                $revenueGroups[$prod->revenue_account_id] += $item['total'];
+                // Diskon keseluruhan dibagi proporsional ke pendapatan agar jurnal seimbang
+                $revenueGroups[$prod->revenue_account_id] += $item['total'] * (1 - $overallDiscPct / 100);
             }
             
             foreach ($revenueGroups as $accountId => $amount) {
@@ -192,10 +193,14 @@ class SalesInvoiceController extends Controller
             }
 
             // Baris 3: Pajak Penjualan (Kredit) jika ada
-            if ($taxAmount > 0 && $taxModel && $taxModel->sales_tax_account_id) {
+            if ($taxAmount > 0) {
+                $taxAcc = \App\Services\AccountResolver::outputTax(auth()->user()->company_id, $taxModel);
+                if (!$taxAcc) {
+                    throw new \Exception('Akun Pajak Keluaran belum diatur untuk pajak "' . $taxModel->name . '". Atur di menu Pajak.');
+                }
                 \App\Models\JournalDetail::create([
                     'journal_id' => $journal->id,
-                    'account_id' => $taxModel->sales_tax_account_id,
+                    'account_id' => $taxAcc->id,
                     'debit' => 0,
                     'credit' => $taxAmount,
                     'description' => 'Pajak Keluaran ' . $taxModel->name,
@@ -267,7 +272,19 @@ class SalesInvoiceController extends Controller
                     }
 
                     $totalCogs += $itemCogs;
-                    // Note: Mutasi stok fisik (InventoryMovement) sekarang HANYA ditangani oleh Surat Jalan (Delivery Order).
+
+                    // Faktur langsung (tanpa Pesanan/Surat Jalan): barang keluar saat faktur dibuat.
+                    // Bila dari Pesanan, stok sudah dikurangi oleh Surat Jalan.
+                    if (!$so) {
+                        if ((float) $prod->stock < (float) $item['quantity']) {
+                            throw new \Exception('Stok ' . $prod->name . ' tidak cukup (tersedia ' . (float) $prod->stock . ').');
+                        }
+                        \App\Models\InventoryMovement::create([
+                            'company_id' => auth()->user()->company_id, 'product_id' => $prod->id, 'date' => $request->invoice_date,
+                            'type' => 'out', 'quantity' => $item['quantity'], 'reference_type' => 'sales_invoice', 'reference_id' => $invoice->id,
+                            'notes' => 'Penjualan langsung ' . $invoiceNumber, 'created_by' => auth()->id(),
+                        ]);
+                    }
                 }
             }
 
@@ -296,6 +313,8 @@ class SalesInvoiceController extends Controller
                     ]);
                 }
             }
+
+            \App\Services\JournalGuard::assertBalanced($journal);
 
             DB::commit();
             if ($so) {

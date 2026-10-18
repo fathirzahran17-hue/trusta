@@ -166,10 +166,15 @@ class ItemReceiptController extends Controller
                 foreach ($request->products as $index => $productId) {
                     $qty = floatval($request->quantities[$index]);
                     $product = Product::find($productId);
-                    $price = $product->buy_price; // Harga beli baru yang diinput (sementara pakai harga master)
-                    // TODO: Jika form input Penerimaan memiliki harga beli sendiri, harusnya pakai harga form. 
-                    // Saat ini kita pakai harga standar produk.
-                    
+                    // Harga perolehan mengikuti Pesanan Pembelian (setelah diskon baris); tanpa PO pakai harga beli master
+                    $price = (float) $product->buy_price;
+                    if ($po) {
+                        $poItem = $po->items()->where('product_id', $productId)->first();
+                        if ($poItem) {
+                            $price = (float) $poItem->unit_price * (1 - (float) $poItem->discount_percent / 100);
+                        }
+                    }
+
                     if ($product->type === 'goods') {
                         // 1. Moving Average Calculation
                         $oldStock = $product->stock;

@@ -15,17 +15,25 @@ class Account extends Model
 
     protected $appends = ['is_header'];
 
+    /** Cache daftar id akun induk; direset setiap akun berubah supaya tidak basi (mis. di tes / proses panjang). */
+    private static ?array $parentIdCache = null;
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::$parentIdCache = null);
+        static::deleted(fn () => self::$parentIdCache = null);
+    }
+
     public function getIsHeaderAttribute(): bool
     {
-        static $parentIds = null;
-        if ($parentIds === null) {
-            $parentIds = self::whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
+        if (self::$parentIdCache === null) {
+            self::$parentIdCache = self::whereNotNull('parent_id')->pluck('parent_id')->unique()->flip()->all();
         }
-        
-        // Also if it has no parent and ends with -0000 it is definitively a root header
+
+        // Akun tanpa induk berkode -0000 selalu header utama
         $isRootHeader = (is_null($this->parent_id) && str_ends_with($this->code, '-0000'));
-        
-        return in_array($this->id, $parentIds) || $isRootHeader;
+
+        return isset(self::$parentIdCache[$this->id]) || $isRootHeader;
     }
 
     protected $casts = [
