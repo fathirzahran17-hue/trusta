@@ -41,13 +41,12 @@ class FixedAsset extends Model
     }
 
     /**
-     * Menghitung akumulasi penyusutan sampai saat ini
+     * Akumulasi penyusutan = yang benar-benar sudah dijurnal (kolom accumulated_depreciation),
+     * bukan perkiraan berdasarkan lama waktu, supaya sama dengan buku besar.
      */
     public function getAccumulatedDepreciationAttribute(): float
     {
-        $months = $this->acquisition_date->diffInMonths(Carbon::now());
-        $months = min($months, $this->useful_life_months); // Tidak melebihi umur manfaat
-        return round($this->monthly_depreciation * $months, 2);
+        return round((float) ($this->attributes['accumulated_depreciation'] ?? 0), 2);
     }
 
     /**

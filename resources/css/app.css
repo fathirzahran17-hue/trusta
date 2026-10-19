@@ -1067,3 +1067,53 @@ html.dark .rpt-note.good { color: #4ade80; } html.dark .rpt-note.bad { color: #f
 .company-badge-logo { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; background: #fff; flex-shrink: 0; }
 .pref-logo-preview { width: 64px; height: 64px; object-fit: contain; border-radius: 10px; border: 1px solid var(--border-strong); background: #fff; }
 .rpt-logo, .print-logo { max-height: 52px; max-width: 160px; object-fit: contain; margin: 0 auto 6px; display: block; }
+
+/* ===== Pelunasan faktur ===== */
+.st { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 20px; font-size: .66rem; font-weight: 700; letter-spacing: .02em; border: 1px solid transparent; white-space: nowrap; }
+.st-paid { background: rgba(21,128,61,.1); color: #15803d; border-color: rgba(21,128,61,.28); }
+.st-partial { background: rgba(180,83,9,.1); color: #b45309; border-color: rgba(180,83,9,.28); }
+.st-unpaid { background: rgba(37,99,235,.08); color: #1d4ed8; border-color: rgba(37,99,235,.25); }
+.st-late { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); margin-left: 4px; }
+.st-void { background: var(--hover-bg); color: var(--text-dim); border-color: var(--border-strong); text-decoration: line-through; }
+html.dark .st-paid { color: #4ade80; } html.dark .st-partial { color: #fbbf24; } html.dark .st-unpaid { color: #93c5fd; } html.dark .st-late { color: #f87171; }
+
+.pay-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 18px; overflow: hidden; }
+.pay-card-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 13px 18px; border-bottom: 1px solid var(--border); background: var(--hover-bg); }
+.pay-card-head h3 { font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-strong); margin: 0; }
+.pay-card-head .sub { font-size: .72rem; color: var(--text-dim); }
+.pay-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; padding: 16px 18px; }
+.pay-field label { display: block; font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); margin-bottom: 4px; }
+.pay-field input, .pay-field select { width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-strong); border-radius: 8px; padding: 8px 10px; font-size: .84rem; }
+.pay-scroll { overflow-x: auto; }
+.pay-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.pay-table th { text-align: left; font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); padding: 9px 12px; border-bottom: 2px solid var(--border-strong); background: var(--hover-bg); white-space: nowrap; }
+.pay-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.pay-table .r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pay-table .c { text-align: center; }
+.pay-table tr:hover td { background: var(--hover-bg); }
+.pay-table tr.picked td { background: var(--accent-soft); }
+.pay-table td.num a, .pay-table td a.lnk { color: var(--accent); font-weight: 600; text-decoration: none; }
+.pay-table td a.lnk:hover { text-decoration: underline; }
+.pay-table tfoot td { font-weight: 800; color: var(--text-strong); background: var(--hover-bg); border-top: 2px solid var(--border-strong); }
+.pay-amt { width: 150px; text-align: right; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-strong); border-radius: 7px; padding: 6px 8px; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.pay-amt:disabled { opacity: .45; }
+.pay-foot { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 14px 18px; border-top: 1px solid var(--border); }
+.pay-total { font-size: .8rem; color: var(--text-muted); } .pay-total b { font-size: 1.15rem; color: var(--text-strong); margin-left: 6px; font-variant-numeric: tabular-nums; }
+.pay-empty { padding: 34px 18px; text-align: center; color: var(--text-dim); font-size: .85rem; }
+.pay-mini { font-size: .72rem; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; font-weight: 600; display: inline-block; }
+.pay-mini:hover { background: var(--hover-bg); }
+.pay-mini.prim { background: var(--accent); border-color: var(--accent); color: #fff; } .pay-mini.prim:hover { background: var(--accent-hover); }
+.pay-mini.dng { color: var(--danger); border-color: var(--danger-border); }
+.pay-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.pay-tab { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 9px; font-size: .8rem; font-weight: 600; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); text-decoration: none; }
+.pay-tab:hover { background: var(--hover-bg); color: var(--text-strong); }
+.pay-tab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pay-tab .n { font-size: .68rem; padding: 1px 7px; border-radius: 10px; background: var(--hover-bg); color: var(--text-muted); }
+.pay-tab.on .n { background: rgba(255,255,255,.22); color: #fff; }
+.pay-bar { height: 5px; border-radius: 4px; background: var(--border); overflow: hidden; margin-top: 4px; min-width: 70px; }
+.pay-bar i { display: block; height: 100%; background: #15803d; }
+.pay-void-row td { opacity: .55; text-decoration: line-through; }
+.pay-flow { font-size: .72rem; color: var(--text-dim); margin: 0 0 14px; }
+.pay-table td { white-space: nowrap; }
+.pay-table td.wrap { white-space: normal; }
+.pay-table input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; accent-color: var(--accent); cursor: pointer; vertical-align: middle; }

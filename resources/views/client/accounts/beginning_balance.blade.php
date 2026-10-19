@@ -76,7 +76,7 @@
                             @else
                                 <input type="number"
                                     name="balances[{{ $account->id }}]"
-                                    value="{{ old('balances.'.$account->id, $account->opening_balance ?? 0) }}"
+                                    value="{{ old('balances.'.$account->id, $opening[$account->id] ?? $account->opening_balance ?? 0) }}"
                                     step="0.01" min="0"
                                     class="w-full bg-gray-900 border border-gray-700 text-white text-right rounded-lg px-3 py-1.5 text-sm focus:ring-trusta-teal focus:border-trusta-teal focus:bg-gray-800 transition-colors">
                             @endif

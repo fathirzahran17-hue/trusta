@@ -43,15 +43,7 @@ class SalesDownPaymentController extends Controller
             ->get();
             
         // Auto number
-        $lastDP = DownPayment::where('company_id', $companyId)
-            ->where('type', 'sales')
-            ->whereYear('payment_date', date('Y'))
-            ->whereMonth('payment_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastDP ? (intval(substr($lastDP->payment_number, -4)) + 1) : 1;
-        $paymentNumber = 'DP-S-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $paymentNumber = \App\Services\DocumentNumber::next(\App\Models\DownPayment::class, 'payment_number', 'DP-S-', (int) $companyId, null, fn($q) => $q->where('type', 'sales'));
             
         return view('client.sales_down_payments.create', compact('customers', 'salesOrders', 'accounts', 'paymentNumber'));
     }
@@ -59,6 +51,7 @@ class SalesDownPaymentController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'payment_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('down_payments', 'payment_number')],
             'customer_id' => 'required|exists:customers,id',
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:1',
@@ -83,14 +76,13 @@ class SalesDownPaymentController extends Controller
                 'created_by' => auth()->id(),
             ]);
 
-            // Jurnal Penerimaan Uang Muka (Debit Kas, Credit Piutang - sbg pengurang)
-            $cashAccount = Account::find($request->account_id);
-            $receivableAccount = Account::where('company_id', $companyId)
-                ->where('type', 'asset')
-                ->where('name', 'like', '%Piutang Usaha%')
-                ->first();
+            // Jurnal Penerimaan Uang Muka: Dr Kas/Bank, Cr Uang Muka Penjualan (kewajiban sampai dipakai pada faktur)
+            $cashAccount = Account::where('company_id', $companyId)->find($request->account_id);
+            $receivableAccount = \App\Services\AccountResolver::salesAdvance($companyId);
+            if (!$cashAccount) throw new \Exception('Akun kas/bank tidak valid.');
+            if (!$receivableAccount) throw new \Exception('Akun "Uang Muka Penjualan" belum ada di Bagan Akun.');
 
-            if ($cashAccount && $receivableAccount) {
+            {
                 $journal = Journal::create([
                     'company_id' => $companyId,
                     'ref_number' => 'JV-DPS-' . time(),
@@ -110,7 +102,7 @@ class SalesDownPaymentController extends Controller
                     'credit' => 0,
                 ]);
 
-                // Credit Piutang (Mengurangi Piutang / Menambah Kewajiban)
+                // Credit Uang Muka Penjualan (kewajiban)
                 JournalDetail::create([
                     'journal_id' => $journal->id,
                     'account_id' => $receivableAccount->id,
@@ -119,6 +111,7 @@ class SalesDownPaymentController extends Controller
                     'credit' => $request->amount,
                 ]);
 
+                \App\Services\JournalGuard::assertBalanced($journal);
                 $downPayment->update(['journal_id' => $journal->id]);
             }
 

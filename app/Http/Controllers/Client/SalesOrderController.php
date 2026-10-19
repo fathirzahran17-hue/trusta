@@ -77,14 +77,7 @@ class SalesOrderController extends Controller
             ->get();
             
         // Generate auto PO number
-        $lastOrder = SalesOrder::where('company_id', auth()->user()->company_id)
-            ->whereYear('order_date', date('Y'))
-            ->whereMonth('order_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastOrder ? (intval(substr($lastOrder->order_number, -4)) + 1) : 1;
-        $orderNumber = 'SO-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $orderNumber = \App\Services\DocumentNumber::next(\App\Models\SalesOrder::class, 'order_number', 'SO-', (int) auth()->user()->company_id, null);
             
         return view('client.sales_orders.create', compact('customers', 'products', 'taxes', 'orderNumber'));
     }
@@ -93,7 +86,7 @@ class SalesOrderController extends Controller
     {
         $request->validate([
             'customer_id' => 'required|exists:customers,id',
-            'order_number' => 'required|string|max:100',
+            'order_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('sales_orders', 'order_number')],
             'order_date' => 'required|date',
             'products' => 'required|array|min:1',
             'products.*' => 'required|exists:products,id',

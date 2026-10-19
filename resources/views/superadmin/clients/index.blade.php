@@ -39,7 +39,7 @@
                             <td class="p-5">
                                 <div class="font-bold text-white text-base">{{ $client->name }}</div>
                                 <div class="text-xs text-gray-500 mt-1">
-                                    {{ $client->email ?? 'Tanpa Email' }} | {{ $client->phone ?? 'Tanpa Telepon' }}
+                                    {{ $client->email ?: (optional($client->users->sortBy('id')->first())->email ?: 'Tanpa Email') }} | {{ $client->phone ?? 'Tanpa Telepon' }}
                                 </div>
                                 <div class="text-xs text-gray-600 mt-1">Terdaftar: {{ $client->created_at->format('d M Y') }}</div>
                             </td>

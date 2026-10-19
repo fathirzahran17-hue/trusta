@@ -58,4 +58,46 @@ class AccountResolver
     {
         return self::find($companyId, 'asset', ['Persediaan Barang Dagang%', 'Persediaan%']);
     }
+
+    /** Akun Pajak Keluaran (PPN jual) — dari pengaturan pajak, kalau kosong cari berdasarkan nama. */
+    public static function outputTax(int $companyId, ?\App\Models\Tax $tax = null): ?Account
+    {
+        if ($tax && $tax->sales_tax_account_id && ($a = Account::where('company_id', $companyId)->find($tax->sales_tax_account_id))) return $a;
+        return self::find($companyId, 'liability', ['Pajak Keluaran%', 'Hutang PPN%']);
+    }
+
+    /** Akun Pajak Masukan (PPN beli). */
+    public static function inputTax(int $companyId, ?\App\Models\Tax $tax = null): ?Account
+    {
+        if ($tax && $tax->purchase_tax_account_id && ($a = Account::where('company_id', $companyId)->find($tax->purchase_tax_account_id))) return $a;
+        return self::find($companyId, 'asset', ['Pajak Masukan%', 'Pajak Dibayar Dimuka%']);
+    }
+
+    public static function salesAdvance(int $companyId): ?Account
+    {
+        return self::find($companyId, 'liability', ['Uang Muka Penjualan%', 'Uang Muka Pelanggan%']);
+    }
+
+    public static function purchaseAdvance(int $companyId): ?Account
+    {
+        return self::find($companyId, 'asset', ['Uang Muka Pembelian%', 'Uang Muka Pemasok%']);
+    }
+
+    /** Akun kontra pendapatan untuk retur penjualan. */
+    public static function salesReturn(int $companyId): ?Account
+    {
+        return self::find($companyId, 'revenue', ['Retur Penjualan%']);
+    }
+
+    public static function depreciationExpense(int $companyId, ?string $code = null): ?Account
+    {
+        if ($code && ($a = Account::where('company_id', $companyId)->where('code', $code)->first())) return $a;
+        return self::find($companyId, 'expense', ['Beban Penyusutan%', 'Biaya Penyusutan%', '%Penyusutan%']);
+    }
+
+    public static function accumulatedDepreciation(int $companyId, ?string $code = null): ?Account
+    {
+        if ($code && ($a = Account::where('company_id', $companyId)->where('code', $code)->first())) return $a;
+        return self::find($companyId, 'asset', ['Akumulasi Penyusutan%']);
+    }
 }

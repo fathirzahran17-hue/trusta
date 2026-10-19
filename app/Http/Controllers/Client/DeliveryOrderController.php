@@ -43,14 +43,7 @@ class DeliveryOrderController extends Controller
             ->get();
             
         // Auto number
-        $lastDO = DeliveryOrder::where('company_id', $companyId)
-            ->whereYear('delivery_date', date('Y'))
-            ->whereMonth('delivery_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastDO ? (intval(substr($lastDO->delivery_number, -4)) + 1) : 1;
-        $deliveryNumber = 'DO-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $deliveryNumber = \App\Services\DocumentNumber::next(\App\Models\DeliveryOrder::class, 'delivery_number', 'DO-', (int) $companyId, null);
             
         // Dari tombol "Buat Pengiriman" pada Pesanan Penjualan: isi pelanggan & baris barang otomatis
         $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder($request->sales_order_id, $companyId, 'fulfilled');
@@ -102,7 +95,7 @@ class DeliveryOrderController extends Controller
     {
         $request->validate([
             'customer_id' => 'required|exists:customers,id',
-            'delivery_number' => 'required|string|max:100',
+            'delivery_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('delivery_orders', 'delivery_number')],
             'delivery_date' => 'required|date',
             'status' => 'required|in:draft,shipped',
             'products' => 'required|array|min:1',

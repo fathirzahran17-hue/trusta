@@ -15,17 +15,38 @@ class Account extends Model
 
     protected $appends = ['is_header'];
 
+    /** Cache daftar id akun induk; direset setiap akun berubah supaya tidak basi (mis. di tes / proses panjang). */
+    private static ?array $parentIdCache = null;
+
+    protected static function booted(): void
+    {
+        // Akun aset bernama Kas.../Bank... otomatis ditandai kas/bank agar bisa dipakai di Penerimaan/Pembayaran
+        static::creating(function (Account $a) {
+            if (!$a->is_cash_bank && self::nameLooksLikeCashBank((string) $a->name, (string) $a->type)) {
+                $a->is_cash_bank = true;
+            }
+        });
+        static::saved(fn () => self::$parentIdCache = null);
+        static::deleted(fn () => self::$parentIdCache = null);
+    }
+
+    public static function nameLooksLikeCashBank(string $name, string $type): bool
+    {
+        return $type === 'asset'
+            && preg_match('/^(kas|bank)\b/i', trim($name)) === 1
+            && !preg_match('/(&|\bdan\b|\bsetara\b)/i', $name);
+    }
+
     public function getIsHeaderAttribute(): bool
     {
-        static $parentIds = null;
-        if ($parentIds === null) {
-            $parentIds = self::whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
+        if (self::$parentIdCache === null) {
+            self::$parentIdCache = self::whereNotNull('parent_id')->pluck('parent_id')->unique()->flip()->all();
         }
-        
-        // Also if it has no parent and ends with -0000 it is definitively a root header
+
+        // Akun tanpa induk berkode -0000 selalu header utama
         $isRootHeader = (is_null($this->parent_id) && str_ends_with($this->code, '-0000'));
-        
-        return in_array($this->id, $parentIds) || $isRootHeader;
+
+        return isset(self::$parentIdCache[$this->id]) || $isRootHeader;
     }
 
     protected $casts = [

@@ -44,7 +44,7 @@ class SalesInvoice extends Model
 
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(InvoicePayment::class, 'sales_invoice_id');
+        return $this->hasMany(InvoicePayment::class, 'sales_invoice_id')->whereNull('voided_at');
     }
 
     public function returns(): \Illuminate\Database\Eloquent\Relations\HasMany

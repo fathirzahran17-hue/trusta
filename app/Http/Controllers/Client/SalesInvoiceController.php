@@ -37,14 +37,7 @@ class SalesInvoiceController extends Controller
             ->get();
             
         // Generate auto invoice number
-        $lastInvoice = SalesInvoice::where('company_id', auth()->user()->company_id)
-            ->whereYear('invoice_date', date('Y'))
-            ->whereMonth('invoice_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastInvoice ? (intval(substr($lastInvoice->invoice_number, -4)) + 1) : 1;
-        $invoiceNumber = 'INV-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\SalesInvoice::class, 'invoice_number', 'INV-', (int) auth()->user()->company_id, null);
             
         $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder(request('sales_order_id'), auth()->user()->company_id);
 
@@ -130,14 +123,7 @@ class SalesInvoiceController extends Controller
             $grandTotal = $afterDiscount + $taxAmount;
 
             // Generate Invoice Number
-            $lastInvoice = SalesInvoice::where('company_id', auth()->user()->company_id)
-                ->whereYear('invoice_date', date('Y', strtotime($request->invoice_date)))
-                ->whereMonth('invoice_date', date('m', strtotime($request->invoice_date)))
-                ->orderBy('id', 'desc')
-                ->first();
-                
-            $nextId = $lastInvoice ? (intval(substr($lastInvoice->invoice_number, -4)) + 1) : 1;
-            $invoiceNumber = 'INV-' . date('Ym', strtotime($request->invoice_date)) . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\SalesInvoice::class, 'invoice_number', 'INV-', (int) auth()->user()->company_id, $request->invoice_date);
 
             // 3. JURNAL OTOMATIS (Automated Bookkeeping)
             // Cari Akun Piutang (Account Receivable)
@@ -178,7 +164,8 @@ class SalesInvoiceController extends Controller
                 if (!isset($revenueGroups[$prod->revenue_account_id])) {
                     $revenueGroups[$prod->revenue_account_id] = 0;
                 }
-                $revenueGroups[$prod->revenue_account_id] += $item['total'];
+                // Diskon keseluruhan dibagi proporsional ke pendapatan agar jurnal seimbang
+                $revenueGroups[$prod->revenue_account_id] += $item['total'] * (1 - $overallDiscPct / 100);
             }
             
             foreach ($revenueGroups as $accountId => $amount) {
@@ -192,10 +179,14 @@ class SalesInvoiceController extends Controller
             }
 
             // Baris 3: Pajak Penjualan (Kredit) jika ada
-            if ($taxAmount > 0 && $taxModel && $taxModel->sales_tax_account_id) {
+            if ($taxAmount > 0) {
+                $taxAcc = \App\Services\AccountResolver::outputTax(auth()->user()->company_id, $taxModel);
+                if (!$taxAcc) {
+                    throw new \Exception('Akun Pajak Keluaran belum diatur untuk pajak "' . $taxModel->name . '". Atur di menu Pajak.');
+                }
                 \App\Models\JournalDetail::create([
                     'journal_id' => $journal->id,
-                    'account_id' => $taxModel->sales_tax_account_id,
+                    'account_id' => $taxAcc->id,
                     'debit' => 0,
                     'credit' => $taxAmount,
                     'description' => 'Pajak Keluaran ' . $taxModel->name,
@@ -267,7 +258,19 @@ class SalesInvoiceController extends Controller
                     }
 
                     $totalCogs += $itemCogs;
-                    // Note: Mutasi stok fisik (InventoryMovement) sekarang HANYA ditangani oleh Surat Jalan (Delivery Order).
+
+                    // Faktur langsung (tanpa Pesanan/Surat Jalan): barang keluar saat faktur dibuat.
+                    // Bila dari Pesanan, stok sudah dikurangi oleh Surat Jalan.
+                    if (!$so) {
+                        if ((float) $prod->stock < (float) $item['quantity']) {
+                            throw new \Exception('Stok ' . $prod->name . ' tidak cukup (tersedia ' . (float) $prod->stock . ').');
+                        }
+                        \App\Models\InventoryMovement::create([
+                            'company_id' => auth()->user()->company_id, 'product_id' => $prod->id, 'date' => $request->invoice_date,
+                            'type' => 'out', 'quantity' => $item['quantity'], 'reference_type' => 'sales_invoice', 'reference_id' => $invoice->id,
+                            'notes' => 'Penjualan langsung ' . $invoiceNumber, 'created_by' => auth()->id(),
+                        ]);
+                    }
                 }
             }
 
@@ -297,6 +300,8 @@ class SalesInvoiceController extends Controller
                 }
             }
 
+            \App\Services\JournalGuard::assertBalanced($journal);
+
             DB::commit();
             if ($so) {
                 \App\Services\OrderProgress::syncSalesOrder($so->fresh());
@@ -315,21 +320,6 @@ class SalesInvoiceController extends Controller
         
         $sales_invoice->load(['customer', 'items.product', 'tax', 'journal']);
         return view('client.sales_invoices.show', compact('sales_invoice'));
-    }
-
-
-
-
-    public function salesReceipts()
-    {
-        $companyId = auth()->user()->company_id;
-        $receipts = \App\Models\Journal::where('company_id', $companyId)
-            ->where('ref_number', 'like', 'RC-%')
-            ->with('details.account')
-            ->orderBy('transaction_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(20);
-        return view('client.sales_invoices.sales_receipts', compact('receipts'));
     }
 
 }

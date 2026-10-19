@@ -127,15 +127,15 @@ class FixedAssetController extends Controller
         $date = $request->date ?? date('Y-m-t'); // Default end of current month
         
         // Find all active assets that haven't been fully depreciated
+        $month = date('Y-m', strtotime($date));
         $assets = FixedAsset::where('company_id', $companyId)
             ->where('status', 'aktif')
             ->whereRaw('accumulated_depreciation < (acquisition_cost - salvage_value)')
-            ->where(function($query) use ($date) {
-                // Not depreciated this month
-                $query->whereNull('last_depreciation_date')
-                      ->orWhereRaw('DATE_FORMAT(last_depreciation_date, "%Y-%m") < ?', [date('Y-m', strtotime($date))]);
-            })
-            ->get();
+            ->with('category')
+            ->get()
+            // Belum disusutkan bulan ini (disaring di PHP agar jalan di MySQL maupun SQLite)
+            ->filter(fn ($a) => !$a->last_depreciation_date || date('Y-m', strtotime($a->last_depreciation_date)) < $month)
+            ->values();
 
         if ($assets->isEmpty()) {
             return back()->with('info', 'Tidak ada aset yang perlu disusutkan untuk bulan ini.');
@@ -147,20 +147,7 @@ class FixedAssetController extends Controller
             $totalDepreciation = 0;
             $journalDetails = [];
 
-            // Get default accounts for depreciation
-            $depExpenseAccount = \App\Models\Account::where('company_id', $companyId)
-                ->where('name', 'like', '%Beban Penyusutan%')
-                ->where('type', 'expense')
-                ->first();
-                
-            $accDepAccount = \App\Models\Account::where('company_id', $companyId)
-                ->where('name', 'like', '%Akumulasi Penyusutan%')
-                ->where('type', 'asset')
-                ->first();
-
-            if (!$depExpenseAccount || !$accDepAccount) {
-                throw new \Exception('Akun "Beban Penyusutan" atau "Akumulasi Penyusutan" tidak ditemukan di Bagan Akun.');
-            }
+            $perAccount = []; // [expenseId.'-'.accId => ['exp'=>..,'acc'=>..,'amount'=>..]]
 
             foreach ($assets as $asset) {
                 $depreciableAmount = $asset->acquisition_cost - $asset->salvage_value;
@@ -182,7 +169,16 @@ class FixedAssetController extends Controller
                     $monthlyDepreciation = $remainingToDepreciate;
                 }
 
+                if ($monthlyDepreciation <= 0) continue;
                 $totalDepreciation += $monthlyDepreciation;
+
+                $exp = \App\Services\AccountResolver::depreciationExpense($companyId, $asset->category?->account_expense_code);
+                $acc = \App\Services\AccountResolver::accumulatedDepreciation($companyId, $asset->category?->account_depreciation_code);
+                if (!$exp || !$acc) {
+                    throw new \Exception('Akun Beban Penyusutan / Akumulasi Penyusutan tidak ditemukan di Bagan Akun.');
+                }
+                $key = $exp->id . '-' . $acc->id;
+                $perAccount[$key] = ['exp' => $exp->id, 'acc' => $acc->id, 'amount' => ($perAccount[$key]['amount'] ?? 0) + $monthlyDepreciation];
 
                 // Update asset
                 $asset->accumulated_depreciation += $monthlyDepreciation;
@@ -207,23 +203,13 @@ class FixedAssetController extends Controller
                     'created_by' => auth()->id(),
                 ]);
 
-                // Debit Expense
-                \App\Models\JournalDetail::create([
-                    'journal_id' => $journal->id,
-                    'account_id' => $depExpenseAccount->id,
-                    'description' => 'Beban Penyusutan Aset',
-                    'debit' => $totalDepreciation,
-                    'credit' => 0,
-                ]);
-
-                // Credit Accumulated Depreciation
-                \App\Models\JournalDetail::create([
-                    'journal_id' => $journal->id,
-                    'account_id' => $accDepAccount->id,
-                    'description' => 'Akumulasi Penyusutan Aset',
-                    'debit' => 0,
-                    'credit' => $totalDepreciation,
-                ]);
+                foreach ($perAccount as $row) {
+                    \App\Models\JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $row['exp'],
+                        'description' => 'Beban Penyusutan Aset', 'debit' => $row['amount'], 'credit' => 0]);
+                    \App\Models\JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $row['acc'],
+                        'description' => 'Akumulasi Penyusutan Aset', 'debit' => 0, 'credit' => $row['amount']]);
+                }
+                \App\Services\JournalGuard::assertBalanced($journal);
             }
 
             \Illuminate\Support\Facades\DB::commit();

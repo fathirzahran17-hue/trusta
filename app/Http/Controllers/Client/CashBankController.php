@@ -135,6 +135,22 @@ class CashBankController extends Controller
         return view('client.cash_bank.payments', compact('cashAccounts', 'allAccounts', 'jobs'));
     }
 
+    /**
+     * Pelunasan faktur harus lewat menu Penerimaan/Pembayaran agar status faktur ikut berubah.
+     * Jurnal kas bebas ke akun Piutang/Hutang akan membuat buku besar dan faktur tidak sinkron.
+     */
+    private function rejectSubledgerAccount(array $accountIds, string $kind): ?string
+    {
+        $cid = auth()->user()->company_id;
+        $acc = $kind === 'sales' ? \App\Services\AccountResolver::receivable($cid) : \App\Services\AccountResolver::payable($cid);
+        if ($acc && in_array((int) $acc->id, array_map('intval', array_filter($accountIds)), true)) {
+            return $kind === 'sales'
+                ? 'Pembayaran dari pelanggan untuk faktur harus dicatat lewat menu Penjualan → Penerimaan Penjualan, supaya faktur otomatis ditandai lunas. Form ini hanya untuk penerimaan di luar faktur.'
+                : 'Pembayaran ke pemasok untuk faktur harus dicatat lewat menu Pembelian → Pembayaran Pembelian, supaya faktur otomatis ditandai lunas. Form ini hanya untuk pengeluaran di luar faktur.';
+        }
+        return null;
+    }
+
     public function storePayments(Request $request)
     {
         $request->validate([
@@ -144,6 +160,10 @@ class CashBankController extends Controller
             'expense_accounts' => 'required|array|min:1',
             'amounts' => 'required|array|min:1',
         ]);
+
+        if ($msg = $this->rejectSubledgerAccount((array) $request->expense_accounts, 'purchase')) {
+            return back()->withInput()->with('error', $msg);
+        }
 
         try {
             DB::beginTransaction();
@@ -217,6 +237,10 @@ class CashBankController extends Controller
             'income_accounts' => 'required|array|min:1',
             'amounts' => 'required|array|min:1',
         ]);
+
+        if ($msg = $this->rejectSubledgerAccount((array) $request->income_accounts, 'sales')) {
+            return back()->withInput()->with('error', $msg);
+        }
 
         try {
             DB::beginTransaction();
@@ -367,14 +391,6 @@ class CashBankController extends Controller
 
     private function generateRefNumber($prefix, $date)
     {
-        $lastJournal = Journal::where('company_id', auth()->user()->company_id)
-            ->where('ref_number', 'like', $prefix . '%')
-            ->whereYear('transaction_date', date('Y', strtotime($date)))
-            ->whereMonth('transaction_date', date('m', strtotime($date)))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastJournal ? (intval(substr($lastJournal->ref_number, -4)) + 1) : 1;
-        return $prefix . date('Ym', strtotime($date)) . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        return \App\Services\DocumentNumber::next(Journal::class, 'ref_number', $prefix, (int) auth()->user()->company_id, $date);
     }
 }

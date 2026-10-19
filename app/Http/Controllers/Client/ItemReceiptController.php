@@ -45,14 +45,7 @@ class ItemReceiptController extends Controller
         $warehouses = \App\Models\Warehouse::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
             
         // Auto number
-        $lastReceipt = ItemReceipt::where('company_id', $companyId)
-            ->whereYear('receipt_date', date('Y'))
-            ->whereMonth('receipt_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastReceipt ? (intval(substr($lastReceipt->receipt_number, -4)) + 1) : 1;
-        $receiptNumber = 'IR-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $receiptNumber = \App\Services\DocumentNumber::next(\App\Models\ItemReceipt::class, 'receipt_number', 'IR-', (int) $companyId, null);
             
         // Dari tombol "Buat Penerimaan" pada Pesanan Pembelian: isi pemasok & baris barang otomatis
         $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('purchase_order_id'), $companyId, 'fulfilled');
@@ -103,7 +96,7 @@ class ItemReceiptController extends Controller
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
             'warehouse_id' => 'required|exists:warehouses,id',
-            'receipt_number' => 'required|string|max:100',
+            'receipt_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('item_receipts', 'receipt_number')],
             'receipt_date' => 'required|date',
             'status' => 'required|in:draft,received',
             'products' => 'required|array|min:1',
@@ -166,10 +159,15 @@ class ItemReceiptController extends Controller
                 foreach ($request->products as $index => $productId) {
                     $qty = floatval($request->quantities[$index]);
                     $product = Product::find($productId);
-                    $price = $product->buy_price; // Harga beli baru yang diinput (sementara pakai harga master)
-                    // TODO: Jika form input Penerimaan memiliki harga beli sendiri, harusnya pakai harga form. 
-                    // Saat ini kita pakai harga standar produk.
-                    
+                    // Harga perolehan mengikuti Pesanan Pembelian (setelah diskon baris); tanpa PO pakai harga beli master
+                    $price = (float) $product->buy_price;
+                    if ($po) {
+                        $poItem = $po->items()->where('product_id', $productId)->first();
+                        if ($poItem) {
+                            $price = (float) $poItem->unit_price * (1 - (float) $poItem->discount_percent / 100);
+                        }
+                    }
+
                     if ($product->type === 'goods') {
                         // 1. Moving Average Calculation
                         $oldStock = $product->stock;

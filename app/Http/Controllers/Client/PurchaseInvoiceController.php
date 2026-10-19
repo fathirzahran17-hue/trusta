@@ -37,14 +37,7 @@ class PurchaseInvoiceController extends Controller
             ->get();
             
         // Generate auto invoice number untuk internal kita (meskipun ada nomor invoice dari supplier)
-        $lastInvoice = PurchaseInvoice::where('company_id', auth()->user()->company_id)
-            ->whereYear('invoice_date', date('Y'))
-            ->whereMonth('invoice_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastInvoice ? (intval(substr($lastInvoice->invoice_number, -4)) + 1) : 1;
-        $invoiceNumber = 'PI-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseInvoice::class, 'invoice_number', 'PI-', (int) auth()->user()->company_id, null);
             
         $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('po_id'), auth()->user()->company_id);
 
@@ -131,14 +124,7 @@ class PurchaseInvoiceController extends Controller
             $grandTotal = $afterDiscount + $taxAmount;
 
             // Generate Invoice Number Internal
-            $lastInvoice = PurchaseInvoice::where('company_id', auth()->user()->company_id)
-                ->whereYear('invoice_date', date('Y', strtotime($request->invoice_date)))
-                ->whereMonth('invoice_date', date('m', strtotime($request->invoice_date)))
-                ->orderBy('id', 'desc')
-                ->first();
-                
-            $nextId = $lastInvoice ? (intval(substr($lastInvoice->invoice_number, -4)) + 1) : 1;
-            $invoiceNumber = 'PI-' . date('Ym', strtotime($request->invoice_date)) . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseInvoice::class, 'invoice_number', 'PI-', (int) auth()->user()->company_id, $request->invoice_date);
 
             // 3. JURNAL OTOMATIS (Automated Bookkeeping)
             // Cari Akun Hutang Usaha (Account Payable)
@@ -182,7 +168,8 @@ class PurchaseInvoiceController extends Controller
                 if (!isset($expenseGroups[$targetAccountId])) {
                     $expenseGroups[$targetAccountId] = 0;
                 }
-                $expenseGroups[$targetAccountId] += $item['total'];
+                // Diskon keseluruhan dibagi proporsional agar jurnal seimbang
+                $expenseGroups[$targetAccountId] += $item['total'] * (1 - $overallDiscPct / 100);
             }
             
             foreach ($expenseGroups as $accountId => $amount) {
@@ -196,10 +183,14 @@ class PurchaseInvoiceController extends Controller
             }
 
             // Baris 2: Pajak Pembelian (Debit) jika ada
-            if ($taxAmount > 0 && $taxModel && $taxModel->purchase_tax_account_id) {
+            if ($taxAmount > 0) {
+                $taxAcc = \App\Services\AccountResolver::inputTax(auth()->user()->company_id, $taxModel);
+                if (!$taxAcc) {
+                    throw new \Exception('Akun Pajak Masukan belum diatur untuk pajak "' . $taxModel->name . '". Atur di menu Pajak.');
+                }
                 \App\Models\JournalDetail::create([
                     'journal_id' => $journal->id,
-                    'account_id' => $taxModel->purchase_tax_account_id,
+                    'account_id' => $taxAcc->id,
                     'debit' => $taxAmount,
                     'credit' => 0,
                     'description' => 'Pajak Masukan ' . $taxModel->name,
@@ -244,6 +235,8 @@ class PurchaseInvoiceController extends Controller
                 // Note: Mutasi stok fisik (InventoryMovement) sekarang HANYA ditangani oleh Penerimaan Barang (Item Receipt).
             }
 
+            \App\Services\JournalGuard::assertBalanced($journal);
+
             DB::commit();
             if ($po) {
                 \App\Services\OrderProgress::syncPurchaseOrder($po->fresh());
@@ -263,21 +256,5 @@ class PurchaseInvoiceController extends Controller
         $purchase_invoice->load(['supplier', 'items.product', 'tax', 'journal']);
         return view('client.purchase_invoices.show', compact('purchase_invoice'));
     }
-
-
-
-
-    public function purchasePayments()
-    {
-        $companyId = auth()->user()->company_id;
-        $payments = \App\Models\Journal::where('company_id', $companyId)
-            ->where('ref_number', 'like', 'SP-%')
-            ->with('details.account')
-            ->orderBy('transaction_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(20);
-        return view('client.purchase_invoices.purchase_payments', compact('payments'));
-    }
-
 
 }

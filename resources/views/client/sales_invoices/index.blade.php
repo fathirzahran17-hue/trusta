@@ -11,6 +11,7 @@
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
             Cetak / PDF
         </button>
+        <a href="{{ route('client.sales.settlement') }}" class="rpt-btn">Status Pelunasan</a>
         <a href="{{ route('client.sales-invoices.create') }}" class="btn-primary">
             <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
             Buat Faktur Baru
@@ -45,6 +46,7 @@
                         <th scope="col" class="px-6 py-4 font-semibold">Pelanggan</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Tgl Faktur</th>
                         <th scope="col" class="px-6 py-4 font-semibold text-right">Total</th>
+                        <th scope="col" class="px-6 py-4 font-semibold text-right">Sisa</th>
                         <th scope="col" class="px-6 py-4 font-semibold text-center">Status</th>
                         <th scope="col" class="px-6 py-4 text-center font-semibold">Aksi</th>
                     </tr>
@@ -65,14 +67,9 @@
                             <td class="px-6 py-4 text-right font-bold text-trusta-teal" style="font-variant-numeric: tabular-nums;">
                                 Rp {{ number_format($invoice->total, 2, ',', '.') }}
                             </td>
+                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">{{ $invoice->status === 'void' ? '-' : 'Rp ' . number_format($invoice->amount_due, 0, ',', '.') }}</td>
                             <td class="px-6 py-4 text-center">
-                                @if($invoice->status == 'paid')
-                                    <span class="badge badge-success">Lunas</span>
-                                @elseif($invoice->status == 'unpaid')
-                                    <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 600; background: rgba(249,115,22,0.1); color: #fb923c; border: 1px solid rgba(249,115,22,0.2);">Belum Lunas</span>
-                                @else
-                                    <span class="badge" style="background: rgba(100,116,139,0.1); color: #94a3b8; border: 1px solid rgba(100,116,139,0.2);">{{ $invoice->status }}</span>
-                                @endif
+                                @include('partials.invoice-status', ['invoice' => $invoice])
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <a href="{{ route('client.sales-invoices.show', $invoice->id) }}" class="text-trusta-teal hover:text-white transition-colors font-medium" style="font-size: 0.75rem;">Detail</a>
@@ -80,7 +77,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" style="padding: 40px 14px; text-align: center; color: #64748b;">
+                            <td colspan="7" style="padding: 40px 14px; text-align: center; color: #64748b;">
                                 <svg style="width: 36px; height: 36px; margin: 0 auto 10px; color: #334155;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                                 <p style="font-size: 0.82rem;">Belum ada faktur penjualan. Silakan buat baru.</p>
                             </td>

@@ -207,7 +207,10 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::get('sales/down-payments', [\App\Http\Controllers\Client\SalesDownPaymentController::class, 'index'])->name('sales.down_payments');
     Route::get('sales/down-payments/create', [\App\Http\Controllers\Client\SalesDownPaymentController::class, 'create'])->name('sales.down_payments.create');
     Route::post('sales/down-payments', [\App\Http\Controllers\Client\SalesDownPaymentController::class, 'store'])->name('sales.down_payments.store');
-    Route::get('sales/receipts', [\App\Http\Controllers\Client\SalesInvoiceController::class, 'salesReceipts'])->name('sales.receipts');
+    Route::get('sales/receipts', [\App\Http\Controllers\Client\SettlementController::class, 'salesReceipts'])->name('sales.receipts');
+    Route::post('sales/receipts', [\App\Http\Controllers\Client\SettlementController::class, 'storeSales'])->name('sales.receipts.store');
+    Route::get('sales/settlement', [\App\Http\Controllers\Client\SettlementController::class, 'salesSettlement'])->name('sales.settlement');
+    Route::post('invoice-payments/{payment}/void', [\App\Http\Controllers\Client\SettlementController::class, 'voidPayment'])->whereNumber('payment')->name('invoice-payments.void');
     Route::get('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'index'])->name('sales.returns');
     Route::get('sales/returns/create', [\App\Http\Controllers\Client\SalesReturnController::class, 'create'])->name('sales.returns.create');
     Route::post('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'store'])->name('sales.returns.store');
@@ -230,7 +233,9 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::get('purchases/down-payments', [\App\Http\Controllers\Client\PurchaseDownPaymentController::class, 'index'])->name('purchases.down_payments');
     Route::get('purchases/down-payments/create', [\App\Http\Controllers\Client\PurchaseDownPaymentController::class, 'create'])->name('purchases.down_payments.create');
     Route::post('purchases/down-payments', [\App\Http\Controllers\Client\PurchaseDownPaymentController::class, 'store'])->name('purchases.down_payments.store');
-    Route::get('purchases/payments', [\App\Http\Controllers\Client\PurchaseInvoiceController::class, 'purchasePayments'])->name('purchases.payments');
+    Route::get('purchases/payments', [\App\Http\Controllers\Client\SettlementController::class, 'purchasePayments'])->name('purchases.payments');
+    Route::post('purchases/payments', [\App\Http\Controllers\Client\SettlementController::class, 'storePurchase'])->name('purchases.payments.store');
+    Route::get('purchases/settlement', [\App\Http\Controllers\Client\SettlementController::class, 'purchaseSettlement'])->name('purchases.settlement');
     Route::get('purchases/returns', [\App\Http\Controllers\Client\PurchaseReturnController::class, 'index'])->name('purchases.returns');
     Route::get('purchases/returns/create', [\App\Http\Controllers\Client\PurchaseReturnController::class, 'create'])->name('purchases.returns.create');
     Route::post('purchases/returns', [\App\Http\Controllers\Client\PurchaseReturnController::class, 'store'])->name('purchases.returns.store');

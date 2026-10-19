@@ -32,8 +32,8 @@ class ReportBuilder
             ->join('journals', 'journals.id', '=', 'journal_details.journal_id')
             ->where('journals.company_id', $this->companyId)
             ->where('journals.status', 'posted')
-            ->where('journals.transaction_date', '<=', $to)
-            ->when($from, fn ($q) => $q->where('journals.transaction_date', '>=', $from))
+            ->whereDate('journals.transaction_date', '<=', $to)
+            ->when($from, fn ($q) => $q->whereDate('journals.transaction_date', '>=', $from))
             ->groupBy('journal_details.account_id')
             ->selectRaw('journal_details.account_id as aid, SUM(journal_details.debit) as d, SUM(journal_details.credit) as c')
             ->get()
@@ -82,35 +82,58 @@ class ReportBuilder
 
     /* ------------------------------------------------------------ keuangan */
 
-    /** [rows, total] untuk akun pendapatan/beban pada periode */
+    /** Saldo (positif = sesuai sifat akun) tiap tipe laba rugi pada rentang sums */
+    private function plBlock(string $type, array $sums): array
+    {
+        $creditNormal = in_array($type, ['revenue', 'other_income'], true);
+        $rows = []; $total = 0;
+        foreach ($this->accounts($type) as $a) {
+            [$d, $c] = $sums[$a->id] ?? [0, 0];
+            $v = $creditNormal ? $c - $d : $d - $c;
+            $total += $v;
+            if (abs($v) > 0.004) $rows[] = $this->row([$a->code, $a->name, $v], 1);
+        }
+        return [$rows, $total];
+    }
+
+    /**
+     * Laba rugi bertingkat: Pendapatan − HPP = Laba Kotor − Beban Usaha = Laba Usaha ± Lain-lain = Laba Bersih.
+     * @return array [rows, pendapatan, hpp, bebanTotal(usaha+lain), net]
+     */
     private function plRows(string $start, string $end): array
     {
         $sums = $this->sums($start, $end);
-        $rows = [];
-        $totals = [];
-        foreach (['revenue' => ['PENDAPATAN', 1], 'expense' => ['BEBAN', -1]] as $type => [$label, $sign]) {
-            $rows[] = $this->sec($label);
-            $sum = 0;
-            foreach ($this->accounts($type) as $a) {
-                [$d, $c] = $sums[$a->id] ?? [0, 0];
-                $v = $type === 'revenue' ? $c - $d : $d - $c;
-                $sum += $v;
-                if (abs($v) > 0.004) $rows[] = $this->row([$a->code, $a->name, $v], 1);
-            }
-            $rows[] = $this->tot('subtotal', 'Total ' . ucfirst(strtolower($label)), $sum);
-            $rows[] = ['type' => 'spacer'];
-            $totals[$type] = $sum;
+        [$revRows, $rev] = $this->plBlock('revenue', $sums);
+        [$cogsRows, $cogs] = $this->plBlock('cost_of_sales', $sums);
+        [$expRows, $exp] = $this->plBlock('expense', $sums);
+        [$oiRows, $oi] = $this->plBlock('other_income', $sums);
+        [$oeRows, $oe] = $this->plBlock('other_expense', $sums);
+
+        $gross = $rev - $cogs;
+        $operating = $gross - $exp;
+        $net = $operating + $oi - $oe;
+
+        $rows = [$this->sec('PENDAPATAN'), ...$revRows, $this->tot('subtotal', 'Total Pendapatan', $rev), ['type' => 'spacer']];
+        $rows = [...$rows, $this->sec('HARGA POKOK PENJUALAN'), ...$cogsRows, $this->tot('subtotal', 'Total Harga Pokok Penjualan', $cogs),
+            $this->tot('total', 'LABA KOTOR', $gross), ['type' => 'spacer']];
+        $rows = [...$rows, $this->sec('BEBAN USAHA'), ...$expRows, $this->tot('subtotal', 'Total Beban Usaha', $exp),
+            $this->tot('total', 'LABA USAHA', $operating), ['type' => 'spacer']];
+        if ($oiRows) {
+            $rows = [...$rows, $this->sec('PENDAPATAN LAIN-LAIN'), ...$oiRows, $this->tot('subtotal', 'Total Pendapatan Lain-lain', $oi), ['type' => 'spacer']];
         }
-        $net = $totals['revenue'] - $totals['expense'];
+        if ($oeRows) {
+            $rows = [...$rows, $this->sec('BEBAN LAIN-LAIN'), ...$oeRows, $this->tot('subtotal', 'Total Beban Lain-lain', $oe), ['type' => 'spacer']];
+        }
         $rows[] = $this->tot('grand', $net >= 0 ? 'LABA BERSIH' : 'RUGI BERSIH', $net);
-        return [$rows, $totals['revenue'], $totals['expense'], $net];
+
+        return [$rows, $rev, $cogs, $exp + $oe - $oi, $net];
     }
 
     public function profitLoss(Request $r): array
     {
         $start = $r->input('start_date', Carbon::now()->startOfYear()->toDateString());
         $end = $r->input('end_date', Carbon::now()->toDateString());
-        [$rows, $rev, $exp, $net] = $this->plRows($start, $end);
+        [$rows, $rev, $cogs, $exp, $net] = $this->plRows($start, $end);
 
         return [
             'key' => 'profit-loss', 'title' => 'Laporan Laba Rugi', 'subtitle' => $this->period($start, $end),
@@ -118,7 +141,8 @@ class ReportBuilder
             'columns' => $this->acctCols(), 'rows' => $rows, 'indent_col' => 1,
             'summary' => [
                 ['label' => 'Total Pendapatan', 'value' => $rev, 'format' => 'money'],
-                ['label' => 'Total Beban', 'value' => $exp, 'format' => 'money'],
+                ['label' => 'Harga Pokok Penjualan', 'value' => $cogs, 'format' => 'money'],
+                ['label' => 'Beban (usaha & lain)', 'value' => $exp, 'format' => 'money'],
                 ['label' => $net >= 0 ? 'Laba Bersih' : 'Rugi Bersih', 'value' => $net, 'format' => 'money', 'tone' => $net >= 0 ? 'good' : 'bad'],
             ],
         ];
@@ -154,10 +178,14 @@ class ReportBuilder
         $rows[] = ['type' => 'spacer'];
 
         $eq = $block('EKUITAS', 'equity', false);
-        $rev = 0; $exp = 0;
-        foreach ($this->accounts('revenue') as $a) { $rev += $bal($a, false) - (float) $a->opening_balance; }
-        foreach ($this->accounts('expense') as $a) { $exp += $bal($a, true) - (float) $a->opening_balance; }
-        $retained = $rev - $exp;
+        // Laba ditahan = seluruh pendapatan − beban (semua tipe laba rugi) s.d. tanggal neraca
+        $retained = 0;
+        foreach (['revenue', 'other_income', 'cost_of_sales', 'expense', 'other_expense'] as $type) {
+            foreach ($this->accounts($type) as $a) {
+                [$d, $c] = $sums[$a->id] ?? [0, 0];
+                $retained += $c - $d; // kredit menambah laba, debit mengurangi
+            }
+        }
         $rows[] = $this->row(['', 'Laba Ditahan / Berjalan', $retained], 1);
         $rows[] = $this->tot('subtotal', 'Total Ekuitas', $eq + $retained);
         $rows[] = ['type' => 'spacer'];
@@ -194,7 +222,7 @@ class ReportBuilder
     {
         $start = $r->input('start_date', Carbon::now()->startOfYear()->toDateString());
         $end = $r->input('end_date', Carbon::now()->toDateString());
-        [$plRows, $rev, $exp, $net] = $this->plRows($start, $end);
+        [$plRows, $rev, $cogs, $exp, $net] = $this->plRows($start, $end);
         [$bsRows, $assets, $liabEq] = $this->bsRows($end);
 
         $rows = array_merge(
@@ -230,7 +258,7 @@ class ReportBuilder
         $details = JournalDetail::query()
             ->join('journals', 'journals.id', '=', 'journal_details.journal_id')
             ->where('journals.company_id', $this->companyId)->where('journals.status', 'posted')
-            ->whereBetween('journals.transaction_date', [$start, $end])
+            ->whereDate('journals.transaction_date', '>=', $start)->whereDate('journals.transaction_date', '<=', $end)
             ->whereIn('journal_details.account_id', $selected->pluck('id'))
             ->orderBy('journals.transaction_date')->orderBy('journals.id')
             ->get(['journal_details.account_id', 'journal_details.debit', 'journal_details.credit', 'journal_details.description as line_desc',
@@ -423,7 +451,7 @@ class ReportBuilder
         $labels = ['unpaid' => 'Belum Dibayar', 'partial' => 'Sebagian', 'paid' => 'Lunas', 'draft' => 'Draft', 'sent' => 'Terkirim'];
 
         $invoices = $model::where('company_id', $this->companyId)->where('status', '!=', 'void')
-            ->whereBetween('invoice_date', [$start, $end])
+            ->whereDate('invoice_date', '>=', $start)->whereDate('invoice_date', '<=', $end)
             ->with($isAr ? 'customer' : 'supplier')->orderBy('invoice_date')->orderBy('id')->get();
 
         $rows = []; $t = [0, 0, 0];
