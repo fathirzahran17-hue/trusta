@@ -444,4 +444,103 @@ class DocumentFlowTest extends TestCase
         $this->assertEquals('paid', $pi->fresh()->status);
         $this->assertBooksBalanced();
     }
+
+    public function test_purging_a_company_removes_all_its_data_without_touching_others(): void
+    {
+        $cid = $this->user->company_id;
+        $today = date('Y-m-d');
+        $this->post('/client/accounts/beginning-balance', ['date' => $today, 'balances' => [$this->cash->id => 1000000]]);
+        $po = $this->createPurchaseAndReceive(10);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-1',
+            'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]]);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [2], 'prices' => [15000], 'discounts' => [0]]);
+        $si = SalesInvoice::firstOrFail();
+        $this->post('/client/sales/receipts', ['party_id' => $this->customer->id, 'account_id' => $this->cash->id, 'payment_date' => $today, 'alloc' => [$si->id => 10000]]);
+
+        $other = \App\Models\Company::create(['name' => 'Lain', 'is_active' => true]);
+        \App\Models\Customer::create(['company_id' => $other->id, 'name' => 'Aman']);
+
+        \App\Services\CompanyPurger::purge((int) $cid);
+
+        $this->assertNull(\App\Models\Company::find($cid));
+        foreach (\Illuminate\Support\Facades\Schema::getTableListing() as $t) {
+            $t = preg_replace('/^.*\./', '', $t);
+            if ($t !== 'companies' && \Illuminate\Support\Facades\Schema::hasColumn($t, 'company_id')) {
+                $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($t)->where('company_id', $cid)->count(), "$t masih berisi data");
+            }
+        }
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table('journal_details')->count());
+        $this->assertEquals(1, \App\Models\Customer::where('company_id', $other->id)->count());
+    }
+
+    /** Menelusuri semua halaman dan tautan (sidebar, detail dokumen, dokumen terkait, jurnal) dan memastikan tidak ada yang 404/500. */
+    public function test_every_page_and_link_reachable_from_a_populated_company(): void
+    {
+        $today = date('Y-m-d');
+        $this->post('/client/accounts/beginning-balance', ['date' => $today, 'balances' => [$this->cash->id => 5000000]]);
+        $po = $this->createPurchaseAndReceive(20);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-1',
+            'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id], 'quantities' => [20], 'prices' => [10000], 'discounts' => [0]]);
+        $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => 'SO-T-1', 'order_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [5], 'prices' => [15000], 'discounts' => [0]]);
+        $so = SalesOrder::firstOrFail();
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'sales_order_id' => $so->id, 'delivery_number' => 'DO-T-1',
+            'delivery_date' => $today, 'status' => 'shipped', 'products' => [$this->product->id], 'quantities' => [5]]);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'sales_order_id' => $so->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [5], 'prices' => [15000], 'discounts' => [0]]);
+        $si = SalesInvoice::firstOrFail();
+        $this->post('/client/sales/receipts', ['party_id' => $this->customer->id, 'account_id' => $this->cash->id, 'payment_date' => $today, 'alloc' => [$si->id => 20000]]);
+        $this->post('/client/sales/returns', ['customer_id' => $this->customer->id, 'sales_invoice_id' => $si->id, 'return_number' => 'SR-1',
+            'return_date' => $today, 'products' => [$this->product->id], 'quantities' => [1], 'prices' => [15000]]);
+        $this->post('/client/sales/down-payments', ['customer_id' => $this->customer->id, 'payment_number' => 'DP-1', 'payment_date' => $today, 'amount' => 1000, 'account_id' => $this->cash->id]);
+
+        $skip = '#^/(logout|client/preferences/logo|storage)#';
+        $queue = ['/client/dashboard'];
+        foreach (\Illuminate\Support\Facades\Route::getRoutes() as $r) {
+            if (in_array('GET', $r->methods()) && str_starts_with($r->uri(), 'client/') && !str_contains($r->uri(), '{')) {
+                $queue[] = '/' . $r->uri();
+            }
+        }
+        $seen = [];
+        $bad = [];
+        while ($queue) {
+            $url = array_shift($queue);
+            $key = preg_replace('/\?.*/', '', $url);
+            if (isset($seen[$url]) || preg_match($skip, $url) || count($seen) > 600) {
+                continue;
+            }
+            $seen[$url] = true;
+            $res = $this->get($url);
+            $code = $res->getStatusCode(); if ($code >= 500) { $bad[] = "ERR " . substr(strip_tags((string) ($res->exception ?? "")), 0, 300) . (isset($res->exception) ? $res->exception->getMessage() : ""); }
+            if ($code >= 400) {
+                $bad[] = "$code $url";
+                continue;
+            }
+            if ($code === 200 && str_contains((string) $res->headers->get('Content-Type'), 'html')) {
+                preg_match_all('/href="([^"#]+)"/', $res->getContent(), $m);
+                foreach ($m[1] as $h) {
+                    $h = html_entity_decode($h);
+                    $path = parse_url($h, PHP_URL_PATH);
+                    $host = parse_url($h, PHP_URL_HOST);
+                    if (($host && $host !== 'localhost') || !$path || !str_starts_with($path, '/client')) {
+                        continue;
+                    }
+                    $queue[] = $path . (($q = parse_url($h, PHP_URL_QUERY)) ? '?' . $q : '');
+                }
+            }
+        }
+        $this->assertSame([], $bad, "Tautan bermasalah:\n" . implode("\n", $bad));
+        $this->assertGreaterThan(40, count($seen));
+
+        // Super admin: daftar client menampilkan email pendaftar, lalu hapus client lewat tombol hapus
+        $company = $this->user->company;
+        $admin = User::create(['company_id' => null, 'name' => 'Super', 'email' => 'super@example.com', 'password' => bcrypt('password'), 'role' => 'super_admin', 'is_active' => true]);
+        $this->actingAs($admin);
+        $this->get('/superadmin/dashboard')->assertOk();
+        $this->get('/superadmin/default-accounts')->assertOk();
+        $this->get('/superadmin/clients')->assertOk()->assertSee('uji@example.com');
+        $this->delete('/superadmin/clients/' . $company->id)->assertSessionHas('success');
+        $this->assertNull(Company::find($company->id));
+    }
 }

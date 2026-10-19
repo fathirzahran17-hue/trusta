@@ -5,6 +5,8 @@ use Illuminate\Database\Eloquent\Model;
 class SalesReturn extends Model
 {
     protected $guarded = ['id'];
+    protected $casts = ['return_date' => 'date'];
+    public function customer() { return $this->belongsTo(Customer::class); }
     public function company() { return $this->belongsTo(Company::class); }
     public function salesInvoice() { return $this->belongsTo(SalesInvoice::class); }
     public function items() { return $this->hasMany(SalesReturnItem::class); }

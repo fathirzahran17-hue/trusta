@@ -99,65 +99,12 @@ class ClientController extends Controller
     {
         $companyName = $company->name;
 
-        // Hapus semua data terkait perusahaan ini secara berurutan
-        // (dari yang paling detail ke yang paling umum, agar tidak ada foreign key conflict)
-
-        // 1. Hapus detail jurnal terlebih dahulu
-        $journalIds = $company->journals()->pluck('id');
-        \App\Models\JournalDetail::whereIn('journal_id', $journalIds)->delete();
-        $company->journals()->delete();
-
-        // 2. Hapus item faktur penjualan
-        $salesInvoiceIds = $company->salesInvoices()->pluck('id');
-        \App\Models\SalesInvoiceItem::whereIn('sales_invoice_id', $salesInvoiceIds)->delete();
-        $company->salesInvoices()->delete();
-
-        // 3. Hapus item faktur pembelian
-        $purchaseInvoiceIds = $company->purchaseInvoices()->pluck('id');
-        \App\Models\PurchaseInvoiceItem::whereIn('purchase_invoice_id', $purchaseInvoiceIds)->delete();
-        $company->purchaseInvoices()->delete();
-
-        // 4. Hapus item sales quote (jika ada)
-        if (method_exists($company, 'salesQuotes')) {
-            $salesQuoteIds = $company->salesQuotes()->pluck('id');
-            \App\Models\SalesQuoteItem::whereIn('sales_quote_id', $salesQuoteIds)->delete();
-            $company->salesQuotes()->delete();
+        try {
+            \App\Services\CompanyPurger::purge((int) $company->id);
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()->route('superadmin.clients.index')->with('error', "Gagal menghapus \"{$companyName}\": " . $e->getMessage());
         }
-
-        // 5. Hapus item purchase order (jika ada)
-        if (method_exists($company, 'purchaseOrders')) {
-            $purchaseOrderIds = $company->purchaseOrders()->pluck('id');
-            \App\Models\PurchaseOrderItem::whereIn('purchase_order_id', $purchaseOrderIds)->delete();
-            $company->purchaseOrders()->delete();
-        }
-
-        // 6. Hapus purchase returns (jika ada)
-        if (method_exists($company, 'purchaseReturns')) {
-            $company->purchaseReturns()->delete();
-        }
-
-        // 7. Hapus transaksi kas/bank
-        $company->cashTransactions()->delete();
-
-        // 8. Hapus data master
-        $company->products()->delete();
-        $company->customers()->delete();
-        $company->suppliers()->delete();
-
-        // 9. Hapus kategori produk
-        \App\Models\ProductCategory::where('company_id', $company->id)->delete();
-
-        // 10. Hapus akun perkiraan (CoA)
-        $company->accounts()->delete();
-
-        // 11. Hapus langganan
-        $company->subscriptions()->delete();
-
-        // 12. Hapus semua pengguna terkait perusahaan ini
-        $company->users()->delete();
-
-        // 13. Terakhir, hapus perusahaan itu sendiri
-        $company->delete();
 
         return redirect()->route('superadmin.clients.index')->with('success', "Perusahaan \"{$companyName}\" beserta seluruh datanya telah berhasil dihapus.");
     }

@@ -93,6 +93,26 @@ class DocumentLinker
             return ['label' => 'Penerimaan Barang', 'number' => $m->receipt_number, 'url' => route('client.purchases.receipts.show', $m)];
         }
 
+        // Penerimaan/pembayaran faktur (satu jurnal bisa melunasi beberapa faktur)
+        $pays = \App\Models\InvoicePayment::where('company_id', $cid)->where('journal_id', $id)->get();
+        if ($pays->isNotEmpty()) {
+            $first = $pays->first();
+            if ($first->sales_invoice_id) {
+                $invs = SalesInvoice::whereIn('id', $pays->pluck('sales_invoice_id'))->get();
+                return ['label' => 'Penerimaan Penjualan', 'number' => $invs->pluck('invoice_number')->implode(', '),
+                    'url' => $invs->count() === 1 ? route('client.sales-invoices.show', $invs->first()) : route('client.sales.receipts')];
+            }
+            $invs = PurchaseInvoice::whereIn('id', $pays->pluck('purchase_invoice_id'))->get();
+            return ['label' => 'Pembayaran Pembelian', 'number' => $invs->pluck('invoice_number')->implode(', '),
+                'url' => $invs->count() === 1 ? route('client.purchase-invoices.show', $invs->first()) : route('client.purchases.payments')];
+        }
+        if ($m = \App\Models\SalesReturn::where('company_id', $cid)->where('journal_id', $id)->first()) {
+            return ['label' => 'Retur Penjualan', 'number' => $m->return_number, 'url' => route('client.sales.returns')];
+        }
+        if ($m = \App\Models\PurchaseReturn::where('company_id', $cid)->where('journal_id', $id)->first()) {
+            return ['label' => 'Retur Pembelian', 'number' => $m->return_number, 'url' => route('client.purchases.returns')];
+        }
+
         return null;
     }
 
