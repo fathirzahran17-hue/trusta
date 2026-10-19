@@ -42,14 +42,7 @@ class PurchaseReturnController extends Controller
             ->get();
             
         // Auto number
-        $lastReturn = PurchaseReturn::where('company_id', $companyId)
-            ->whereYear('return_date', date('Y'))
-            ->whereMonth('return_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastReturn ? (intval(substr($lastReturn->return_number, -4)) + 1) : 1;
-        $returnNumber = 'PR-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $returnNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseReturn::class, 'return_number', 'PR-', (int) $companyId, null);
             
         return view('client.purchase_returns.create', compact('suppliers', 'invoices', 'products', 'returnNumber'));
     }
@@ -57,6 +50,7 @@ class PurchaseReturnController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'return_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('purchase_returns', 'return_number')],
             'supplier_id' => 'required|exists:suppliers,id',
             'purchase_invoice_id' => 'nullable|exists:purchase_invoices,id',
             'return_date' => 'required|date',

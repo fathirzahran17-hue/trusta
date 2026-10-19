@@ -391,14 +391,6 @@ class CashBankController extends Controller
 
     private function generateRefNumber($prefix, $date)
     {
-        $lastJournal = Journal::where('company_id', auth()->user()->company_id)
-            ->where('ref_number', 'like', $prefix . '%')
-            ->whereYear('transaction_date', date('Y', strtotime($date)))
-            ->whereMonth('transaction_date', date('m', strtotime($date)))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastJournal ? (intval(substr($lastJournal->ref_number, -4)) + 1) : 1;
-        return $prefix . date('Ym', strtotime($date)) . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        return \App\Services\DocumentNumber::next(Journal::class, 'ref_number', $prefix, (int) auth()->user()->company_id, $date);
     }
 }

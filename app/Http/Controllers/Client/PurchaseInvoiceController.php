@@ -37,14 +37,7 @@ class PurchaseInvoiceController extends Controller
             ->get();
             
         // Generate auto invoice number untuk internal kita (meskipun ada nomor invoice dari supplier)
-        $lastInvoice = PurchaseInvoice::where('company_id', auth()->user()->company_id)
-            ->whereYear('invoice_date', date('Y'))
-            ->whereMonth('invoice_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastInvoice ? (intval(substr($lastInvoice->invoice_number, -4)) + 1) : 1;
-        $invoiceNumber = 'PI-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseInvoice::class, 'invoice_number', 'PI-', (int) auth()->user()->company_id, null);
             
         $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('po_id'), auth()->user()->company_id);
 
@@ -131,14 +124,7 @@ class PurchaseInvoiceController extends Controller
             $grandTotal = $afterDiscount + $taxAmount;
 
             // Generate Invoice Number Internal
-            $lastInvoice = PurchaseInvoice::where('company_id', auth()->user()->company_id)
-                ->whereYear('invoice_date', date('Y', strtotime($request->invoice_date)))
-                ->whereMonth('invoice_date', date('m', strtotime($request->invoice_date)))
-                ->orderBy('id', 'desc')
-                ->first();
-                
-            $nextId = $lastInvoice ? (intval(substr($lastInvoice->invoice_number, -4)) + 1) : 1;
-            $invoiceNumber = 'PI-' . date('Ym', strtotime($request->invoice_date)) . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseInvoice::class, 'invoice_number', 'PI-', (int) auth()->user()->company_id, $request->invoice_date);
 
             // 3. JURNAL OTOMATIS (Automated Bookkeeping)
             // Cari Akun Hutang Usaha (Account Payable)

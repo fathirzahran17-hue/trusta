@@ -42,14 +42,7 @@ class SalesReturnController extends Controller
             ->get();
             
         // Auto number
-        $lastReturn = SalesReturn::where('company_id', $companyId)
-            ->whereYear('return_date', date('Y'))
-            ->whereMonth('return_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastReturn ? (intval(substr($lastReturn->return_number, -4)) + 1) : 1;
-        $returnNumber = 'SR-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $returnNumber = \App\Services\DocumentNumber::next(\App\Models\SalesReturn::class, 'return_number', 'SR-', (int) $companyId, null);
             
         return view('client.sales_returns.create', compact('customers', 'invoices', 'products', 'returnNumber'));
     }
@@ -57,6 +50,7 @@ class SalesReturnController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'return_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('sales_returns', 'return_number')],
             'customer_id' => 'required|exists:customers,id',
             'sales_invoice_id' => 'nullable|exists:sales_invoices,id',
             'return_date' => 'required|date',

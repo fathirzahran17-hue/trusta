@@ -543,4 +543,27 @@ class DocumentFlowTest extends TestCase
         $this->delete('/superadmin/clients/' . $company->id)->assertSessionHas('success');
         $this->assertNull(Company::find($company->id));
     }
+
+    public function test_document_numbers_are_unique_per_company_and_ignore_document_date_month(): void
+    {
+        $cid = $this->user->company_id;
+        $other = Company::create(['name' => 'Perusahaan B', 'is_active' => true]);
+        $ym = date('Ym');
+        $row = fn ($company, $supplier, $wh, $no, $date) => ['company_id' => $company, 'supplier_id' => $supplier, 'warehouse_id' => $wh,
+            'receipt_number' => $no, 'receipt_date' => $date, 'status' => 'received', 'created_by' => $this->user->id, 'created_at' => now(), 'updated_at' => now()];
+        $supB = Supplier::create(['company_id' => $other->id, 'name' => 'PB']);
+        $whB = Warehouse::create(['company_id' => $other->id, 'code' => 'W', 'name' => 'G', 'is_active' => true]);
+
+        // nomor yang sama di dua perusahaan diperbolehkan
+        \Illuminate\Support\Facades\DB::table('item_receipts')->insert($row($other->id, $supB->id, $whB->id, "IR-$ym-0001", date('Y-m-d')));
+        \Illuminate\Support\Facades\DB::table('item_receipts')->insert($row($cid, $this->supplier->id, $this->warehouse->id, "IR-$ym-0001", date('Y-m-d', strtotime('-2 months'))));
+
+        // dokumen bertanggal bulan lain tidak membuat nomor berikutnya mundur ke 0001
+        $this->assertSame("IR-$ym-0002", \App\Services\DocumentNumber::next(\App\Models\ItemReceipt::class, 'receipt_number', 'IR-', (int) $cid));
+        $this->assertSame("IR-$ym-0002", \App\Services\DocumentNumber::next(\App\Models\ItemReceipt::class, 'receipt_number', 'IR-', (int) $other->id));
+
+        // nomor manual yang sudah dipakai ditolak dengan pesan validasi, bukan error SQL
+        $this->post('/client/purchases/receipts', ['supplier_id' => $this->supplier->id, 'warehouse_id' => $this->warehouse->id, 'receipt_number' => "IR-$ym-0001",
+            'receipt_date' => date('Y-m-d'), 'status' => 'received', 'products' => [$this->product->id], 'quantities' => [1]])->assertSessionHasErrors('receipt_number');
+    }
 }

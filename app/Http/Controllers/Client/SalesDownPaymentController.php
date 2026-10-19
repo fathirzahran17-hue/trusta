@@ -43,15 +43,7 @@ class SalesDownPaymentController extends Controller
             ->get();
             
         // Auto number
-        $lastDP = DownPayment::where('company_id', $companyId)
-            ->where('type', 'sales')
-            ->whereYear('payment_date', date('Y'))
-            ->whereMonth('payment_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastDP ? (intval(substr($lastDP->payment_number, -4)) + 1) : 1;
-        $paymentNumber = 'DP-S-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $paymentNumber = \App\Services\DocumentNumber::next(\App\Models\DownPayment::class, 'payment_number', 'DP-S-', (int) $companyId, null, fn($q) => $q->where('type', 'sales'));
             
         return view('client.sales_down_payments.create', compact('customers', 'salesOrders', 'accounts', 'paymentNumber'));
     }
@@ -59,6 +51,7 @@ class SalesDownPaymentController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'payment_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('down_payments', 'payment_number')],
             'customer_id' => 'required|exists:customers,id',
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:1',

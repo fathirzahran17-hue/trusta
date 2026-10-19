@@ -73,14 +73,7 @@ class PurchaseOrderController extends Controller
             ->get();
             
         // Generate auto PO number
-        $lastOrder = PurchaseOrder::where('company_id', auth()->user()->company_id)
-            ->whereYear('order_date', date('Y'))
-            ->whereMonth('order_date', date('m'))
-            ->orderBy('id', 'desc')
-            ->first();
-            
-        $nextId = $lastOrder ? (intval(substr($lastOrder->po_number, -4)) + 1) : 1;
-        $orderNumber = 'PO-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $orderNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseOrder::class, 'po_number', 'PO-', (int) auth()->user()->company_id, null);
             
         return view('client.purchase_orders.create', compact('suppliers', 'products', 'taxes', 'orderNumber'));
     }
@@ -89,7 +82,7 @@ class PurchaseOrderController extends Controller
     {
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'po_number' => 'required|string|max:30',
+            'po_number' => ['required', 'string', 'max:30', \App\Services\DocumentNumber::rule('purchase_orders', 'po_number')],
             'order_date' => 'required|date',
             'products' => 'required|array|min:1',
             'products.*' => 'required|exists:products,id',

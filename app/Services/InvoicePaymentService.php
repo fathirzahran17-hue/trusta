@@ -18,16 +18,7 @@ class InvoicePaymentService
 {
     private static function nextRef(int $companyId, string $prefix, string $date): string
     {
-        $last = Journal::where('company_id', $companyId)
-            ->where('ref_number', 'like', $prefix . '%')
-            ->whereYear('transaction_date', date('Y', strtotime($date)))
-            ->whereMonth('transaction_date', date('m', strtotime($date)))
-            ->orderBy('id', 'desc')
-            ->first();
-
-        $next = $last ? (intval(substr($last->ref_number, -4)) + 1) : 1;
-
-        return $prefix . date('Ym', strtotime($date)) . '-' . str_pad($next, 4, '0', STR_PAD_LEFT);
+        return DocumentNumber::next(Journal::class, 'ref_number', $prefix, $companyId, $date);
     }
 
     /** Terapkan perubahan jumlah dibayar secara inkremental (aman terhadap retur yang sudah mengurangi sisa tagihan). */
