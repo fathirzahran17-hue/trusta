@@ -438,7 +438,21 @@ input:focus, select:focus, textarea:focus {
 }
 input:disabled, select:disabled, textarea:disabled, input[readonly] { opacity: 0.7; }
 textarea { min-height: 60px !important; }
-input[type="checkbox"], input[type="radio"] { width: auto; accent-color: var(--accent); }
+/* Kotak centang & radio: ukuran tetap (sebelumnya width:auto membuatnya menciut jadi garis tipis) dan tanda centang selalu terlihat */
+input[type="checkbox"], input[type="radio"] {
+    -webkit-appearance: none; appearance: none;
+    display: inline-block; flex: 0 0 auto; vertical-align: middle;
+    width: 18px !important; height: 18px !important; min-width: 18px; padding: 0 !important; margin: 0;
+    background-color: var(--input-bg) !important; background-position: center; background-repeat: no-repeat; background-size: 100% 100%;
+    border: 1.5px solid var(--border-strong) !important; border-radius: 5px !important; cursor: pointer;
+    color: var(--accent); transition: background-color .12s ease, border-color .12s ease;
+}
+input[type="radio"] { border-radius: 50% !important; }
+input[type="checkbox"]:hover, input[type="radio"]:hover { border-color: var(--accent) !important; }
+input[type="checkbox"]:checked, input[type="radio"]:checked { background-color: var(--accent) !important; border-color: var(--accent) !important; }
+input[type="checkbox"]:checked { background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M4 8.5l2.6 2.6L12 5.6' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e") !important; }
+input[type="radio"]:checked { background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' r='3'/%3e%3c/svg%3e") !important; }
+input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cursor: not-allowed; }
 
 label { font-size: 0.75rem !important; font-weight: 500; color: var(--text-muted); margin-bottom: 4px !important; }
 
@@ -1118,4 +1132,4 @@ html.dark .st-paid { color: #4ade80; } html.dark .st-partial { color: #fbbf24; }
 .pay-flow { font-size: .72rem; color: var(--text-dim); margin: 0 0 14px; }
 .pay-table td { white-space: nowrap; }
 .pay-table td.wrap { white-space: normal; }
-.pay-table input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; accent-color: var(--accent); cursor: pointer; vertical-align: middle; }
+
