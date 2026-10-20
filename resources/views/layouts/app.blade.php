@@ -20,6 +20,14 @@
         <!-- TomSelect for searchable dropdowns -->
         <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
         <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+        <script>
+            // Daftar pilihan dirender di <body> agar tidak terpotong kartu/tabel (overflow hidden) dan selalu terlihat penuh.
+            (function () {
+                var Orig = window.TomSelect; if (!Orig) return;
+                var Wrapped = function (el, opts) { return new Orig(el, Object.assign({ dropdownParent: 'body', maxOptions: 1000, create: false }, opts || {})); };
+                Wrapped.prototype = Orig.prototype; Object.assign(Wrapped, Orig); window.TomSelect = Wrapped;
+            })();
+        </script>
 
     </head>
     <body class="font-sans antialiased" x-data="{ sidebarOpen: true }" x-init="

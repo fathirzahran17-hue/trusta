@@ -594,7 +594,9 @@ table tbody td { padding: 8px 14px !important; }
     box-shadow: var(--shadow-pop) !important;
     z-index: 80;
 }
-.ts-dropdown .ts-dropdown-content { max-height: 250px !important; }
+.ts-dropdown .ts-dropdown-content { max-height: min(320px, 50vh) !important; }
+.ts-dropdown .option.disabled, .ts-dropdown .option[data-disabled] { display: none !important; } /* akun induk/header tidak bisa dipilih: sembunyikan */
+.ts-dropdown { min-width: 260px; }
 .ts-dropdown .option { padding: 8px 12px !important; cursor: pointer; color: var(--text-strong); }
 .ts-dropdown .option:hover, .ts-dropdown .active { background-color: var(--accent) !important; color: var(--trusta-darker) !important; }
 .ts-dropdown .no-results, .ts-dropdown .optgroup-header { color: var(--text-muted) !important; background: transparent !important; }

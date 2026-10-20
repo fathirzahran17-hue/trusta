@@ -145,6 +145,8 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
 
     // Persediaan - Barang & Jasa
     Route::get('inventory', [\App\Http\Controllers\Client\InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('inventory/services', [\App\Http\Controllers\Client\InventoryController::class, 'services'])->name('inventory.services');
+    Route::get('inventory/services/create', [\App\Http\Controllers\Client\InventoryController::class, 'createService'])->name('inventory.services.create');
     Route::get('inventory/create', [\App\Http\Controllers\Client\InventoryController::class, 'create'])->name('inventory.create');
     Route::post('inventory', [\App\Http\Controllers\Client\InventoryController::class, 'store'])->name('inventory.store');
     Route::get('inventory/requests', [\App\Http\Controllers\Client\InventoryController::class, 'requests'])->name('inventory.requests');

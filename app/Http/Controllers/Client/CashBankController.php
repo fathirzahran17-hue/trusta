@@ -39,8 +39,9 @@ class CashBankController extends Controller
 
         $allAccounts = Account::where('company_id', auth()->user()->company_id)
             ->where('id', '!=', $account->id)
-            ->orderBy('name')
-            ->get();
+            ->orderBy('code')
+            ->get()
+            ->reject(fn ($a) => $a->is_header)->values();
             
         $jobs = ProjectJob::where('company_id', auth()->user()->company_id)->where('is_active', true)->get();
 
@@ -129,8 +130,8 @@ class CashBankController extends Controller
     public function payments()
     {
         $companyId = auth()->user()->company_id;
-        $cashAccounts = Account::where('company_id', $companyId)->where('type', 'asset')->get();
-        $allAccounts = Account::where('company_id', $companyId)->get();
+        $cashAccounts = Account::where('company_id', $companyId)->where('is_cash_bank', true)->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
+        $allAccounts = Account::where('company_id', $companyId)->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
         $jobs = ProjectJob::where('company_id', $companyId)->where('is_active', true)->get();
         return view('client.cash_bank.payments', compact('cashAccounts', 'allAccounts', 'jobs'));
     }
@@ -222,8 +223,8 @@ class CashBankController extends Controller
     public function receipts()
     {
         $companyId = auth()->user()->company_id;
-        $cashAccounts = Account::where('company_id', $companyId)->where('type', 'asset')->get();
-        $allAccounts = Account::where('company_id', $companyId)->get();
+        $cashAccounts = Account::where('company_id', $companyId)->where('is_cash_bank', true)->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
+        $allAccounts = Account::where('company_id', $companyId)->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
         $jobs = ProjectJob::where('company_id', $companyId)->where('is_active', true)->get();
         return view('client.cash_bank.receipts', compact('cashAccounts', 'allAccounts', 'jobs'));
     }
@@ -299,7 +300,7 @@ class CashBankController extends Controller
     public function transfers()
     {
         $companyId = auth()->user()->company_id;
-        $cashAccounts = Account::where('company_id', $companyId)->where('type', 'asset')->get();
+        $cashAccounts = Account::where('company_id', $companyId)->where('is_cash_bank', true)->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
         return view('client.cash_bank.transfers', compact('cashAccounts'));
     }
 

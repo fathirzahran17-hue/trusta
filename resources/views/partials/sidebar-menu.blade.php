@@ -35,9 +35,10 @@
                 $H('Lainnya'),
                 $I('Uang Muka Penjualan', 'client.sales.down_payments'),
                 $I('Retur Penjualan', 'client.sales.returns'),
-                $H('Data Pelanggan'),
+                $H('Data Master'),
                 $I('Pelanggan', 'client.customers.index'),
                 $I('Kategori Pelanggan', 'client.customers.categories'),
+                $I('Jasa (Pendapatan Jasa)', 'client.inventory.services', ['client.inventory.services', 'client.inventory.services.create']),
             ]],
             ['title' => 'Pembelian', 'icon' => 'buy', 'children' => [
                 $H('Alur Pembelian'),
@@ -64,7 +65,7 @@
         ['label' => 'Barang & Aset', 'items' => [
             ['title' => 'Persediaan', 'icon' => 'box', 'children' => [
                 $H('Data Barang'),
-                $I('Barang & Jasa', 'client.inventory.index', ['client.inventory.index', 'client.inventory.show', 'client.inventory.edit', 'client.inventory.create']),
+                $I('Barang', 'client.inventory.index', ['client.inventory.index', 'client.inventory.show', 'client.inventory.create']),
                 $I('Barang per Gudang', 'client.inventory.items_per_warehouse'),
                 $I('Barang Stok Minimum', 'client.inventory.minimum_stock'),
                 $H('Mutasi Stok'),

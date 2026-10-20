@@ -157,15 +157,22 @@ class SalesInvoiceController extends Controller
             $revenueGroups = [];
             foreach ($items as $item) {
                 $prod = Product::find($item['product_id']);
-                if (!$prod->revenue_account_id) {
-                    throw new \Exception('Produk ' . $prod->name . ' belum dipetakan ke Akun Pendapatan (Revenue Account).');
+                // Akun pendapatan: dari produk; bila kosong pakai akun standar (Pendapatan Jasa untuk jasa, Pendapatan Penjualan untuk barang)
+                $revId = $prod->revenue_account_id;
+                if (!$revId) {
+                    $cid = (int) auth()->user()->company_id;
+                    $fallback = $prod->type === 'service' ? \App\Services\AccountResolver::serviceRevenue($cid) : \App\Services\AccountResolver::salesRevenue($cid);
+                    $revId = optional($fallback)->id;
                 }
-                
-                if (!isset($revenueGroups[$prod->revenue_account_id])) {
-                    $revenueGroups[$prod->revenue_account_id] = 0;
+                if (!$revId) {
+                    throw new \Exception('Akun pendapatan untuk "' . $prod->name . '" belum ada. Buka menu Barang/Jasa lalu pilih Akun Pendapatan.');
+                }
+
+                if (!isset($revenueGroups[$revId])) {
+                    $revenueGroups[$revId] = 0;
                 }
                 // Diskon keseluruhan dibagi proporsional ke pendapatan agar jurnal seimbang
-                $revenueGroups[$prod->revenue_account_id] += $item['total'] * (1 - $overallDiscPct / 100);
+                $revenueGroups[$revId] += $item['total'] * (1 - $overallDiscPct / 100);
             }
             
             foreach ($revenueGroups as $accountId => $amount) {
