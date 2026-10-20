@@ -2,6 +2,7 @@ import './bootstrap';
 import Alpine from 'alpinejs';
 import { initTheme } from './theme';
 import { initSearch } from './search';
+import './rupiah';
 
 // Tema terang/gelap
 initTheme();

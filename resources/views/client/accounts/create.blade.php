@@ -158,26 +158,6 @@
 </x-app-layout>
 
 <script>
-function formatRupiah(element, hiddenElementId) {
-    let value = element.value.toString().replace(/[^,\d]/g, '');
-    let split = value.split(',');
-    let sisa = split[0].length % 3;
-    let rupiah = split[0].substr(0, sisa);
-    let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-
-    if (ribuan) {
-        let separator = sisa ? '.' : '';
-        rupiah += separator + ribuan.join('.');
-    }
-
-    rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
-    element.value = rupiah;
-    
-    // Update hidden value
-    let realValue = value ? value.replace(/,/g, '.') : 0;
-    document.getElementById(hiddenElementId).value = realValue;
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     let openingDisplay = document.getElementById('opening_balance_display');
     if(openingDisplay && openingDisplay.value) formatRupiah(openingDisplay, 'opening_balance');

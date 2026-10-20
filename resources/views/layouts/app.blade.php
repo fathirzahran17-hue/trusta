@@ -182,20 +182,36 @@
                         this.tabs = JSON.parse(sessionStorage.getItem(this.storageKey)) || [];
                         let dashboardUrl = '{{ auth()->check() && auth()->user()->isSuperAdmin() ? route('superadmin.dashboard') : route('client.dashboard') }}';
                         
-                        if(this.tabs.length === 0) {
-                            this.tabs.push({ title: 'Dashboard', url: dashboardUrl, active: false });
+                        if(this.tabs.length === 0 || this.tabs[0].url !== dashboardUrl) {
+                            this.tabs = this.tabs.filter(t => t.url !== dashboardUrl);
+                            this.tabs.unshift({ title: 'Dashboard', url: dashboardUrl, active: false });
                         }
                         
+                        let title = document.querySelector('.top-header-title h1')?.innerText?.trim() || 'Halaman';
                         let exists = this.tabs.findIndex(t => t.url.split('?')[0] === this.currentUrl);
-                        let title = document.querySelector('.top-header-title h1')?.innerText || 'Halaman';
+                        let sameTitleIndex = this.tabs.findIndex(t => t.title === title && t.url !== dashboardUrl);
                         
-                        if (exists === -1 && this.currentUrl !== dashboardUrl) {
+                        if (exists !== -1) {
+                            this.tabs[exists].title = title;
+                        } else if (sameTitleIndex !== -1 && (title.startsWith('Ubah') || title.startsWith('Kelola') || title.startsWith('Edit'))) {
+                            this.tabs[sameTitleIndex].url = this.currentUrl;
+                            this.tabs[sameTitleIndex].title = title;
+                        } else if (this.currentUrl !== dashboardUrl) {
                             this.tabs.push({title: title, url: this.currentUrl, active: true});
                         }
+
+                        // Batasi maksimum 7 tab agar rapi dan tidak overflow
+                        while (this.tabs.length > 7) {
+                            let idx = this.tabs.findIndex((t, i) => i > 0 && t.url.split('?')[0] !== this.currentUrl);
+                            if (idx !== -1) {
+                                this.tabs.splice(idx, 1);
+                            } else {
+                                break;
+                            }
+                        }
                         
-                        this.tabs = this.tabs.map((t, index) => {
+                        this.tabs = this.tabs.map((t) => {
                             let isActive = (t.url.split('?')[0] === this.currentUrl);
-                            if (isActive) t.title = title; // update title
                             return {...t, active: isActive};
                         });
                         
@@ -214,16 +230,27 @@
                             let dashboardUrl = '{{ auth()->check() && auth()->user()->isSuperAdmin() ? route('superadmin.dashboard') : route('client.dashboard') }}';
                             window.location.href = dashboardUrl;
                         }
+                    },
+                    closeOthers() {
+                        let dashboardUrl = '{{ auth()->check() && auth()->user()->isSuperAdmin() ? route('superadmin.dashboard') : route('client.dashboard') }}';
+                        this.tabs = this.tabs.filter(t => t.url === dashboardUrl || t.url.split('?')[0] === this.currentUrl);
+                        sessionStorage.setItem(this.storageKey, JSON.stringify(this.tabs));
                     }
                 }">
-                    <template x-for="(tab, index) in tabs" :key="index">
-                        <a :href="tab.url" class="app-tab" :class="{ 'active': tab.active }">
-                            <span x-text="tab.title"></span>
-                            <button x-show="tab.title !== 'Dashboard'" @click="closeTab(index, $event)" class="app-tab-close" title="Tutup">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-                            </button>
-                        </a>
-                    </template>
+                    <div class="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1">
+                        <template x-for="(tab, index) in tabs" :key="index">
+                            <a :href="tab.url" class="app-tab" :class="{ 'active': tab.active }" :title="tab.title">
+                                <span class="max-w-[140px] truncate" x-text="tab.title"></span>
+                                <button x-show="tab.title !== 'Dashboard'" @click="closeTab(index, $event)" class="app-tab-close" title="Tutup">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </a>
+                        </template>
+                    </div>
+                    <button x-show="tabs.length > 2" @click="closeOthers()" class="text-[11px] text-gray-500 hover:text-red-400 px-2 py-1 transition-colors flex items-center gap-1 whitespace-nowrap self-center mb-1" title="Tutup semua tab kecuali tab ini">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        Tutup Lainnya
+                    </button>
                 </div>
 
                 <!-- Page Content -->
