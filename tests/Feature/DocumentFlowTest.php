@@ -566,4 +566,54 @@ class DocumentFlowTest extends TestCase
         $this->post('/client/purchases/receipts', ['supplier_id' => $this->supplier->id, 'warehouse_id' => $this->warehouse->id, 'receipt_number' => "IR-$ym-0001",
             'receipt_date' => date('Y-m-d'), 'status' => 'received', 'products' => [$this->product->id], 'quantities' => [1]])->assertSessionHasErrors('receipt_number');
     }
+
+    public function test_service_and_goods_forms_save_with_correct_defaults_and_no_cogs_for_service(): void
+    {
+        $cid = $this->user->company_id;
+        $today = date('Y-m-d');
+        $this->get('/client/inventory')->assertOk()->assertSee('Tambah Barang');
+        $this->get('/client/inventory/services')->assertOk()->assertSee('Tambah Jasa');
+        $this->get('/client/inventory/create')->assertOk()->assertSee('Harga Beli');
+        $this->get('/client/inventory/services/create')->assertOk()->assertSee('Biaya Subkontraktor')->assertDontSee('Akun HPP');
+
+        // Jasa murni: satuan kosong tidak membuat error; tanpa HPP; akun pendapatan jasa otomatis
+        $this->post('/client/inventory', ['type' => 'service', 'sku' => 'JSA-0001', 'name' => 'Jasa Servis', 'unit' => '', 'sell_price' => 250000, 'buy_price' => 99999,
+            'expense_account_id' => '', 'revenue_account_id' => ''])->assertSessionHasNoErrors()->assertRedirect(route('client.inventory.services'));
+        $svc = Product::where('sku', 'JSA-0001')->firstOrFail();
+        $this->assertSame('service', $svc->type);
+        $this->assertSame('kali', $svc->unit);
+        $this->assertEquals(0, (float) $svc->buy_price);
+        $this->assertNull($svc->expense_account_id);
+        $this->assertSame('Pendapatan Jasa', $svc->revenueAccount->name);
+
+        // Jasa dengan subkontraktor: biaya subkontrak tercatat dan akun HPP otomatis tersedia
+        $this->post('/client/inventory', ['type' => 'service', 'sku' => 'JSA-0002', 'name' => 'Jasa Pasang', 'sell_price' => 500000, 'is_subcontract' => 1, 'buy_price' => 300000])->assertSessionHasNoErrors();
+        $sub = Product::where('sku', 'JSA-0002')->firstOrFail();
+        $this->assertEquals(300000, (float) $sub->buy_price);
+        $this->assertStringContainsString('Subkontrak', $sub->expenseAccount->name);
+
+        // Barang: akun pendapatan & HPP otomatis, satuan default pcs; kode ganda ditolak
+        $this->post('/client/inventory', ['type' => 'goods', 'sku' => 'BRG-0009', 'name' => 'Barang Baru', 'sell_price' => 1000, 'buy_price' => 600])->assertSessionHasNoErrors();
+        $g = Product::where('sku', 'BRG-0009')->firstOrFail();
+        $this->assertSame('pcs', $g->unit);
+        $this->assertSame('Pendapatan Penjualan', $g->revenueAccount->name);
+        $this->assertStringContainsString('HPP', $g->expenseAccount->name);
+        $this->post('/client/inventory', ['type' => 'goods', 'sku' => 'BRG-0009', 'name' => 'Lagi', 'sell_price' => 1])->assertSessionHasErrors('sku');
+
+        // Ubah jasa -> matikan subkontraktor menghapus biaya
+        $this->get("/client/inventory/{$sub->id}/edit")->assertOk();
+        $this->put("/client/inventory/{$sub->id}", ['sku' => 'JSA-0002', 'name' => 'Jasa Pasang', 'sell_price' => 500000, 'is_subcontract' => 0, 'is_active' => 1])->assertSessionHasNoErrors();
+        $this->assertNull($sub->fresh()->expense_account_id);
+
+        // Faktur jasa: pendapatan masuk Pendapatan Jasa walau produk tanpa akun, tidak ada HPP/stok, jurnal seimbang
+        $svc->forceFill(['revenue_account_id' => null])->save();
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$svc->id], 'quantities' => [2], 'prices' => [250000], 'discounts' => [0]])->assertSessionMissing('error');
+        $inv = SalesInvoice::firstOrFail();
+        $this->assertEquals(500000, (float) $inv->total);
+        $names = $inv->journal->details->map(fn ($d) => $d->account->name)->implode(',');
+        $this->assertStringContainsString('Pendapatan Jasa', $names);
+        $this->assertStringNotContainsString('HPP', $names);
+        $this->assertBooksBalanced();
+    }
 }

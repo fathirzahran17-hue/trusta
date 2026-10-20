@@ -113,8 +113,13 @@
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <span class="text-gray-500 sm:text-sm">Rp</span>
                             </div>
-                            <input type="hidden" name="opening_balance" id="opening_balance" value="{{ old('opening_balance', $account->opening_balance) }}">
-                            <input type="text" id="opening_balance_display" value="{{ old('opening_balance', $account->opening_balance) }}"
+                            @php
+                                $ob = (float) $account->opening_balance;
+                                $obPlain = rtrim(rtrim(number_format($ob, 2, '.', ''), '0'), '.');      // 25000000 atau 1500.5
+                                $obShow = str_replace('.', ',', $obPlain);                             // format input: koma = desimal
+                            @endphp
+                            <input type="hidden" name="opening_balance" id="opening_balance" value="{{ old('opening_balance', $obPlain) }}">
+                            <input type="text" id="opening_balance_display" value="{{ old('opening_balance_display', old('opening_balance') !== null ? str_replace('.', ',', old('opening_balance')) : $obShow) }}"
                                 {{ $account->is_system ? 'readonly' : '' }}
                                 onkeyup="formatRupiah(this, 'opening_balance')"
                                 class="w-full pl-10 bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm {{ $account->is_system ? 'opacity-60 cursor-not-allowed' : '' }}">
@@ -173,26 +178,6 @@
 </x-app-layout>
 
 <script>
-function formatRupiah(element, hiddenElementId) {
-    let value = element.value.toString().replace(/[^,\d]/g, '');
-    let split = value.split(',');
-    let sisa = split[0].length % 3;
-    let rupiah = split[0].substr(0, sisa);
-    let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-
-    if (ribuan) {
-        let separator = sisa ? '.' : '';
-        rupiah += separator + ribuan.join('.');
-    }
-
-    rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
-    element.value = rupiah;
-    
-    // Update hidden value
-    let realValue = value ? value.replace(/,/g, '.') : 0;
-    document.getElementById(hiddenElementId).value = realValue;
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     let openingDisplay = document.getElementById('opening_balance_display');
     if(openingDisplay && openingDisplay.value) formatRupiah(openingDisplay, 'opening_balance');

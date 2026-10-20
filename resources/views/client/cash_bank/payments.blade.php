@@ -134,27 +134,6 @@
     </form>
 
     <script>
-        function formatRupiah(element, hiddenElement) {
-            let value = element.value.toString().replace(/[^,\d]/g, '');
-            let split = value.split(',');
-            let sisa = split[0].length % 3;
-            let rupiah = split[0].substr(0, sisa);
-            let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-
-            if (ribuan) {
-                let separator = sisa ? '.' : '';
-                rupiah += separator + ribuan.join('.');
-            }
-
-            rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
-            element.value = rupiah;
-            
-            let realValue = value ? value.replace(/,/g, '.') : 0;
-            if(hiddenElement) {
-                hiddenElement.value = realValue;
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             const tableBody = document.getElementById('itemsBody');
             const btnAddRow = document.getElementById('btnAddRow');

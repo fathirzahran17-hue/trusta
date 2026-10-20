@@ -49,6 +49,35 @@ class AccountResolver
         return self::find($companyId, 'liability', ['Hutang Dagang%', 'Hutang Usaha%', 'Utang Usaha%', 'Utang Dagang%'], ['account_payable']);
     }
 
+    public static function salesRevenue(int $companyId): ?Account
+    {
+        return self::find($companyId, 'revenue', ['Pendapatan Penjualan%', 'Penjualan%', 'Pendapatan%']);
+    }
+
+    public static function serviceRevenue(int $companyId): ?Account
+    {
+        return self::find($companyId, 'revenue', ['Pendapatan Jasa%', 'Jasa%', 'Pendapatan%']);
+    }
+
+    /** Akun biaya langsung untuk jasa yang dikerjakan subkontraktor; dibuat otomatis bila belum ada. */
+    public static function subcontractCost(int $companyId): ?Account
+    {
+        if ($a = self::find($companyId, 'cost_of_sales', ['%Subkon%'])) {
+            return $a;
+        }
+        $parent = Account::where('company_id', $companyId)->where('type', 'cost_of_sales')->whereNull('parent_id')->orderBy('code')->first();
+        if (!$parent) {
+            return self::find($companyId, 'cost_of_sales', ['HPP%', 'Harga Pokok%']);
+        }
+        $code = '5-0005';
+        while (Account::where('company_id', $companyId)->where('code', $code)->exists()) {
+            $code = '5-' . str_pad((int) substr($code, 2) + 1, 4, '0', STR_PAD_LEFT);
+        }
+
+        return Account::create(['company_id' => $companyId, 'code' => $code, 'name' => 'HPP - Jasa Subkontrak', 'type' => 'cost_of_sales',
+            'normal_balance' => 'debit', 'parent_id' => $parent->id, 'is_system' => false, 'is_active' => true]);
+    }
+
     public static function cogs(int $companyId): ?Account
     {
         return self::find($companyId, 'cost_of_sales', ['HPP%Barang Dagang%', 'HPP%', 'Harga Pokok%']);

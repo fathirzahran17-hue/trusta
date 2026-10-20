@@ -10,6 +10,7 @@ use App\Models\Unit;
 use App\Models\Brand;
 use App\Models\Account;
 use App\Models\InventoryMovement;
+use App\Services\AccountResolver;
 use Illuminate\Http\Request;
 
 class InventoryController extends Controller
@@ -17,17 +18,30 @@ class InventoryController extends Controller
     private function companyId() { return auth()->user()->company_id; }
 
     // ========== BARANG & JASA (Products) ==========
+    /** Daftar Barang (stok). */
     public function index(Request $request)
     {
-        $query = Product::where('company_id', $this->companyId())->with('category');
+        return $this->listProducts($request, 'goods');
+    }
+
+    /** Daftar Jasa (pendapatan jasa; tidak ada stok/HPP). */
+    public function services(Request $request)
+    {
+        return $this->listProducts($request, 'service');
+    }
+
+    private function listProducts(Request $request, string $kind)
+    {
+        $query = Product::where('company_id', $this->companyId())->where('type', $kind)->with('category');
         if ($request->search) {
-            $query->where(function($q) use ($request) {
+            $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', "%{$request->search}%")->orWhere('sku', 'like', "%{$request->search}%");
             });
         }
-        if ($request->type) $query->where('type', $request->type);
-        $products = $query->orderBy('name')->paginate(20);
-        return view('client.inventory.index', compact('products'));
+        $products = $query->orderBy('name')->paginate(20)->withQueryString();
+        $counts = Product::where('company_id', $this->companyId())->selectRaw('type, count(*) c')->groupBy('type')->pluck('c', 'type');
+
+        return view('client.inventory.index', ['products' => $products, 'kind' => $kind, 'counts' => $counts]);
     }
 
     public function show(Product $product)
@@ -37,69 +51,140 @@ class InventoryController extends Controller
         return view('client.inventory.show', compact('product', 'movements'));
     }
 
-    public function create()
+    /** Data untuk form: akun pendapatan/biaya yang boleh dipilih (bukan akun induk), satuan, kategori, dan nilai awal otomatis. */
+    private function formData(string $kind, ?Product $product = null): array
     {
-        $categories = ProductCategory::where('company_id', $this->companyId())->get();
-        $accounts = Account::where('company_id', $this->companyId())->orderBy('code')->get();
-        $units = Unit::where('company_id', $this->companyId())->get();
-        $brands = Brand::where('company_id', $this->companyId())->get();
-        return view('client.inventory.create', compact('categories', 'accounts', 'units', 'brands'));
+        $cid = $this->companyId();
+        $leaf = fn ($types) => Account::where('company_id', $cid)->whereIn('type', $types)->where('is_active', true)->orderBy('code')->get()
+            ->reject(fn ($a) => $a->is_header)->values();
+
+        $revenueAccounts = $leaf(['revenue', 'other_income']);
+        $costAccounts = $leaf(['cost_of_sales', 'expense']);
+        $defaultRevenue = $kind === 'service' ? AccountResolver::serviceRevenue($cid) : AccountResolver::salesRevenue($cid);
+
+        return [
+            'kind' => $kind,
+            'product' => $product,
+            'categories' => ProductCategory::where('company_id', $cid)->orderBy('name')->get(),
+            'units' => Unit::where('company_id', $cid)->orderBy('name')->get(),
+            'revenueAccounts' => $revenueAccounts,
+            'costAccounts' => $costAccounts,
+            'defaultRevenueId' => optional($defaultRevenue)->id,
+            'defaultCostId' => $kind === 'goods' ? optional(AccountResolver::cogs($cid))->id : null,
+            'nextSku' => $this->nextSku($kind),
+        ];
+    }
+
+    private function nextSku(string $kind): string
+    {
+        $prefix = $kind === 'service' ? 'JSA-' : 'BRG-';
+        $max = 0;
+        foreach (Product::where('company_id', $this->companyId())->where('sku', 'like', $prefix . '%')->pluck('sku') as $sku) {
+            if (preg_match('/(\d+)$/', (string) $sku, $m)) $max = max($max, (int) $m[1]);
+        }
+        return $prefix . str_pad($max + 1, 4, '0', STR_PAD_LEFT);
+    }
+
+    public function create(Request $request)
+    {
+        $kind = $request->query('type') === 'service' ? 'service' : 'goods';
+        return view('client.inventory.create', $this->formData($kind));
+    }
+
+    public function createService()
+    {
+        return view('client.inventory.create', $this->formData('service'));
+    }
+
+    /** Validasi + normalisasi sesuai jenis: jasa tidak punya stok/HPP kecuali memakai subkontraktor. */
+    private function productData(Request $request, string $kind, ?Product $product = null): array
+    {
+        $cid = $this->companyId();
+        $skuRule = \Illuminate\Validation\Rule::unique('products', 'sku')->where('company_id', $cid)->ignore($product?->id);
+        $accountRule = fn () => \Illuminate\Validation\Rule::exists('accounts', 'id')->where('company_id', $cid);
+
+        $v = $request->validate([
+            'sku' => ['required', 'string', 'max:50', $skuRule],
+            'name' => 'required|string|max:255',
+            'category_id' => ['nullable', \Illuminate\Validation\Rule::exists('product_categories', 'id')->where('company_id', $cid)],
+            'unit' => 'nullable|string|max:20',
+            'sell_price' => 'required|numeric|min:0',
+            'buy_price' => 'nullable|numeric|min:0',
+            'revenue_account_id' => ['nullable', $accountRule()],
+            'expense_account_id' => ['nullable', $accountRule()],
+            'is_subcontract' => 'nullable',
+        ], ['sku.unique' => 'Kode ini sudah dipakai produk lain.']);
+
+        $data = [
+            'sku' => $v['sku'], 'name' => $v['name'], 'type' => $kind, 'category_id' => $v['category_id'] ?? null,
+            'sell_price' => $v['sell_price'],
+            'revenue_account_id' => $v['revenue_account_id'] ?? null,
+        ];
+
+        // Akun pendapatan otomatis bila tidak dipilih
+        if (!$data['revenue_account_id']) {
+            $acc = $kind === 'service' ? AccountResolver::serviceRevenue($cid) : AccountResolver::salesRevenue($cid);
+            $data['revenue_account_id'] = optional($acc)->id;
+        }
+
+        if ($kind === 'service') {
+            $data['unit'] = ($v['unit'] ?? null) ?: 'kali';
+            if ($request->boolean('is_subcontract')) {
+                $data['buy_price'] = $v['buy_price'] ?? 0;
+                $data['expense_account_id'] = $v['expense_account_id'] ?? optional(AccountResolver::subcontractCost($cid))->id;
+            } else {
+                $data['buy_price'] = 0;
+                $data['expense_account_id'] = null; // jasa murni: tidak ada HPP
+            }
+        } else {
+            $data['unit'] = ($v['unit'] ?? null) ?: 'pcs';
+            $data['buy_price'] = $v['buy_price'] ?? 0;
+            $data['expense_account_id'] = $v['expense_account_id'] ?? optional(AccountResolver::cogs($cid))->id;
+        }
+
+        return $data;
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'sku' => 'required|string|max:50',
-            'name' => 'required|string|max:255',
-            'type' => 'required|in:goods,service',
-            'category_id' => 'nullable|exists:product_categories,id',
-            'unit' => 'nullable|string|max:20',
-            'sell_price' => 'required|numeric|min:0',
-            'buy_price' => 'required|numeric|min:0',
-            'revenue_account_id' => 'nullable|exists:accounts,id',
-            'expense_account_id' => 'nullable|exists:accounts,id',
-        ]);
-        $validated['company_id'] = $this->companyId();
-        $validated['is_active'] = true;
-        Product::create($validated);
-        return redirect()->route('client.inventory.index')->with('success', 'Barang/Jasa berhasil ditambahkan.');
+        $kind = $request->input('type') === 'service' ? 'service' : 'goods';
+        $data = $this->productData($request, $kind);
+        $data['company_id'] = $this->companyId();
+        $data['is_active'] = true;
+        Product::create($data);
+
+        return redirect()->route($kind === 'service' ? 'client.inventory.services' : 'client.inventory.index')
+            ->with('success', ($kind === 'service' ? 'Jasa' : 'Barang') . ' berhasil ditambahkan.');
     }
 
     public function edit(Product $product)
     {
         if ($product->company_id != $this->companyId()) abort(404);
-        $categories = ProductCategory::where('company_id', $this->companyId())->get();
-        $accounts = Account::where('company_id', $this->companyId())->orderBy('code')->get();
-        $units = Unit::where('company_id', $this->companyId())->get();
-        $brands = Brand::where('company_id', $this->companyId())->get();
-        return view('client.inventory.edit', compact('product', 'categories', 'accounts', 'units', 'brands'));
+        return view('client.inventory.edit', $this->formData($product->type === 'service' ? 'service' : 'goods', $product));
     }
 
     public function update(Request $request, Product $product)
     {
         if ($product->company_id != $this->companyId()) abort(404);
-        $validated = $request->validate([
-            'sku' => 'required|string|max:50',
-            'name' => 'required|string|max:255',
-            'type' => 'required|in:goods,service',
-            'category_id' => 'nullable|exists:product_categories,id',
-            'unit' => 'nullable|string|max:20',
-            'sell_price' => 'required|numeric|min:0',
-            'buy_price' => 'required|numeric|min:0',
-            'revenue_account_id' => 'nullable|exists:accounts,id',
-            'expense_account_id' => 'nullable|exists:accounts,id',
-            'is_active' => 'nullable',
-        ]);
-        $validated['is_active'] = $request->has('is_active');
-        $product->update($validated);
-        return redirect()->route('client.inventory.index')->with('success', 'Barang/Jasa berhasil diperbarui.');
+        $kind = $product->type === 'service' ? 'service' : 'goods';
+        $data = $this->productData($request, $kind, $product);
+        $data['is_active'] = $request->has('is_active');
+        $product->update($data);
+
+        return redirect()->route($kind === 'service' ? 'client.inventory.services' : 'client.inventory.index')
+            ->with('success', ($kind === 'service' ? 'Jasa' : 'Barang') . ' berhasil diperbarui.');
     }
 
     public function destroy(Product $product)
     {
         if ($product->company_id != $this->companyId()) abort(404);
-        $product->delete();
-        return redirect()->route('client.inventory.index')->with('success', 'Barang/Jasa berhasil dihapus.');
+        $kind = $product->type === 'service' ? 'service' : 'goods';
+        try {
+            $product->delete();
+        } catch (\Illuminate\Database\QueryException $e) {
+            return back()->with('error', 'Tidak bisa dihapus karena sudah dipakai di transaksi. Nonaktifkan saja lewat menu Ubah.');
+        }
+        return redirect()->route($kind === 'service' ? 'client.inventory.services' : 'client.inventory.index')->with('success', 'Data berhasil dihapus.');
     }
 
     // ========== GUDANG (Warehouse) ==========

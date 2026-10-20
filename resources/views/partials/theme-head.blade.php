@@ -14,4 +14,54 @@
         if (mode === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
         root.dataset.theme = mode;
     })();
+
+    // TRUSTA - Universal formatRupiah Helper
+    window.formatRupiah = function(element, hiddenElement) {
+        if (!element) return 0;
+        var raw = (element.value !== undefined && element.value !== null) ? element.value.toString().trim() : '';
+
+        // Deteksi format database (contoh: "1500000.00" atau "25000.50")
+        if (/^\d+\.\d+$/.test(raw)) {
+            var num = parseFloat(raw);
+            if (!isNaN(num)) {
+                if (num % 1 === 0) {
+                    raw = String(Math.round(num));
+                } else {
+                    raw = raw.replace('.', ',');
+                }
+            }
+        }
+
+        var clean = raw.replace(/[^,\d]/g, '');
+        var split = clean.split(',');
+        var sisa = split[0].length % 3;
+        var rupiah = split[0].substr(0, sisa);
+        var ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+        if (ribuan) {
+            var separator = sisa ? '.' : '';
+            rupiah += separator + ribuan.join('.');
+        }
+
+        if (split[1] !== undefined) {
+            rupiah = rupiah + ',' + split[1].substring(0, 2);
+        }
+
+        element.value = rupiah;
+
+        var realValue = 0;
+        if (clean) {
+            var numStr = split[0] + (split[1] !== undefined ? '.' + split[1].substring(0, 2) : '');
+            realValue = parseFloat(numStr) || 0;
+        }
+
+        var targetHidden = hiddenElement;
+        if (typeof hiddenElement === 'string') {
+            targetHidden = document.getElementById(hiddenElement);
+        }
+        if (targetHidden) {
+            targetHidden.value = realValue;
+        }
+        return realValue;
+    };
 </script>
