@@ -42,10 +42,10 @@
                     
                     <div>
                         <label for="purchase_order_id">Dari Pesanan (PO)</label>
-                        <select name="purchase_order_id" id="purchase_order_id">
+                        <select name="purchase_order_id" id="purchase_order_id" onchange="window.location.href = this.value ? '{{ route('client.purchases.receipts.create') }}?purchase_order_id=' + this.value : '{{ route('client.purchases.receipts.create') }}'">
                             <option value="">-- Pilih PO (Opsional) --</option>
                             @foreach($purchaseOrders as $po)
-                                <option value="{{ $po->id }}" {{ old('purchase_order_id', optional($prefill['order'])->id) == $po->id ? 'selected' : '' }}>{{ $po->po_number }}</option>
+                                <option value="{{ $po->id }}" {{ old('purchase_order_id', optional($prefill['order'])->id) == $po->id ? 'selected' : '' }}>{{ $po->po_number }} — {{ optional($po->supplier)->name }}</option>
                             @endforeach
                         </select>
                     </div>

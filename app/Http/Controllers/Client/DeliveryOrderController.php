@@ -31,7 +31,7 @@ class DeliveryOrderController extends Controller
         $companyId = auth()->user()->company_id;
         $customers = Customer::where('company_id', $companyId)->orderBy('name')->get();
         
-        $salesOrders = SalesOrder::where('company_id', $companyId)
+        $salesOrders = SalesOrder::with('customer')->where('company_id', $companyId)
             ->whereIn('status', ['open'])
             ->orderBy('order_date', 'desc')
             ->get();

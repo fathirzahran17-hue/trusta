@@ -685,9 +685,24 @@ class DocumentFlowTest extends TestCase
     {
         $this->get('/client/sales')->assertOk()->assertSee('Pusat Penjualan')->assertSee('Alur Penjualan')->assertSee('Terima Pembayaran');
         $this->get('/client/purchases')->assertOk()->assertSee('Pusat Pembelian')->assertSee('Catat Pembayaran');
+        $this->get('/client/sales-invoices/create')->assertOk()->assertSee('Tarik dari Pesanan Penjualan');
+        $this->get('/client/purchase-invoices/create')->assertOk()->assertSee('Tarik dari Pesanan Pembelian');
         Product::create(['company_id' => $this->user->company_id, 'name' => 'Konsultasi Unik', 'type' => 'service', 'unit' => 'kali', 'sku' => 'JS-9', 'sell_price' => 500000, 'buy_price' => 0, 'is_active' => true]);
         Product::create(['company_id' => $this->user->company_id, 'name' => 'Widget Unik', 'type' => 'goods', 'unit' => 'pcs', 'sku' => 'BR-9', 'sell_price' => 1000, 'buy_price' => 500, 'is_active' => true]);
         $this->get('/client/inventory/all')->assertOk()->assertSee('Konsultasi Unik')->assertSee('Widget Unik');
         $this->get('/client/inventory/all?search=Widget')->assertOk()->assertSee('Widget Unik')->assertDontSee('Konsultasi Unik');
+    }
+
+    public function test_invoice_can_pull_open_sales_order_and_receipt_lists_customer(): void
+    {
+        $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => 'SO-PULL-1', 'order_date' => date('Y-m-d'),
+            'products' => [$this->product->id], 'quantities' => [3], 'prices' => [15000], 'discounts' => [0]])->assertRedirect();
+        $so = SalesOrder::where('order_number', 'SO-PULL-1')->first();
+
+        // pilihan tarik SO muncul bersama nama pelanggan, dan pelanggan + barang terisi saat dipilih
+        $this->get('/client/sales-invoices/create')->assertOk()->assertSee('SO-PULL-1 — Pelanggan');
+        $r = $this->get('/client/sales-invoices/create?sales_order_id=' . $so->id)->assertOk();
+        $r->assertSee('name="sales_order_id" value="' . $so->id . '"', false);
+        $this->get('/client/sales/deliveries/create?sales_order_id=' . $so->id)->assertOk()->assertSee('SO-PULL-1 — Pelanggan');
     }
 }

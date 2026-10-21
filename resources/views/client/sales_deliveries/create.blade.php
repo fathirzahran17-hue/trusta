@@ -42,10 +42,10 @@
                     
                     <div>
                         <label for="sales_order_id">Dari Pesanan (Sales Order)</label>
-                        <select name="sales_order_id" id="sales_order_id">
+                        <select name="sales_order_id" id="sales_order_id" onchange="window.location.href = this.value ? '{{ route('client.sales.deliveries.create') }}?sales_order_id=' + this.value : '{{ route('client.sales.deliveries.create') }}'">
                             <option value="">-- Pilih SO (Opsional) --</option>
                             @foreach($salesOrders as $so)
-                                <option value="{{ $so->id }}" {{ old('sales_order_id', optional($prefill['order'])->id) == $so->id ? 'selected' : '' }}>{{ $so->order_number }}</option>
+                                <option value="{{ $so->id }}" {{ old('sales_order_id', optional($prefill['order'])->id) == $so->id ? 'selected' : '' }}>{{ $so->order_number }} — {{ optional($so->customer)->name }}</option>
                             @endforeach
                         </select>
                     </div>
