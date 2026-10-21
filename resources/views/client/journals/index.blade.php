@@ -42,7 +42,7 @@
 
     @if(session('error'))
         <div class="mb-4 bg-red-500/10 border-l-4 border-red-500 p-4 text-red-400 rounded-r-lg">
-            {!! session('error') !!}
+            {{ session('error') }}
         </div>
     @endif
     @if(session('success'))

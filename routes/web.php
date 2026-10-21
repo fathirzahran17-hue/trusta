@@ -16,21 +16,11 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Temporary route to run migrations safely on hosting
-Route::get('/update-db', function() {
+// Jalankan migrasi di hosting tanpa terminal. HANYA untuk Super Admin yang sedang login (bukan publik).
+Route::middleware(['auth', 'superadmin', 'throttle:5,1'])->get('/update-db', function () {
     \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
     \Illuminate\Support\Facades\Artisan::call('view:clear');
     \Illuminate\Support\Facades\Artisan::call('cache:clear');
-    
-    // Auto-update existing cash/bank sub-accounts
-    \App\Models\Account::where('type', 'asset')
-        ->where(function($q) { 
-            $q->where('name', 'like', '%Kas%')->orWhere('name', 'like', '%Bank%')->orWhere('name', 'like', '%Cash%'); 
-        })->get()->each(function($acc) { 
-            if(!$acc->is_header) { 
-                $acc->update(['is_cash_bank' => true]); 
-            } 
-        });
 
     return "Database updated successfully! <a href='/'>Return to Home</a>";
 });
@@ -72,7 +62,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 // ==========================================
 // PANEL CLIENT (AKUNTANSI)
 // ==========================================
-Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client.')->group(function () {
+Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('client')->name('client.')->group(function () {
     Route::get('/dashboard', [ClientDashboard::class, 'index'])->name('dashboard');
     
     // Pengaturan & Perusahaan (Khusus Admin Klien)
@@ -145,6 +135,7 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
 
     // Persediaan - Barang & Jasa
     Route::get('inventory', [\App\Http\Controllers\Client\InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('inventory/all', [\App\Http\Controllers\Client\InventoryController::class, 'allProducts'])->name('inventory.all');
     Route::get('inventory/services', [\App\Http\Controllers\Client\InventoryController::class, 'services'])->name('inventory.services');
     Route::get('inventory/services/create', [\App\Http\Controllers\Client\InventoryController::class, 'createService'])->name('inventory.services.create');
     Route::get('inventory/create', [\App\Http\Controllers\Client\InventoryController::class, 'create'])->name('inventory.create');
@@ -203,6 +194,8 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::post('sales/orders', [\App\Http\Controllers\Client\SalesOrderController::class, 'store'])->name('sales.orders.store');
     Route::get('sales/orders/{salesOrder}', [\App\Http\Controllers\Client\SalesOrderController::class, 'show'])->whereNumber('salesOrder')->name('sales.orders.show');
     Route::get('sales/deliveries', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'index'])->name('sales.deliveries');
+    Route::get('sales', [\App\Http\Controllers\Client\HubController::class, 'sales'])->name('sales.hub');
+    Route::get('purchases', [\App\Http\Controllers\Client\HubController::class, 'purchases'])->name('purchases.hub');
     Route::get('sales/deliveries/create', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'create'])->name('sales.deliveries.create');
     Route::post('sales/deliveries', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'store'])->name('sales.deliveries.store');
     Route::get('sales/deliveries/{deliveryOrder}', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'show'])->whereNumber('deliveryOrder')->name('sales.deliveries.show');
@@ -216,7 +209,7 @@ Route::middleware(['auth', 'client', 'premium'])->prefix('client')->name('client
     Route::get('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'index'])->name('sales.returns');
     Route::get('sales/returns/create', [\App\Http\Controllers\Client\SalesReturnController::class, 'create'])->name('sales.returns.create');
     Route::post('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'store'])->name('sales.returns.store');
-    Route::get('search', [\App\Http\Controllers\Client\SearchController::class, 'index'])->name('search');
+    Route::get('search', [\App\Http\Controllers\Client\SearchController::class, 'index'])->middleware('throttle:120,1')->name('search');
     Route::post('sales-invoices/{sales_invoice}/payments', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'storeSales'])->name('sales-invoices.payments.store');
     Route::post('sales-invoices/{sales_invoice}/void', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'voidSales'])->name('sales-invoices.void');
     Route::post('purchase-invoices/{purchase_invoice}/payments', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'storePurchase'])->name('purchase-invoices.payments.store');

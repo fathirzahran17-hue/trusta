@@ -16,7 +16,7 @@
     @endif
     @if(session('error'))
         <div class="mb-3 bg-red-500/10 border-l-3 border-red-500 p-3 text-red-400 rounded-r-lg text-xs">
-            {!! session('error') !!}
+            {{ session('error') }}
         </div>
     @endif
 

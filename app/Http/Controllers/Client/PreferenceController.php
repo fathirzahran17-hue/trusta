@@ -66,7 +66,12 @@ class PreferenceController extends Controller
             $file = $request->file('logo');
             $dir = public_path('uploads/logos');
             if (! is_dir($dir)) mkdir($dir, 0755, true);
-            $name = 'company-' . $company->id . '-' . time() . '.' . $file->getClientOriginalExtension();
+            // Ekstensi ditentukan dari ISI file (bukan nama dari klien) dan dibatasi gambar saja, agar tidak bisa menyelundupkan .php
+            $ext = strtolower($file->extension() ?: '');
+            if (! in_array($ext, ['png', 'jpg', 'jpeg', 'webp'], true)) {
+                return back()->withErrors(['logo' => 'Format logo harus PNG, JPG, atau WEBP.'])->withInput();
+            }
+            $name = 'company-' . $company->id . '-' . bin2hex(random_bytes(6)) . '.' . $ext;
             $file->move($dir, $name);
             if ($company->logo_path && file_exists(public_path($company->logo_path))) @unlink(public_path($company->logo_path));
             $validated['logo_path'] = 'uploads/logos/' . $name;

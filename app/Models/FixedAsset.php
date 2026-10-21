@@ -8,6 +8,8 @@ use Carbon\Carbon;
 
 class FixedAsset extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id', 'fixed_asset_category_id', 'code', 'name', 'description',
         'acquisition_date', 'acquisition_cost', 'useful_life_months', 'salvage_value',

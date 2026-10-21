@@ -8,7 +8,7 @@ use App\Traits\EnforcesClosingDate;
 
 class ItemReceipt extends Model
 {
-    use HasFactory, EnforcesClosingDate;
+    use HasFactory, EnforcesClosingDate, \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
         'company_id',

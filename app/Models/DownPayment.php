@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class DownPayment extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
         'company_id',

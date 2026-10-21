@@ -22,7 +22,7 @@ class DocumentNumber
         $ym = date('Ym', $date ? strtotime($date) : time());
         $stem = $prefix . $ym . '-';
 
-        $q = $model::query()->where('company_id', $companyId)->where($column, 'like', $stem . '%');
+        $q = $model::withoutGlobalScopes()->where('company_id', $companyId)->where($column, 'like', $stem . '%');
         if ($scope) {
             $scope($q);
         }
@@ -35,7 +35,7 @@ class DocumentNumber
 
         $number = $stem . str_pad($max + 1, 4, '0', STR_PAD_LEFT);
         // pengaman terakhir bila ada nomor yang sama di luar pola
-        while ($model::query()->where('company_id', $companyId)->where($column, $number)->exists()) {
+        while ($model::withoutGlobalScopes()->where('company_id', $companyId)->where($column, $number)->exists()) {
             $max++;
             $number = $stem . str_pad($max + 1, 4, '0', STR_PAD_LEFT);
         }

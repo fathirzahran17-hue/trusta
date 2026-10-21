@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class InvoicePayment extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id', 'sales_invoice_id', 'purchase_invoice_id', 'payment_number',
         'payment_date', 'account_id', 'amount', 'notes', 'journal_id', 'created_by', 'voided_at', 'voided_by',
