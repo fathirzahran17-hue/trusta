@@ -85,7 +85,7 @@ class DeliveryOrderController extends Controller
             'showPrices' => false,
             'total' => null,
             'actions' => $deliveryOrder->sales_order_id
-                ? [['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['sales_order_id' => $deliveryOrder->sales_order_id])]]
+                ? [['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['delivery_order_id' => $deliveryOrder->id])]]
                 : [],
             'groups' => \App\Services\DocumentLinker::relatedForDelivery($deliveryOrder),
         ]);

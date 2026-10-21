@@ -39,16 +39,26 @@ class SalesInvoiceController extends Controller
         // Generate auto invoice number
         $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\SalesInvoice::class, 'invoice_number', 'INV-', (int) auth()->user()->company_id, null);
             
-        $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder(request('sales_order_id'), auth()->user()->company_id);
+        $cid = auth()->user()->company_id;
+        $prefill = request('delivery_order_id')
+            ? \App\Services\DocumentLinker::prefillFromDelivery(request('delivery_order_id'), $cid)
+            : \App\Services\DocumentLinker::prefillFromSalesOrder(request('sales_order_id'), $cid);
+        $prefill['party_id'] ??= optional($prefill['order'])->customer_id;
+        $prefill['source'] ??= null;
+        $selectedSource = request('delivery_order_id') ? 'delivery_order_id=' . (int) request('delivery_order_id') : ($prefill['order'] ? 'sales_order_id=' . $prefill['order']->id : null);
+
+        $deliveries = \App\Models\DeliveryOrder::with('customer')->where('company_id', $cid)
+            ->whereIn('status', ['shipped', 'delivered'])->orderByDesc('id')->limit(100)->get()
+            ->map(fn ($d) => ['id' => $d->id, 'param' => 'delivery_order_id', 'group' => 'Dari Pengiriman (DO)', 'text' => $d->delivery_number . ' — ' . optional($d->customer)->name])->all();
 
         $sourceOrders = \App\Models\SalesOrder::with('customer')->where('company_id', auth()->user()->company_id)
             ->whereIn('status', ['draft', 'open'])->orderByDesc('id')->get()
-            ->map(fn ($o) => ['id' => $o->id, 'text' => $o->order_number . ' — ' . optional($o->customer)->name])->all();
+            ->map(fn ($o) => ['id' => $o->id, 'param' => 'sales_order_id', 'group' => 'Dari Pesanan (SO)', 'text' => $o->order_number . ' — ' . optional($o->customer)->name])->all();
         if ($prefill['order'] && !collect($sourceOrders)->contains('id', $prefill['order']->id)) {
-            $sourceOrders[] = ['id' => $prefill['order']->id, 'text' => $prefill['order']->order_number . ' — ' . optional($prefill['order']->customer)->name];
+            $sourceOrders[] = ['id' => $prefill['order']->id, 'param' => 'sales_order_id', 'group' => 'Dari Pesanan (SO)', 'text' => $prefill['order']->order_number . ' — ' . optional($prefill['order']->customer)->name];
         }
 
-        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders'));
+        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'deliveries', 'selectedSource'));
     }
 
     public function store(Request $request)

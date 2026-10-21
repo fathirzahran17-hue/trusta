@@ -15,7 +15,7 @@
         </div>
     @endif
 
-    @include('partials.pull-source', ['label' => 'Tarik dari Pesanan Penjualan (SO)', 'options' => $sourceOrders, 'selected' => optional($prefill['order'])->id, 'baseUrl' => route('client.sales-invoices.create'), 'param' => 'sales_order_id'])
+    @include('partials.pull-source', ['label' => 'Tarik dari Pengiriman (DO) atau Pesanan Penjualan (SO)', 'options' => array_merge($deliveries, $sourceOrders), 'selected' => $selectedSource, 'baseUrl' => route('client.sales-invoices.create'), 'param' => 'sales_order_id', 'emptyNote' => ($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada pengiriman ' . $prefill['source'] . ' sudah ditagih.' : null])
 
     <form action="{{ route('client.sales-invoices.store') }}" method="POST" id="invoiceForm">
         @csrf
@@ -38,7 +38,7 @@
                         <select name="customer_id" id="customer_id" required>
                             <option value="">-- Pilih Pelanggan --</option>
                             @foreach($customers as $cust)
-                                <option value="{{ $cust->id }}" {{ old('customer_id', optional($prefill['order'])->customer_id) == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
+                                <option value="{{ $cust->id }}" {{ old('customer_id', $prefill['party_id']) == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
                             @endforeach
                         </select>
                     </div>
