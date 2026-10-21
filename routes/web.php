@@ -135,6 +135,7 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
 
     // Persediaan - Barang & Jasa
     Route::get('inventory', [\App\Http\Controllers\Client\InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('inventory/all', [\App\Http\Controllers\Client\InventoryController::class, 'allProducts'])->name('inventory.all');
     Route::get('inventory/services', [\App\Http\Controllers\Client\InventoryController::class, 'services'])->name('inventory.services');
     Route::get('inventory/services/create', [\App\Http\Controllers\Client\InventoryController::class, 'createService'])->name('inventory.services.create');
     Route::get('inventory/create', [\App\Http\Controllers\Client\InventoryController::class, 'create'])->name('inventory.create');
@@ -193,6 +194,8 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::post('sales/orders', [\App\Http\Controllers\Client\SalesOrderController::class, 'store'])->name('sales.orders.store');
     Route::get('sales/orders/{salesOrder}', [\App\Http\Controllers\Client\SalesOrderController::class, 'show'])->whereNumber('salesOrder')->name('sales.orders.show');
     Route::get('sales/deliveries', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'index'])->name('sales.deliveries');
+    Route::get('sales', [\App\Http\Controllers\Client\HubController::class, 'sales'])->name('sales.hub');
+    Route::get('purchases', [\App\Http\Controllers\Client\HubController::class, 'purchases'])->name('purchases.hub');
     Route::get('sales/deliveries/create', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'create'])->name('sales.deliveries.create');
     Route::post('sales/deliveries', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'store'])->name('sales.deliveries.store');
     Route::get('sales/deliveries/{deliveryOrder}', [\App\Http\Controllers\Client\DeliveryOrderController::class, 'show'])->whereNumber('deliveryOrder')->name('sales.deliveries.show');

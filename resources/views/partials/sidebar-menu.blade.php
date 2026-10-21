@@ -25,6 +25,7 @@
         ]],
         ['label' => 'Transaksi', 'items' => [
             ['title' => 'Penjualan', 'icon' => 'sales', 'children' => [
+                $I('Pusat Penjualan', 'client.sales.hub'),
                 $H('Alur Penjualan'),
                 $S(1, 'Pesanan Penjualan', 'client.sales.orders'),
                 $S(2, 'Pengiriman Pesanan', 'client.sales.deliveries'),
@@ -37,11 +38,13 @@
                 $I('Kategori Pelanggan', 'client.customers.categories'),
                 $I('Barang Dijual', 'client.inventory.index', ['client.inventory.index', 'client.inventory.show', 'client.inventory.create']),
                 $I('Jasa Dijual', 'client.inventory.services', ['client.inventory.services', 'client.inventory.services.create']),
+                $I('Produk & Jasa (Semua)', 'client.inventory.all'),
                 $H('Lainnya'),
                 $I('Uang Muka Penjualan', 'client.sales.down_payments'),
                 $I('Retur Penjualan', 'client.sales.returns'),
             ]],
             ['title' => 'Pembelian', 'icon' => 'buy', 'children' => [
+                $I('Pusat Pembelian', 'client.purchases.hub'),
                 $H('Alur Pembelian'),
                 $S(1, 'Pesanan Pembelian', 'client.purchases.orders'),
                 $S(2, 'Penerimaan Barang', 'client.purchases.receipts'),

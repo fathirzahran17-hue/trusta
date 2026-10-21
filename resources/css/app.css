@@ -1133,3 +1133,26 @@ html.dark .st-paid { color: #4ade80; } html.dark .st-partial { color: #fbbf24; }
 .pay-table td { white-space: nowrap; }
 .pay-table td.wrap { white-space: normal; }
 
+
+/* ===== Pusat Penjualan / Pembelian ===== */
+.hub-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; padding: 18px; }
+.hub-step { flex: 1 1 190px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 12px; }
+.hub-step-main { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: inherit; flex: 1; border-radius: 8px; }
+.hub-step-main:hover .hub-title { color: var(--accent); }
+.hub-no { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: .75rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.hub-title { font-size: .92rem; font-weight: 700; color: var(--text-strong); }
+.hub-count { font-size: .74rem; color: var(--text-dim); }
+.hub-count b { font-size: 1.05rem; color: var(--text-muted); }
+.hub-count.on b { color: var(--accent); }
+.hub-new { text-align: center; }
+.hub-arrow { align-self: center; font-size: 1.6rem; color: var(--text-faint); line-height: 1; }
+.hub-cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+.hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; padding: 16px 18px; }
+.hub-tile { display: flex; align-items: stretch; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
+.hub-tile:hover { border-color: var(--accent); }
+.hub-tile-main { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; text-decoration: none; min-width: 0; }
+.hub-tile-main b { font-size: .84rem; color: var(--text-strong); }
+.hub-tile-main span { font-size: .7rem; color: var(--text-dim); }
+.hub-tile-add { width: 36px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 1.1rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-left: 1px solid var(--border); }
+.hub-tile-add:hover { background: var(--accent); color: #fff; }
+@media (max-width: 900px) { .hub-cols { grid-template-columns: 1fr; } .hub-arrow { display: none; } }

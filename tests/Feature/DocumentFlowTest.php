@@ -680,4 +680,14 @@ class DocumentFlowTest extends TestCase
         }
         $this->assertSame([], glob(public_path('uploads/logos/*.php')) ?: []);
     }
+
+    public function test_sales_and_purchase_hubs_and_combined_product_list_render(): void
+    {
+        $this->get('/client/sales')->assertOk()->assertSee('Pusat Penjualan')->assertSee('Alur Penjualan')->assertSee('Terima Pembayaran');
+        $this->get('/client/purchases')->assertOk()->assertSee('Pusat Pembelian')->assertSee('Catat Pembayaran');
+        Product::create(['company_id' => $this->user->company_id, 'name' => 'Konsultasi Unik', 'type' => 'service', 'unit' => 'kali', 'sku' => 'JS-9', 'sell_price' => 500000, 'buy_price' => 0, 'is_active' => true]);
+        Product::create(['company_id' => $this->user->company_id, 'name' => 'Widget Unik', 'type' => 'goods', 'unit' => 'pcs', 'sku' => 'BR-9', 'sell_price' => 1000, 'buy_price' => 500, 'is_active' => true]);
+        $this->get('/client/inventory/all')->assertOk()->assertSee('Konsultasi Unik')->assertSee('Widget Unik');
+        $this->get('/client/inventory/all?search=Widget')->assertOk()->assertSee('Widget Unik')->assertDontSee('Konsultasi Unik');
+    }
 }

@@ -24,6 +24,12 @@ class InventoryController extends Controller
         return $this->listProducts($request, 'goods');
     }
 
+    /** Gabungan Barang + Jasa dalam satu daftar. */
+    public function allProducts(Request $request)
+    {
+        return $this->listProducts($request, 'all');
+    }
+
     /** Daftar Jasa (pendapatan jasa; tidak ada stok/HPP). */
     public function services(Request $request)
     {
@@ -32,14 +38,14 @@ class InventoryController extends Controller
 
     private function listProducts(Request $request, string $kind)
     {
-        $query = Product::where('company_id', $this->companyId())->where('type', $kind)->with('category');
+        $query = Product::where('company_id', $this->companyId())->whereIn('type', $kind === 'all' ? ['goods', 'service'] : [$kind])->with('category');
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', "%{$request->search}%")->orWhere('sku', 'like', "%{$request->search}%");
             });
         }
         $products = $query->orderBy('name')->paginate(20)->withQueryString();
-        $counts = Product::where('company_id', $this->companyId())->selectRaw('type, count(*) c')->groupBy('type')->pluck('c', 'type');
+        $counts = Product::where('company_id', $this->companyId())->whereIn('type', ['goods', 'service'])->selectRaw('type, count(*) c')->groupBy('type')->pluck('c', 'type');
 
         return view('client.inventory.index', ['products' => $products, 'kind' => $kind, 'counts' => $counts]);
     }
