@@ -20,15 +20,14 @@
         if (!element) return 0;
         var raw = (element.value !== undefined && element.value !== null) ? element.value.toString().trim() : '';
 
-        // Deteksi format database (contoh: "1500000.00" atau "25000.50")
-        if (/^\d+\.\d+$/.test(raw)) {
+        // Nilai mentah dari database ("1500000.00" / "25000.50") hanya dikonversi saat dipanggil
+        // di luar pengetikan. Saat mengetik, titik adalah pemisah ribuan ("1.500"), bukan desimal.
+        var ev = window.event;
+        var typing = ev && (ev.type === 'keyup' || ev.type === 'input' || ev.type === 'keydown');
+        if (!typing && /^\d+\.(\d{1,2}|\d{4})$/.test(raw)) {
             var num = parseFloat(raw);
             if (!isNaN(num)) {
-                if (num % 1 === 0) {
-                    raw = String(Math.round(num));
-                } else {
-                    raw = raw.replace('.', ',');
-                }
+                raw = (num % 1 === 0) ? String(Math.round(num)) : raw.replace('.', ',');
             }
         }
 

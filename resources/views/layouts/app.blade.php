@@ -24,7 +24,7 @@
             // Daftar pilihan dirender di <body> agar tidak terpotong kartu/tabel (overflow hidden) dan selalu terlihat penuh.
             (function () {
                 var Orig = window.TomSelect; if (!Orig) return;
-                var Wrapped = function (el, opts) { return new Orig(el, Object.assign({ dropdownParent: 'body', maxOptions: 1000, create: false }, opts || {})); };
+                var Wrapped = function (el, opts) { return new Orig(el, Object.assign({ dropdownParent: 'body', maxOptions: 1000, create: false, sortField: [{ field: '$order' }] }, opts || {})); };
                 Wrapped.prototype = Orig.prototype; Object.assign(Wrapped, Orig); window.TomSelect = Wrapped;
             })();
         </script>
@@ -265,7 +265,7 @@
                     @if (session('error'))
                         <div class="alert-error">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <p>{!! session('error') !!}</p>
+                            <p>{{ session('error') }}@if(session('premium_denied')) <a href="https://wa.me/6285111244106" target="_blank" rel="noopener noreferrer" class="inline-flex items-center ml-2 px-3 py-1 bg-red-700 hover:bg-red-600 text-white text-xs font-semibold rounded-md transition-colors">Hubungi Admin</a>@endif</p>
                         </div>
                     @endif
 

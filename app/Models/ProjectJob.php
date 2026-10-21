@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProjectJob extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id',
         'code',

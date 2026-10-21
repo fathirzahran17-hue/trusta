@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Tax extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id', 'name', 'rate', 'sales_tax_account_id', 'purchase_tax_account_id', 'is_active'
     ];

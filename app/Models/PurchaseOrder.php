@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseOrder extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id', 'po_number', 'supplier_id', 'order_date', 'expected_date',
         'status', 'subtotal', 'discount_percent', 'discount_amount',

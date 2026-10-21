@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Account extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id', 'parent_id', 'code', 'name', 'type', 'normal_balance',
         'opening_balance', 'is_active', 'is_system', 'is_cash_bank',

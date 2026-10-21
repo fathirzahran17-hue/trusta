@@ -22,6 +22,12 @@ class ClientMiddleware
 
         $user = auth()->user();
 
+        if (! auth()->user()->is_active) {
+            auth()->logout();
+            request()->session()->invalidate();
+            return redirect('/login')->with('error', 'Akun Anda dinonaktifkan. Hubungi administrator.');
+        }
+
         // 2. Cek apakah user punya company (tenant)
         if (!$user->company_id || !$user->company) {
             abort(403, 'Akun Anda tidak terikat dengan perusahaan manapun.');

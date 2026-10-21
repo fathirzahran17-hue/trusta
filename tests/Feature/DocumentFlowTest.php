@@ -471,12 +471,13 @@ class DocumentFlowTest extends TestCase
             }
         }
         $this->assertEquals(0, \Illuminate\Support\Facades\DB::table('journal_details')->count());
-        $this->assertEquals(1, \App\Models\Customer::where('company_id', $other->id)->count());
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table('customers')->where('company_id', $other->id)->count());
     }
 
     /** Menelusuri semua halaman dan tautan (sidebar, detail dokumen, dokumen terkait, jurnal) dan memastikan tidak ada yang 404/500. */
     public function test_every_page_and_link_reachable_from_a_populated_company(): void
     {
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class); // penelusuran memukul ratusan halaman sekaligus
         $today = date('Y-m-d');
         $this->post('/client/accounts/beginning-balance', ['date' => $today, 'balances' => [$this->cash->id => 5000000]]);
         $po = $this->createPurchaseAndReceive(20);
@@ -615,5 +616,68 @@ class DocumentFlowTest extends TestCase
         $this->assertStringContainsString('Pendapatan Jasa', $names);
         $this->assertStringNotContainsString('HPP', $names);
         $this->assertBooksBalanced();
+    }
+
+    /** Pengguna perusahaan A tidak boleh bisa membuka/mengubah data perusahaan B lewat ID di URL (IDOR). */
+    public function test_tenant_isolation_other_company_records_are_not_reachable(): void
+    {
+        $other = Company::create(['name' => 'PT Lain', 'email' => 'lain@example.com', 'fiscal_year_start' => 1, 'is_active' => true]);
+        CoaSeeder::seed($other->id);
+        $theirCustomer = Customer::create(['company_id' => $other->id, 'name' => 'Rahasia', 'default_term_days' => 30, 'is_active' => true]);
+        $theirSupplier = Supplier::create(['company_id' => $other->id, 'name' => 'Rahasia S', 'default_term_days' => 30, 'is_active' => true]);
+        $theirProduct = Product::create(['company_id' => $other->id, 'name' => 'Barang Lain', 'type' => 'goods', 'unit' => 'pcs', 'sell_price' => 1, 'buy_price' => 1, 'is_active' => true]);
+        $theirAccount = Account::withoutGlobalScopes()->where('company_id', $other->id)->first();
+
+        foreach ([
+            "/client/customers/{$theirCustomer->id}", "/client/customers/{$theirCustomer->id}/edit",
+            "/client/suppliers/{$theirSupplier->id}", "/client/suppliers/{$theirSupplier->id}/edit",
+            "/client/inventory/{$theirProduct->id}", "/client/inventory/{$theirProduct->id}/edit",
+            "/client/accounts/{$theirAccount->id}", "/client/accounts/{$theirAccount->id}/edit",
+        ] as $url) {
+            $this->get($url)->assertNotFound();
+        }
+
+        $this->put("/client/customers/{$theirCustomer->id}", ['name' => 'Diretas'])->assertNotFound();
+        $this->delete("/client/customers/{$theirCustomer->id}")->assertNotFound();
+        $this->assertSame('Rahasia', \Illuminate\Support\Facades\DB::table('customers')->where('id', $theirCustomer->id)->value('name'));
+
+        // daftar milik sendiri tidak memuat data perusahaan lain
+        $this->get('/client/customers')->assertOk()->assertDontSee('Rahasia');
+    }
+
+    public function test_security_hardening_headers_update_db_xss_and_inactive_login(): void
+    {
+        // header keamanan
+        $r = $this->get('/client/dashboard');
+        $r->assertHeader('X-Frame-Options', 'SAMEORIGIN')->assertHeader('X-Content-Type-Options', 'nosniff');
+
+        // /update-db: tamu & klien ditolak
+        $this->get('/update-db')->assertStatus(403);
+        auth()->logout();
+        $this->get('/update-db')->assertRedirect('/login');
+
+        // pesan error di-escape (tidak dirender sebagai HTML)
+        $this->actingAs($this->user);
+        $this->withSession(['error' => '<script>alert(1)</script>'])->get('/client/dashboard')
+            ->assertDontSee('<script>alert(1)</script>', false);
+
+        // akun nonaktif tidak bisa login
+        auth()->logout();
+        $this->user->forceFill(['is_active' => false])->save();
+        $this->post('/login', ['email' => 'a@example.com', 'password' => 'password']);
+        $this->assertGuest();
+    }
+
+    public function test_logo_upload_cannot_smuggle_php_extension(): void
+    {
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('evil.php', $png);
+        $this->post('/client/settings/preferences', ['company_name' => 'PT Uji', 'logo' => $file]);
+        $files = glob(public_path('uploads/logos/company-*')) ?: [];
+        foreach ($files as $f) {
+            $this->assertStringEndsNotWith('.php', $f);
+            @unlink($f);
+        }
+        $this->assertSame([], glob(public_path('uploads/logos/*.php')) ?: []);
     }
 }

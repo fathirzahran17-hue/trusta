@@ -11,7 +11,7 @@
 
     @if(session('error'))
         <div class="mb-3 bg-red-500/10 border-l-3 border-red-500 p-3 text-red-400 rounded-r-lg text-xs">
-            {!! session('error') !!}
+            {{ session('error') }}
         </div>
     @endif
 
@@ -55,6 +55,7 @@
             {{-- Item Table --}}
             <div style="padding: 14px 18px; background: rgba(15,23,42,0.3);">
                 <h3 style="font-size: 0.82rem; font-weight: 600; color: #fff; margin-bottom: 10px;">Daftar Barang Pesanan</h3>
+                @include('partials.no-products')
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left" id="itemsTable">

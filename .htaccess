@@ -1,3 +1,19 @@
+# Blokir file sensitif (jaga-jaga bila server tidak mengarah ke /public)
+<FilesMatch "(^\.|\.(env|log|sql|sqlite|bak|zip|md|lock|yml|yaml|ini|sh)$|^(composer\.json|composer\.lock|package\.json|package-lock\.json|artisan|phpunit\.xml)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Jangan tampilkan isi folder
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{REQUEST_URI} !^/public/

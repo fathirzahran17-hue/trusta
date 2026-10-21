@@ -30,6 +30,9 @@ class GoogleAuthController extends Controller
             $user = User::where('google_id', $googleUser->id)->orWhere('email', $googleUser->email)->first();
 
             if ($user) {
+                if (! $user->is_active || ($user->company && ! $user->company->is_active)) {
+                    return redirect('/login')->with('error', 'Akun Anda dinonaktifkan. Hubungi administrator.');
+                }
                 // Update google_id and avatar if missing
                 if (!$user->google_id) {
                     $user->update([
@@ -39,7 +42,8 @@ class GoogleAuthController extends Controller
                 }
                 
                 Auth::login($user);
-                
+                request()->session()->regenerate();
+
                 if ($user->isSuperAdmin()) {
                     return redirect()->route('superadmin.dashboard');
                 } else {
@@ -70,6 +74,7 @@ class GoogleAuthController extends Controller
                 ]);
 
                 Auth::login($newUser);
+                request()->session()->regenerate();
                 
                 return redirect()->route('client.dashboard');
             }

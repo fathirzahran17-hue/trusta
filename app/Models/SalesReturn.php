@@ -4,6 +4,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class SalesReturn extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $guarded = ['id'];
     protected $casts = ['return_date' => 'date'];
     public function customer() { return $this->belongsTo(Customer::class); }

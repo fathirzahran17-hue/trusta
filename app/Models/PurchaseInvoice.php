@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseInvoice extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id', 'invoice_number', 'supplier_invoice_no', 'supplier_id', 'po_id',
         'invoice_date', 'due_date', 'status', 'subtotal',

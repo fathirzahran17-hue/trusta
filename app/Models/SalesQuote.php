@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesQuote extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id', 'quote_number', 'customer_id', 'quote_date', 'valid_until',
         'status', 'subtotal', 'discount_percent', 'discount_amount',

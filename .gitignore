@@ -28,4 +28,5 @@ composer-setup.php
 /deploy
 
 
-/public/uploads
+/public/uploads/*
+!/public/uploads/.htaccess

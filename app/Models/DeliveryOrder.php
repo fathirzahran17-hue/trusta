@@ -8,7 +8,7 @@ use App\Traits\EnforcesClosingDate;
 
 class DeliveryOrder extends Model
 {
-    use HasFactory, EnforcesClosingDate;
+    use HasFactory, EnforcesClosingDate, \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
         'company_id',

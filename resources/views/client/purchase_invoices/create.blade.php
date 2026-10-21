@@ -11,7 +11,7 @@
 
     @if(session('error'))
         <div class="mb-4 bg-red-500/10 border-l-4 border-red-500 p-4 text-red-400 rounded-r-lg">
-            {!! session('error') !!}
+            {{ session('error') }}
         </div>
     @endif
 
@@ -68,6 +68,7 @@
                 <h3 class="text-lg font-medium text-white mb-4">Item Produk / Layanan yang Dibeli</h3>
 
                 <div class="overflow-x-auto">
+                    @include("partials.no-products")
                     <table class="w-full text-sm text-left" id="itemsTable">
                         <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
                             <tr>

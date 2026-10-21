@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FixedAssetCategory extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $fillable = [
         'company_id', 'name', 'depreciation_method', 'useful_life_years',
         'account_asset_code', 'account_depreciation_code', 'account_expense_code',

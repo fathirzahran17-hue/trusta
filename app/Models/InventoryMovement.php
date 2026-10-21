@@ -7,6 +7,8 @@ use App\Traits\EnforcesClosingDate;
 
 class InventoryMovement extends Model
 {
+    use \App\Models\Concerns\BelongsToCompany;
+
     protected $guarded = ['id'];
 
     public function product()
