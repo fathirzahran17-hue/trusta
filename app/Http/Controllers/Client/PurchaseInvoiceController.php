@@ -39,16 +39,26 @@ class PurchaseInvoiceController extends Controller
         // Generate auto invoice number untuk internal kita (meskipun ada nomor invoice dari supplier)
         $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseInvoice::class, 'invoice_number', 'PI-', (int) auth()->user()->company_id, null);
             
-        $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('po_id'), auth()->user()->company_id);
+        $cid = auth()->user()->company_id;
+        $prefill = request('item_receipt_id')
+            ? \App\Services\DocumentLinker::prefillFromReceipt(request('item_receipt_id'), $cid)
+            : \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('po_id'), $cid);
+        $prefill['party_id'] ??= optional($prefill['order'])->supplier_id;
+        $prefill['source'] ??= null;
+        $selectedSource = request('item_receipt_id') ? 'item_receipt_id=' . (int) request('item_receipt_id') : ($prefill['order'] ? 'po_id=' . $prefill['order']->id : null);
+
+        $receipts = \App\Models\ItemReceipt::with('supplier')->where('company_id', $cid)
+            ->where('status', 'received')->orderByDesc('id')->limit(100)->get()
+            ->map(fn ($r) => ['id' => $r->id, 'param' => 'item_receipt_id', 'group' => 'Dari Penerimaan Barang', 'text' => $r->receipt_number . ' — ' . optional($r->supplier)->name])->all();
 
         $sourceOrders = \App\Models\PurchaseOrder::with('supplier')->where('company_id', auth()->user()->company_id)
             ->whereIn('status', ['draft', 'sent', 'received'])->orderByDesc('id')->get()
-            ->map(fn ($o) => ['id' => $o->id, 'text' => $o->po_number . ' — ' . optional($o->supplier)->name])->all();
+            ->map(fn ($o) => ['id' => $o->id, 'param' => 'po_id', 'group' => 'Dari Pesanan (PO)', 'text' => $o->po_number . ' — ' . optional($o->supplier)->name])->all();
         if ($prefill['order'] && !collect($sourceOrders)->contains('id', $prefill['order']->id)) {
-            $sourceOrders[] = ['id' => $prefill['order']->id, 'text' => $prefill['order']->po_number . ' — ' . optional($prefill['order']->supplier)->name];
+            $sourceOrders[] = ['id' => $prefill['order']->id, 'param' => 'po_id', 'group' => 'Dari Pesanan (PO)', 'text' => $prefill['order']->po_number . ' — ' . optional($prefill['order']->supplier)->name];
         }
 
-        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders'));
+        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'receipts', 'selectedSource'));
     }
 
     public function store(Request $request)

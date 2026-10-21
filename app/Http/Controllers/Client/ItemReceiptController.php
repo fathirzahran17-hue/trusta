@@ -85,7 +85,7 @@ class ItemReceiptController extends Controller
             'showPrices' => false,
             'total' => null,
             'actions' => $itemReceipt->purchase_order_id
-                ? [['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['po_id' => $itemReceipt->purchase_order_id])]]
+                ? [['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['item_receipt_id' => $itemReceipt->id])]]
                 : [],
             'groups' => \App\Services\DocumentLinker::relatedForReceipt($itemReceipt),
         ]);

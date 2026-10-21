@@ -15,7 +15,7 @@
         </div>
     @endif
 
-    @include('partials.pull-source', ['label' => 'Tarik dari Pesanan Pembelian (PO)', 'options' => $sourceOrders, 'selected' => optional($prefill['order'])->id, 'baseUrl' => route('client.purchase-invoices.create'), 'param' => 'po_id'])
+    @include('partials.pull-source', ['label' => 'Tarik dari Penerimaan Barang atau Pesanan Pembelian (PO)', 'options' => array_merge($receipts, $sourceOrders), 'selected' => $selectedSource, 'baseUrl' => route('client.purchase-invoices.create'), 'param' => 'po_id', 'emptyNote' => ($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada penerimaan ' . $prefill['source'] . ' sudah ditagih.' : null])
 
     <form action="{{ route('client.purchase-invoices.store') }}" method="POST" id="invoiceForm">
         @csrf
@@ -38,7 +38,7 @@
                             class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
                             <option value="">-- Pilih Pemasok --</option>
                             @foreach($suppliers as $sup)
-                                <option value="{{ $sup->id }}" {{ old('supplier_id', optional($prefill['order'])->supplier_id) == $sup->id ? 'selected' : '' }}>{{ $sup->name }}</option>
+                                <option value="{{ $sup->id }}" {{ old('supplier_id', $prefill['party_id']) == $sup->id ? 'selected' : '' }}>{{ $sup->name }}</option>
                             @endforeach
                         </select>
                     </div>

@@ -685,8 +685,8 @@ class DocumentFlowTest extends TestCase
     {
         $this->get('/client/sales')->assertOk()->assertSee('Pusat Penjualan')->assertSee('Alur Penjualan')->assertSee('Terima Pembayaran');
         $this->get('/client/purchases')->assertOk()->assertSee('Pusat Pembelian')->assertSee('Catat Pembayaran');
-        $this->get('/client/sales-invoices/create')->assertOk()->assertSee('Tarik dari Pesanan Penjualan');
-        $this->get('/client/purchase-invoices/create')->assertOk()->assertSee('Tarik dari Pesanan Pembelian');
+        $this->get('/client/sales-invoices/create')->assertOk()->assertSee('Tarik dari Pengiriman (DO)');
+        $this->get('/client/purchase-invoices/create')->assertOk()->assertSee('Tarik dari Penerimaan Barang');
         Product::create(['company_id' => $this->user->company_id, 'name' => 'Konsultasi Unik', 'type' => 'service', 'unit' => 'kali', 'sku' => 'JS-9', 'sell_price' => 500000, 'buy_price' => 0, 'is_active' => true]);
         Product::create(['company_id' => $this->user->company_id, 'name' => 'Widget Unik', 'type' => 'goods', 'unit' => 'pcs', 'sku' => 'BR-9', 'sell_price' => 1000, 'buy_price' => 500, 'is_active' => true]);
         $this->get('/client/inventory/all')->assertOk()->assertSee('Konsultasi Unik')->assertSee('Widget Unik');
@@ -704,5 +704,26 @@ class DocumentFlowTest extends TestCase
         $r = $this->get('/client/sales-invoices/create?sales_order_id=' . $so->id)->assertOk();
         $r->assertSee('name="sales_order_id" value="' . $so->id . '"', false);
         $this->get('/client/sales/deliveries/create?sales_order_id=' . $so->id)->assertOk()->assertSee('SO-PULL-1 — Pelanggan');
+    }
+
+    public function test_invoices_can_be_pulled_from_delivery_and_item_receipt(): void
+    {
+        $po = $this->createPurchaseAndReceive(10);
+        $receipt = \App\Models\ItemReceipt::firstOrFail();
+        $r = $this->get('/client/purchase-invoices/create?item_receipt_id=' . $receipt->id)->assertOk();
+        $r->assertSee('name="po_id" value="' . $po->id . '"', false)->assertSee($receipt->receipt_number . ' — Pemasok')
+          ->assertSee('"quantity":10', false);
+
+        $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => 'SO-PULL-2', 'order_date' => date('Y-m-d'),
+            'products' => [$this->product->id], 'quantities' => [4], 'prices' => [15000], 'discounts' => [0]])->assertRedirect();
+        $so = SalesOrder::where('order_number', 'SO-PULL-2')->first();
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'sales_order_id' => $so->id, 'delivery_number' => 'DO-PULL-2',
+            'delivery_date' => date('Y-m-d'), 'status' => 'shipped', 'products' => [$this->product->id], 'quantities' => [3]])->assertRedirect();
+        $do = DeliveryOrder::where('delivery_number', 'DO-PULL-2')->first();
+
+        // hanya 3 yang dikirim -> faktur menarik 3 (bukan 4 yang dipesan), harga dari SO
+        $this->get('/client/sales-invoices/create?delivery_order_id=' . $do->id)->assertOk()
+            ->assertSee('name="sales_order_id" value="' . $so->id . '"', false)
+            ->assertSee('"quantity":3', false)->assertSee('"price":15000', false)->assertSee('DO-PULL-2 — Pelanggan');
     }
 }

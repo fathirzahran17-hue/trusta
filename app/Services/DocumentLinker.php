@@ -54,6 +54,65 @@ class DocumentLinker
         return ['order' => $order, 'rows' => self::limitToRemaining($rows, OrderProgress::remaining(OrderProgress::forPurchaseOrder($order), $mode))];
     }
 
+    /**
+     * Data awal Faktur Penjualan dari sebuah Pengiriman: pelanggan + barang yang dikirim, harga dari SO-nya,
+     * dibatasi sisa yang belum ditagih pada SO tersebut.
+     */
+    public static function prefillFromDelivery($id, int $companyId): array
+    {
+        $do = $id ? DeliveryOrder::with(['details.product', 'salesOrder.details'])->where('company_id', $companyId)->find($id) : null;
+        if (!$do) {
+            return ['order' => null, 'rows' => [], 'party_id' => null, 'source' => null];
+        }
+        $so = $do->salesOrder;
+        $soLines = $so ? $so->details->groupBy('product_id') : collect();
+
+        $rows = [];
+        foreach ($do->details as $d) {
+            $line = optional($soLines->get($d->product_id))->first();
+            $rows[] = [
+                'product_id' => $d->product_id,
+                'description' => $line->description ?? null,
+                'quantity' => (float) $d->quantity,
+                'price' => (float) ($line->unit_price ?? optional($d->product)->sell_price ?? 0),
+                'discount' => (float) ($line->discount_percent ?? 0),
+            ];
+        }
+        if ($so) {
+            $rows = self::limitToRemaining($rows, OrderProgress::remaining(OrderProgress::forSalesOrder($so), 'invoiced'));
+        }
+
+        return ['order' => $so, 'rows' => $rows, 'party_id' => $do->customer_id, 'source' => $do->delivery_number];
+    }
+
+    /** Data awal Faktur Pembelian dari sebuah Penerimaan Barang. */
+    public static function prefillFromReceipt($id, int $companyId): array
+    {
+        $r = $id ? ItemReceipt::with(['details.product', 'purchaseOrder.items'])->where('company_id', $companyId)->find($id) : null;
+        if (!$r) {
+            return ['order' => null, 'rows' => [], 'party_id' => null, 'source' => null];
+        }
+        $po = $r->purchaseOrder;
+        $poLines = $po ? $po->items->groupBy('product_id') : collect();
+
+        $rows = [];
+        foreach ($r->details as $d) {
+            $line = optional($poLines->get($d->product_id))->first();
+            $rows[] = [
+                'product_id' => $d->product_id,
+                'description' => $line->description ?? null,
+                'quantity' => (float) $d->quantity,
+                'price' => (float) ($line->unit_price ?? optional($d->product)->buy_price ?? 0),
+                'discount' => (float) ($line->discount_percent ?? 0),
+            ];
+        }
+        if ($po) {
+            $rows = self::limitToRemaining($rows, OrderProgress::remaining(OrderProgress::forPurchaseOrder($po), 'invoiced'));
+        }
+
+        return ['order' => $po, 'rows' => $rows, 'party_id' => $r->supplier_id, 'source' => $r->receipt_number];
+    }
+
     /** Batasi jumlah tiap baris ke sisa pesanan (per produk); baris yang sudah habis dibuang. */
     private static function limitToRemaining(array $rows, array $remaining): array
     {
