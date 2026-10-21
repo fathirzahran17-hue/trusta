@@ -59,6 +59,13 @@ class SalesInvoice extends Model
         return $this->belongsTo(SalesOrder::class, 'sales_order_id');
     }
 
+    /** Semua pesanan asal faktur ini (bisa lebih dari satu). */
+    public function sourceOrders()
+    {
+        $ids = $this->items()->whereNotNull('sales_order_id')->pluck('sales_order_id')->push($this->sales_order_id)->filter()->unique()->values();
+        return SalesOrder::whereIn('id', $ids)->orderBy('order_number')->get();
+    }
+
     public function tax(): BelongsTo
     {
         return $this->belongsTo(Tax::class);

@@ -40,25 +40,20 @@ class SalesInvoiceController extends Controller
         $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\SalesInvoice::class, 'invoice_number', 'INV-', (int) auth()->user()->company_id, null);
             
         $cid = auth()->user()->company_id;
-        $prefill = request('delivery_order_id')
-            ? \App\Services\DocumentLinker::prefillFromDelivery(request('delivery_order_id'), $cid)
-            : \App\Services\DocumentLinker::prefillFromSalesOrder(request('sales_order_id'), $cid);
-        $prefill['party_id'] ??= optional($prefill['order'])->customer_id;
-        $prefill['source'] ??= null;
-        $selectedSource = request('delivery_order_id') ? 'delivery_order_id=' . (int) request('delivery_order_id') : ($prefill['order'] ? 'sales_order_id=' . $prefill['order']->id : null);
+        $soIds = array_map('intval', \Illuminate\Support\Arr::wrap(request('sales_order_id')));
+        $doIds = array_map('intval', \Illuminate\Support\Arr::wrap(request('delivery_order_id')));
+        $prefill = \App\Services\DocumentLinker::prefillFromSources('sales', $soIds, $doIds, (int) $cid);
+        $checked = array_merge(array_map(fn ($i) => "sales_order_id=$i", $soIds), array_map(fn ($i) => "delivery_order_id=$i", $doIds));
 
         $deliveries = \App\Models\DeliveryOrder::with('customer')->where('company_id', $cid)
-            ->whereIn('status', ['shipped', 'delivered'])->orderByDesc('id')->limit(100)->get()
-            ->map(fn ($d) => ['id' => $d->id, 'param' => 'delivery_order_id', 'group' => 'Dari Pengiriman (DO)', 'text' => $d->delivery_number . ' — ' . optional($d->customer)->name])->all();
+            ->whereIn('status', ['shipped', 'delivered'])->whereNotNull('sales_order_id')->orderByDesc('id')->limit(100)->get()
+            ->map(fn ($d) => ['id' => $d->id, 'param' => 'delivery_order_id', 'group' => 'Pengiriman (DO)', 'party_id' => $d->customer_id, 'text' => $d->delivery_number . ' — ' . optional($d->customer)->name])->all();
 
-        $sourceOrders = \App\Models\SalesOrder::with('customer')->where('company_id', auth()->user()->company_id)
-            ->whereIn('status', ['draft', 'open'])->orderByDesc('id')->get()
-            ->map(fn ($o) => ['id' => $o->id, 'param' => 'sales_order_id', 'group' => 'Dari Pesanan (SO)', 'text' => $o->order_number . ' — ' . optional($o->customer)->name])->all();
-        if ($prefill['order'] && !collect($sourceOrders)->contains('id', $prefill['order']->id)) {
-            $sourceOrders[] = ['id' => $prefill['order']->id, 'param' => 'sales_order_id', 'group' => 'Dari Pesanan (SO)', 'text' => $prefill['order']->order_number . ' — ' . optional($prefill['order']->customer)->name];
-        }
+        $sourceOrders = \App\Models\SalesOrder::with('customer')->where('company_id', $cid)
+            ->where('status', 'open')->orderByDesc('id')->get()
+            ->map(fn ($o) => ['id' => $o->id, 'param' => 'sales_order_id', 'group' => 'Pesanan Penjualan (SO)', 'party_id' => $o->customer_id, 'text' => $o->order_number . ' — ' . optional($o->customer)->name])->all();
 
-        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'deliveries', 'selectedSource'));
+        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'deliveries', 'checked'));
     }
 
     public function store(Request $request)
@@ -81,17 +76,13 @@ class SalesInvoiceController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $so = $request->sales_order_id ? \App\Models\SalesOrder::where('company_id', auth()->user()->company_id)->find($request->sales_order_id) : null;
-        if ($request->sales_order_id && !$so) {
-            return back()->withInput()->with('error', 'Pesanan Penjualan tidak ditemukan.');
+        try {
+            [$rowOrders, $orders] = \App\Services\InvoiceSources::resolve('sales', $request, (int) auth()->user()->company_id, (int) $request->customer_id);
+            \App\Services\ServiceLines::assertPriced($request->products, $request->prices);
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
         }
-        if ($so) {
-            try {
-                \App\Services\OrderProgress::assertWithinRemaining(\App\Services\OrderProgress::forSalesOrder($so), 'invoiced', \App\Services\OrderProgress::requested($request->products, $request->quantities), 'faktur');
-            } catch (\DomainException $e) {
-                return back()->withInput()->with('error', $e->getMessage());
-            }
-        }
+        $so = $orders->first();
 
         try {
             DB::beginTransaction();
@@ -110,6 +101,7 @@ class SalesInvoiceController extends Controller
                 $subtotal += $total;
                 
                 $items[] = [
+                    'sales_order_id' => $rowOrders[$index] ?? null,
                     'product_id' => $productId,
                     'quantity' => $qty,
                     'unit_price' => $price,
@@ -327,9 +319,7 @@ class SalesInvoiceController extends Controller
             \App\Services\JournalGuard::assertBalanced($journal);
 
             DB::commit();
-            if ($so) {
-                \App\Services\OrderProgress::syncSalesOrder($so->fresh());
-            }
+            \App\Services\InvoiceSources::syncFor($invoice, 'sales');
             return redirect()->route('client.sales-invoices.index')->with('success', 'Faktur Penjualan berhasil dibuat dan Jurnal telah tercatat otomatis.');
 
         } catch (\Exception $e) {

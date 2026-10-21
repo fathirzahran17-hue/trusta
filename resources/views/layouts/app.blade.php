@@ -29,6 +29,28 @@
             })();
         </script>
 
+        <script>
+            // Jasa tidak punya harga tetap: tandai barisnya dan minta nilai jasa diisi pada tiap transaksi.
+            document.addEventListener('change', function (e) {
+                var sel = e.target.closest ? e.target.closest('select.product-select') : null;
+                if (!sel) return;
+                setTimeout(function () {
+                    var opt = sel.options[sel.selectedIndex], tr = sel.closest('tr');
+                    if (!opt || !tr) return;
+                    var svc = opt.dataset.type === 'service';
+                    tr.classList.toggle('row-service', svc);
+                    var td = sel.closest('td'), tag = td && td.querySelector('.svc-tag');
+                    if (svc && td && !tag) { tag = document.createElement('div'); tag.className = 'svc-tag'; tag.textContent = 'Jasa · nilai diisi per pekerjaan'; td.appendChild(tag); }
+                    if (!svc && tag) tag.remove();
+                    var disp = tr.querySelector('.input-price-display'), hid = tr.querySelector('.input-price');
+                    if (disp) {
+                        disp.placeholder = svc ? 'Isi nilai jasa' : '';
+                        if (svc && !(parseFloat(hid && hid.value) > 0)) { disp.value = ''; if (hid) hid.value = 0; }
+                        disp.classList.toggle('need-price', svc && !(parseFloat(hid && hid.value) > 0));
+                    }
+                }, 0);
+            });
+        </script>
     </head>
     <body class="font-sans antialiased" x-data="{ sidebarOpen: true }" x-init="
         if (window.innerWidth < 768) sidebarOpen = false;

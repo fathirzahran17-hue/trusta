@@ -34,7 +34,9 @@ class ItemReceiptController extends Controller
         $purchaseOrders = PurchaseOrder::with('supplier')->where('company_id', $companyId)
             ->whereIn('status', ['sent']) // Sent POs can be received
             ->orderBy('order_date', 'desc')
-            ->get();
+            ->get()
+            ->filter(fn ($po) => \App\Services\OrderProgress::needsFulfilment(\App\Services\OrderProgress::forPurchaseOrder($po)))
+            ->values();
             
         $products = Product::where('company_id', $companyId)
             ->where('is_active', true)

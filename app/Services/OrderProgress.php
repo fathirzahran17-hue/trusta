@@ -36,7 +36,7 @@ class OrderProgress
 
         $invoiced = SalesInvoiceItem::query()
             ->join('sales_invoices', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
-            ->where('sales_invoices.sales_order_id', $so->id)
+            ->whereRaw('COALESCE(sales_invoice_items.sales_order_id, sales_invoices.sales_order_id) = ?', [$so->id])
             ->where('sales_invoices.status', '!=', 'void')
             ->selectRaw('sales_invoice_items.product_id as pid, SUM(sales_invoice_items.quantity) as qty')
             ->groupBy('sales_invoice_items.product_id')->pluck('qty', 'pid');
@@ -69,7 +69,7 @@ class OrderProgress
 
         $invoiced = PurchaseInvoiceItem::query()
             ->join('purchase_invoices', 'purchase_invoices.id', '=', 'purchase_invoice_items.purchase_invoice_id')
-            ->where('purchase_invoices.po_id', $po->id)
+            ->whereRaw('COALESCE(purchase_invoice_items.po_id, purchase_invoices.po_id) = ?', [$po->id])
             ->where('purchase_invoices.status', '!=', 'void')
             ->selectRaw('purchase_invoice_items.product_id as pid, SUM(purchase_invoice_items.quantity) as qty')
             ->groupBy('purchase_invoice_items.product_id')->pluck('qty', 'pid');
@@ -131,6 +131,12 @@ class OrderProgress
                 throw new \DomainException("Jumlah {$label} untuk {$byId[$pid]['name']} (" . (float) $qty . ") melebihi sisa pesanan (" . max(0, (float) $left) . ').');
             }
         }
+    }
+
+    /** Apakah pesanan masih punya BARANG yang belum dikirim/diterima? (jasa tidak pernah dikirim) */
+    public static function needsFulfilment(array $progress): bool
+    {
+        return !empty(self::remaining($progress, 'fulfilled'));
     }
 
     /** Hitung ulang status Pesanan Penjualan: open <-> closed. */

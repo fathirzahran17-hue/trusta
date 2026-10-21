@@ -113,6 +113,115 @@ class DocumentLinker
         return ['order' => $po, 'rows' => $rows, 'party_id' => $r->supplier_id, 'source' => $r->receipt_number];
     }
 
+    /**
+     * Data awal Faktur dari BEBERAPA dokumen sumber sekaligus (pesanan dan/atau pengiriman/penerimaan) milik pelanggan/pemasok yang sama.
+     * Tiap baris membawa order_id pesanan asalnya; jumlah dibatasi sisa yang belum ditagih per pesanan.
+     *
+     * @param 'sales'|'purchase' $kind
+     * @param int[] $orderIds   id SO/PO
+     * @param int[] $docIds     id Pengiriman/Penerimaan
+     */
+    public static function prefillFromSources(string $kind, array $orderIds, array $docIds, int $companyId): array
+    {
+        $sales = $kind === 'sales';
+        $empty = ['orders' => collect(), 'order' => null, 'rows' => [], 'party_id' => null, 'source' => null, 'sources' => [], 'ignored' => 0];
+
+        $docs = collect();
+        if ($docIds) {
+            $docs = $sales
+                ? DeliveryOrder::with(['details.product', 'salesOrder.details'])->where('company_id', $companyId)->whereIn('id', $docIds)->get()
+                : ItemReceipt::with(['details.product', 'purchaseOrder.items'])->where('company_id', $companyId)->whereIn('id', $docIds)->get();
+        }
+        $orders = collect();
+        if ($orderIds) {
+            $orders = $sales
+                ? SalesOrder::with('details')->where('company_id', $companyId)->whereIn('id', $orderIds)->get()
+                : PurchaseOrder::with('items')->where('company_id', $companyId)->whereIn('id', $orderIds)->get();
+        }
+        if ($docs->isEmpty() && $orders->isEmpty()) {
+            return $empty;
+        }
+
+        // semua sumber harus dari pihak yang sama: ikuti sumber pertama, sisanya diabaikan
+        $partyCol = $sales ? 'customer_id' : 'supplier_id';
+        $party = ($docs->first() ?? $orders->first())->{$partyCol};
+        $ignored = $docs->filter(fn ($d) => $d->{$partyCol} != $party)->count() + $orders->filter(fn ($o) => $o->{$partyCol} != $party)->count();
+        $docs = $docs->filter(fn ($d) => $d->{$partyCol} == $party)->values();
+        $orders = $orders->filter(fn ($o) => $o->{$partyCol} == $party)->values();
+
+        $remaining = [];   // order_id => product_id => sisa
+        $remainingOf = function ($o) use (&$remaining, $sales) {
+            return $remaining[$o->id] ??= OrderProgress::remaining($sales ? OrderProgress::forSalesOrder($o) : OrderProgress::forPurchaseOrder($o), 'invoiced');
+        };
+
+        $rows = [];
+        $labels = [];
+        $usedOrders = collect();
+        $take = function (array $cand, $ord, ?string $from = null) use (&$rows, $remainingOf, &$remaining, $sales) {
+            $left = $ord ? $remainingOf($ord) : null;
+            foreach ($cand as $c) {
+                $q = $c['quantity'];
+                if ($ord) {
+                    $avail = $left[$c['product_id']] ?? 0;
+                    if ($avail <= 0) {
+                        continue;
+                    }
+                    $q = min($q, $avail);
+                    $left[$c['product_id']] = $avail - $q;
+                }
+                $rows[] = $c + [];
+                $rows[array_key_last($rows)]['quantity'] = $q;
+                $rows[array_key_last($rows)]['order_id'] = $ord?->id;
+                $rows[array_key_last($rows)]['order_no'] = $ord ? ($sales ? $ord->order_number : $ord->po_number) : null;
+            }
+            if ($ord) {
+                $remaining[$ord->id] = $left;
+            }
+        };
+
+        // pengiriman/penerimaan dulu (jumlah nyata yang dikirim/diterima), lalu pesanan menarik sisanya
+        foreach ($docs as $d) {
+            $ord = $sales ? $d->salesOrder : $d->purchaseOrder;
+            $lines = $ord ? ($sales ? $ord->details : $ord->items)->groupBy('product_id') : collect();
+            $cand = [];
+            foreach ($d->details as $x) {
+                $line = optional($lines->get($x->product_id))->first();
+                $cand[] = [
+                    'product_id' => $x->product_id,
+                    'description' => $line->description ?? null,
+                    'quantity' => (float) $x->quantity,
+                    'price' => (float) ($line->unit_price ?? ($sales ? optional($x->product)->sell_price : optional($x->product)->buy_price) ?? 0),
+                    'discount' => (float) ($line->discount_percent ?? 0),
+                ];
+            }
+            $take($cand, $ord);
+            $labels[] = $sales ? $d->delivery_number : $d->receipt_number;
+            if ($ord) {
+                $usedOrders->push($ord);
+            }
+        }
+        foreach ($orders as $o) {
+            $cand = ($sales ? $o->details : $o->items)->map(fn ($x) => [
+                'product_id' => $x->product_id,
+                'description' => $x->description,
+                'quantity' => (float) $x->quantity,
+                'price' => (float) $x->unit_price,
+                'discount' => (float) ($x->discount_percent ?? 0),
+            ])->all();
+            // barang yang sudah ditarik dari pengiriman/penerimaan untuk pesanan yang sama tidak ditarik dua kali (dibatasi sisa)
+            $take($cand, $o);
+            $labels[] = $sales ? $o->order_number : $o->po_number;
+            $usedOrders->push($o);
+        }
+
+        $usedOrders = $usedOrders->unique('id')->values();
+
+        return [
+            'orders' => $usedOrders, 'order' => $usedOrders->first(), 'rows' => $rows, 'party_id' => $party,
+            'source' => implode(', ', $labels), 'sources' => $labels, 'ignored' => $ignored,
+        ];
+    }
+
     /** Batasi jumlah tiap baris ke sisa pesanan (per produk); baris yang sudah habis dibuang. */
     private static function limitToRemaining(array $rows, array $remaining): array
     {
@@ -198,12 +307,12 @@ class DocumentLinker
     public static function relatedForSalesInvoice(SalesInvoice $inv): array
     {
         $groups = [];
-        $so = $inv->salesOrder;
-        if ($so) {
-            $groups[] = ['label' => 'Pesanan Penjualan', 'items' => [self::item($so->order_number, route('client.sales.orders.show', $so), self::rp($so->total))]];
-            $dos = $so->deliveryOrders()->orderBy('delivery_date')->get();
+        $orders = $inv->sourceOrders();
+        if ($orders->isNotEmpty()) {
+            $groups[] = ['label' => 'Pesanan Penjualan', 'items' => $orders->map(fn ($so) => self::item($so->order_number, route('client.sales.orders.show', $so), self::rp($so->total)))->all()];
+            $dos = \App\Models\DeliveryOrder::whereIn('sales_order_id', $orders->pluck('id'))->orderBy('delivery_date')->get();
             $groups[] = ['label' => 'Pengiriman Barang', 'items' => $dos->map(fn ($d) => self::item($d->delivery_number, route('client.sales.deliveries.show', $d), optional($d->delivery_date)->format('d M Y')))->all()];
-            $dps = $so->downPayments()->get();
+            $dps = \App\Models\DownPayment::whereIn('sales_order_id', $orders->pluck('id'))->get();
             $groups[] = ['label' => 'Uang Muka', 'items' => $dps->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()];
         }
         $returns = $inv->returns()->get();
@@ -217,11 +326,13 @@ class DocumentLinker
     public static function relatedForPurchaseInvoice(PurchaseInvoice $inv): array
     {
         $groups = [];
-        $po = $inv->purchaseOrder;
-        if ($po) {
-            $groups[] = ['label' => 'Pesanan Pembelian', 'items' => [self::item($po->po_number, route('client.purchases.orders.show', $po), self::rp($po->total))]];
-            $groups[] = ['label' => 'Penerimaan Barang', 'items' => $po->receipts()->orderBy('receipt_date')->get()->map(fn ($r) => self::item($r->receipt_number, route('client.purchases.receipts.show', $r), optional($r->receipt_date)->format('d M Y')))->all()];
-            $groups[] = ['label' => 'Uang Muka', 'items' => $po->downPayments()->get()->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()];
+        $orders = $inv->sourceOrders();
+        if ($orders->isNotEmpty()) {
+            $groups[] = ['label' => 'Pesanan Pembelian', 'items' => $orders->map(fn ($po) => self::item($po->po_number, route('client.purchases.orders.show', $po), self::rp($po->total)))->all()];
+            $rcs = \App\Models\ItemReceipt::whereIn('purchase_order_id', $orders->pluck('id'))->orderBy('receipt_date')->get();
+            $groups[] = ['label' => 'Penerimaan Barang', 'items' => $rcs->map(fn ($r) => self::item($r->receipt_number, route('client.purchases.receipts.show', $r), optional($r->receipt_date)->format('d M Y')))->all()];
+            $dps = \App\Models\DownPayment::whereIn('purchase_order_id', $orders->pluck('id'))->get();
+            $groups[] = ['label' => 'Uang Muka', 'items' => $dps->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()];
         }
         $groups[] = ['label' => 'Retur Pembelian', 'items' => $inv->returns()->get()->map(fn ($r) => self::item($r->return_number, null, null))->all()];
         $groups[] = ['label' => 'Jurnal Akuntansi', 'items' => self::journalItems($inv->journal)];
@@ -235,7 +346,7 @@ class DocumentLinker
         return [
             ['label' => 'Pelanggan', 'items' => $so->customer ? [self::item($so->customer->name, route('client.customers.show', $so->customer))] : []],
             ['label' => 'Pengiriman Barang', 'items' => $so->deliveryOrders()->orderBy('delivery_date')->get()->map(fn ($d) => self::item($d->delivery_number, route('client.sales.deliveries.show', $d), optional($d->delivery_date)->format('d M Y')))->all()],
-            ['label' => 'Faktur Penjualan', 'items' => $so->invoices()->orderBy('invoice_date')->get()->map(fn ($i) => self::item($i->invoice_number, route('client.sales-invoices.show', $i), self::rp($i->total)))->all()],
+            ['label' => 'Faktur Penjualan', 'items' => $so->allInvoices()->orderBy('invoice_date')->get()->map(fn ($i) => self::item($i->invoice_number, route('client.sales-invoices.show', $i), self::rp($i->total)))->all()],
             ['label' => 'Uang Muka', 'items' => $so->downPayments()->get()->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()],
         ];
     }
@@ -245,7 +356,7 @@ class DocumentLinker
         return [
             ['label' => 'Pemasok', 'items' => $po->supplier ? [self::item($po->supplier->name, route('client.suppliers.show', $po->supplier))] : []],
             ['label' => 'Penerimaan Barang', 'items' => $po->receipts()->orderBy('receipt_date')->get()->map(fn ($r) => self::item($r->receipt_number, route('client.purchases.receipts.show', $r), optional($r->receipt_date)->format('d M Y')))->all()],
-            ['label' => 'Faktur Pembelian', 'items' => $po->invoices()->orderBy('invoice_date')->get()->map(fn ($i) => self::item($i->invoice_number, route('client.purchase-invoices.show', $i), self::rp($i->total)))->all()],
+            ['label' => 'Faktur Pembelian', 'items' => $po->allInvoices()->orderBy('invoice_date')->get()->map(fn ($i) => self::item($i->invoice_number, route('client.purchase-invoices.show', $i), self::rp($i->total)))->all()],
             ['label' => 'Uang Muka', 'items' => $po->downPayments()->get()->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()],
         ];
     }
@@ -256,7 +367,7 @@ class DocumentLinker
 
         return [
             ['label' => 'Pesanan Penjualan', 'items' => $so ? [self::item($so->order_number, route('client.sales.orders.show', $so), self::rp($so->total))] : []],
-            ['label' => 'Faktur Penjualan', 'items' => $so ? $so->invoices()->get()->map(fn ($i) => self::item($i->invoice_number, route('client.sales-invoices.show', $i), self::rp($i->total)))->all() : []],
+            ['label' => 'Faktur Penjualan', 'items' => $so ? $so->allInvoices()->get()->map(fn ($i) => self::item($i->invoice_number, route('client.sales-invoices.show', $i), self::rp($i->total)))->all() : []],
             ['label' => 'Pelanggan', 'items' => $do->customer ? [self::item($do->customer->name, route('client.customers.show', $do->customer))] : []],
             ['label' => 'Jurnal Akuntansi', 'items' => self::journalItems($do->journal)],
         ];
@@ -268,7 +379,7 @@ class DocumentLinker
 
         return [
             ['label' => 'Pesanan Pembelian', 'items' => $po ? [self::item($po->po_number, route('client.purchases.orders.show', $po), self::rp($po->total))] : []],
-            ['label' => 'Faktur Pembelian', 'items' => $po ? $po->invoices()->get()->map(fn ($i) => self::item($i->invoice_number, route('client.purchase-invoices.show', $i), self::rp($i->total)))->all() : []],
+            ['label' => 'Faktur Pembelian', 'items' => $po ? $po->allInvoices()->get()->map(fn ($i) => self::item($i->invoice_number, route('client.purchase-invoices.show', $i), self::rp($i->total)))->all() : []],
             ['label' => 'Pemasok', 'items' => $r->supplier ? [self::item($r->supplier->name, route('client.suppliers.show', $r->supplier))] : []],
             ['label' => 'Jurnal Akuntansi', 'items' => self::journalItems($r->journal)],
         ];

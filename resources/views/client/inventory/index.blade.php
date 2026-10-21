@@ -32,7 +32,7 @@
             <table class="pay-table">
                 <thead><tr>
                     <th>Kode</th><th>Nama</th>@if($isAll)<th>Jenis</th>@endif<th>Kategori</th><th>Satuan</th>
-                    <th class="r">{{ $isService ? 'Tarif' : 'Harga Jual' }}</th>
+                    <th class="r">{{ $isService ? 'Tarif Acuan' : ($isAll ? 'Harga Jual / Acuan' : 'Harga Jual') }}</th>
                     @if($isService)<th>Subkontraktor</th>@else<th class="r">Harga Beli</th><th class="r">Stok</th>@endif
                     <th>Status</th><th class="c">Aksi</th>
                 </tr></thead>
@@ -44,7 +44,7 @@
                         @if($isAll)<td><span class="st {{ $product->type === 'service' ? 'st-unpaid' : 'st-paid' }}">{{ $product->type === 'service' ? 'Jasa' : 'Barang' }}</span></td>@endif
                         <td>{{ $product->category->name ?? '-' }}</td>
                         <td>{{ $product->unit ?: '-' }}</td>
-                        <td class="r">{{ $rp($product->sell_price) }}</td>
+                        <td class="r">@if($product->type === 'service' && $product->sell_price <= 0)<span style="color:var(--text-faint)" title="Nilai jasa diisi pada tiap transaksi">sesuai pekerjaan</span>@else{{ $rp($product->sell_price) }}@endif</td>
                         @if($isService)
                             <td>@if($product->expense_account_id)<span class="st st-partial">Ya &middot; {{ $rp($product->buy_price) }}</span>@else<span style="color:var(--text-faint)">-</span>@endif</td>
                         @elseif($isAll && $product->type === 'service')

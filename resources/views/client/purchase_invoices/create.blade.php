@@ -15,11 +15,10 @@
         </div>
     @endif
 
-    @include('partials.pull-source', ['label' => 'Tarik dari Penerimaan Barang atau Pesanan Pembelian (PO)', 'options' => array_merge($receipts, $sourceOrders), 'selected' => $selectedSource, 'baseUrl' => route('client.purchase-invoices.create'), 'param' => 'po_id', 'emptyNote' => ($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada penerimaan ' . $prefill['source'] . ' sudah ditagih.' : null])
+    @include('partials.pull-multi', ['label' => 'Tarik dari Penerimaan Barang / Pesanan Pembelian (PO)', 'partyWord' => 'pemasok', 'options' => array_merge($receipts, $sourceOrders), 'checked' => $checked, 'baseUrl' => route('client.purchase-invoices.create'), 'sourceText' => $prefill['source'], 'notice' => $prefill['ignored'] ? $prefill['ignored'] . ' dokumen dilewati karena beda pemasok.' : (($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada dokumen yang dipilih sudah ditagih.' : null)])
 
     <form action="{{ route('client.purchase-invoices.store') }}" method="POST" id="invoiceForm">
         @csrf
-        @if($prefill['order'])<input type="hidden" name="po_id" value="{{ $prefill['order']->id }}">@endif
         
         <div class="bg-[#1E293B] border border-gray-800 shadow-2xl rounded-2xl overflow-hidden mb-6">
             <div class="p-6 md:p-8 border-b border-gray-700/50">
@@ -90,12 +89,12 @@
                                     <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" required>
                                         <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
                                         @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
+                                            <option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
                                         @endforeach
                                     </select>
                                 </td>
                                 <td class="px-2 py-3">
-                                    <input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
+                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
                                 </td>
                                 <td class="px-2 py-3">
                                     <input type="number" step="0.01" name="quantities[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-qty" value="1" min="0.01" required>
@@ -223,7 +222,7 @@
             const displayTax = document.getElementById('displayTax');
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;
@@ -267,7 +266,7 @@
                         </select>
                     </td>
                     <td class="px-2 py-3">
-                        <input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
+                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
                     </td>
                     <td class="px-2 py-3">
                         <input type="number" step="0.01" name="quantities[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-qty" value="1" min="0.01" required>

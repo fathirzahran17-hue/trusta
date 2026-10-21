@@ -10,7 +10,7 @@ class PurchaseInvoiceItem extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'purchase_invoice_id', 'product_id', 'description', 'quantity',
+        'purchase_invoice_id', 'po_id', 'product_id', 'description', 'quantity',
         'unit_price', 'discount_percent', 'total'
     ];
 

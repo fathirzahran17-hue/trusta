@@ -77,7 +77,7 @@
                                     <select name="products[]" class="product-select" required style="width: 100%;">
                                         <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
                                         @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
+                                            <option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
                                         @endforeach
                                     </select>
                                 </td>
@@ -212,7 +212,7 @@
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
             // NOTE: Using buy_price for purchase orders
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;

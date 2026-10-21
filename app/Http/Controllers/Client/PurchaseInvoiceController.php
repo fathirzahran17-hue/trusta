@@ -40,25 +40,20 @@ class PurchaseInvoiceController extends Controller
         $invoiceNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseInvoice::class, 'invoice_number', 'PI-', (int) auth()->user()->company_id, null);
             
         $cid = auth()->user()->company_id;
-        $prefill = request('item_receipt_id')
-            ? \App\Services\DocumentLinker::prefillFromReceipt(request('item_receipt_id'), $cid)
-            : \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('po_id'), $cid);
-        $prefill['party_id'] ??= optional($prefill['order'])->supplier_id;
-        $prefill['source'] ??= null;
-        $selectedSource = request('item_receipt_id') ? 'item_receipt_id=' . (int) request('item_receipt_id') : ($prefill['order'] ? 'po_id=' . $prefill['order']->id : null);
+        $poIds = array_map('intval', \Illuminate\Support\Arr::wrap(request('po_id')));
+        $rcIds = array_map('intval', \Illuminate\Support\Arr::wrap(request('item_receipt_id')));
+        $prefill = \App\Services\DocumentLinker::prefillFromSources('purchase', $poIds, $rcIds, (int) $cid);
+        $checked = array_merge(array_map(fn ($i) => "po_id=$i", $poIds), array_map(fn ($i) => "item_receipt_id=$i", $rcIds));
 
         $receipts = \App\Models\ItemReceipt::with('supplier')->where('company_id', $cid)
-            ->where('status', 'received')->orderByDesc('id')->limit(100)->get()
-            ->map(fn ($r) => ['id' => $r->id, 'param' => 'item_receipt_id', 'group' => 'Dari Penerimaan Barang', 'text' => $r->receipt_number . ' — ' . optional($r->supplier)->name])->all();
+            ->where('status', 'received')->whereNotNull('purchase_order_id')->orderByDesc('id')->limit(100)->get()
+            ->map(fn ($r) => ['id' => $r->id, 'param' => 'item_receipt_id', 'group' => 'Penerimaan Barang', 'party_id' => $r->supplier_id, 'text' => $r->receipt_number . ' — ' . optional($r->supplier)->name])->all();
 
-        $sourceOrders = \App\Models\PurchaseOrder::with('supplier')->where('company_id', auth()->user()->company_id)
-            ->whereIn('status', ['draft', 'sent', 'received'])->orderByDesc('id')->get()
-            ->map(fn ($o) => ['id' => $o->id, 'param' => 'po_id', 'group' => 'Dari Pesanan (PO)', 'text' => $o->po_number . ' — ' . optional($o->supplier)->name])->all();
-        if ($prefill['order'] && !collect($sourceOrders)->contains('id', $prefill['order']->id)) {
-            $sourceOrders[] = ['id' => $prefill['order']->id, 'param' => 'po_id', 'group' => 'Dari Pesanan (PO)', 'text' => $prefill['order']->po_number . ' — ' . optional($prefill['order']->supplier)->name];
-        }
+        $sourceOrders = \App\Models\PurchaseOrder::with('supplier')->where('company_id', $cid)
+            ->whereIn('status', ['sent', 'received'])->orderByDesc('id')->get()
+            ->map(fn ($o) => ['id' => $o->id, 'param' => 'po_id', 'group' => 'Pesanan Pembelian (PO)', 'party_id' => $o->supplier_id, 'text' => $o->po_number . ' — ' . optional($o->supplier)->name])->all();
 
-        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'receipts', 'selectedSource'));
+        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'receipts', 'checked'));
     }
 
     public function store(Request $request)
@@ -82,17 +77,13 @@ class PurchaseInvoiceController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $po = $request->po_id ? \App\Models\PurchaseOrder::where('company_id', auth()->user()->company_id)->find($request->po_id) : null;
-        if ($request->po_id && !$po) {
-            return back()->withInput()->with('error', 'Pesanan Pembelian tidak ditemukan.');
+        try {
+            [$rowOrders, $orders] = \App\Services\InvoiceSources::resolve('purchase', $request, (int) auth()->user()->company_id, (int) $request->supplier_id);
+            \App\Services\ServiceLines::assertPriced($request->products, $request->prices);
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
         }
-        if ($po) {
-            try {
-                \App\Services\OrderProgress::assertWithinRemaining(\App\Services\OrderProgress::forPurchaseOrder($po), 'invoiced', \App\Services\OrderProgress::requested($request->products, $request->quantities), 'faktur');
-            } catch (\DomainException $e) {
-                return back()->withInput()->with('error', $e->getMessage());
-            }
-        }
+        $po = $orders->first();
 
         try {
             DB::beginTransaction();
@@ -111,6 +102,7 @@ class PurchaseInvoiceController extends Controller
                 $subtotal += $total;
                 
                 $items[] = [
+                    'po_id' => $rowOrders[$index] ?? null,
                     'product_id' => $productId,
                     'quantity' => $qty,
                     'unit_price' => $price,
@@ -255,9 +247,7 @@ class PurchaseInvoiceController extends Controller
             \App\Services\JournalGuard::assertBalanced($journal);
 
             DB::commit();
-            if ($po) {
-                \App\Services\OrderProgress::syncPurchaseOrder($po->fresh());
-            }
+            \App\Services\InvoiceSources::syncFor($invoice, 'purchase');
             return redirect()->route('client.purchase-invoices.index')->with('success', 'Faktur Pembelian berhasil dicatat dan di-Jurnal secara otomatis.');
 
         } catch (\Exception $e) {

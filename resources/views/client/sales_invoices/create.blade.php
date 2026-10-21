@@ -15,11 +15,10 @@
         </div>
     @endif
 
-    @include('partials.pull-source', ['label' => 'Tarik dari Pengiriman (DO) atau Pesanan Penjualan (SO)', 'options' => array_merge($deliveries, $sourceOrders), 'selected' => $selectedSource, 'baseUrl' => route('client.sales-invoices.create'), 'param' => 'sales_order_id', 'emptyNote' => ($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada pengiriman ' . $prefill['source'] . ' sudah ditagih.' : null])
+    @include('partials.pull-multi', ['label' => 'Tarik dari Pengiriman (DO) / Pesanan Penjualan (SO)', 'partyWord' => 'pelanggan', 'options' => array_merge($deliveries, $sourceOrders), 'checked' => $checked, 'baseUrl' => route('client.sales-invoices.create'), 'sourceText' => $prefill['source'], 'notice' => $prefill['ignored'] ? $prefill['ignored'] . ' dokumen dilewati karena beda pelanggan.' : (($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada dokumen yang dipilih sudah ditagih.' : null)])
 
     <form action="{{ route('client.sales-invoices.store') }}" method="POST" id="invoiceForm">
         @csrf
-        @if($prefill['order'])<input type="hidden" name="sales_order_id" value="{{ $prefill['order']->id }}">@endif
         
         <div style="background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: visible; margin-bottom: 14px;">
             {{-- Header: Customer & Doc Info --}}
@@ -80,12 +79,12 @@
                                     <select name="products[]" class="product-select" required style="width: 100%;">
                                         <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
                                         @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}" data-price="{{ $prod->sell_price }}" data-unit="{{ $prod->unit }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
+                                            <option value="{{ $prod->id }}" data-price="{{ $prod->sell_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
                                         @endforeach
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
-                                    <input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
+                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                                 </td>
                                 <td style="padding: 4px 4px;">
                                     <input type="number" step="0.01" name="quantities[]" class="input-qty" value="1" min="0.01" required style="width: 100%; text-align: right;">
@@ -214,7 +213,7 @@
             const displayTax = document.getElementById('displayTax');
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->sell_price }}" data-unit="{{ $prod->unit }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->sell_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;
@@ -260,7 +259,7 @@
                         </select>
                     </td>
                     <td style="padding: 4px 4px;">
-                        <input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
+                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                     </td>
                     <td style="padding: 4px 4px;">
                         <input type="number" step="0.01" name="quantities[]" class="input-qty" value="1" min="0.01" required style="width: 100%; text-align: right;">

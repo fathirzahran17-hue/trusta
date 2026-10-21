@@ -701,8 +701,8 @@ class DocumentFlowTest extends TestCase
 
         // pilihan tarik SO muncul bersama nama pelanggan, dan pelanggan + barang terisi saat dipilih
         $this->get('/client/sales-invoices/create')->assertOk()->assertSee('SO-PULL-1 — Pelanggan');
-        $r = $this->get('/client/sales-invoices/create?sales_order_id=' . $so->id)->assertOk();
-        $r->assertSee('name="sales_order_id" value="' . $so->id . '"', false);
+        $r = $this->get('/client/sales-invoices/create?sales_order_id[]=' . $so->id)->assertOk();
+        $r->assertSee('"order_id":' . $so->id, false);
         $this->get('/client/sales/deliveries/create?sales_order_id=' . $so->id)->assertOk()->assertSee('SO-PULL-1 — Pelanggan');
     }
 
@@ -711,7 +711,7 @@ class DocumentFlowTest extends TestCase
         $po = $this->createPurchaseAndReceive(10);
         $receipt = \App\Models\ItemReceipt::firstOrFail();
         $r = $this->get('/client/purchase-invoices/create?item_receipt_id=' . $receipt->id)->assertOk();
-        $r->assertSee('name="po_id" value="' . $po->id . '"', false)->assertSee($receipt->receipt_number . ' — Pemasok')
+        $r->assertSee('"order_id":' . $po->id, false)->assertSee($receipt->receipt_number . ' — Pemasok')
           ->assertSee('"quantity":10', false);
 
         $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => 'SO-PULL-2', 'order_date' => date('Y-m-d'),
@@ -723,7 +723,66 @@ class DocumentFlowTest extends TestCase
 
         // hanya 3 yang dikirim -> faktur menarik 3 (bukan 4 yang dipesan), harga dari SO
         $this->get('/client/sales-invoices/create?delivery_order_id=' . $do->id)->assertOk()
-            ->assertSee('name="sales_order_id" value="' . $so->id . '"', false)
+            ->assertSee('"order_id":' . $so->id, false)
             ->assertSee('"quantity":3', false)->assertSee('"price":15000', false)->assertSee('DO-PULL-2 — Pelanggan');
+    }
+
+    public function test_one_invoice_can_bill_several_sales_orders_and_one_payment_settles_several_invoices(): void
+    {
+        $this->createPurchaseAndReceive(20);
+        foreach ([['SO-M-A', 3], ['SO-M-B', 2]] as [$no, $q]) {
+            $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => $no, 'order_date' => date('Y-m-d'),
+                'products' => [$this->product->id], 'quantities' => [$q], 'prices' => [15000], 'discounts' => [0]])->assertRedirect();
+        }
+        $a = SalesOrder::where('order_number', 'SO-M-A')->first();
+        $b = SalesOrder::where('order_number', 'SO-M-B')->first();
+
+        // menarik dua SO sekaligus -> dua baris, masing-masing membawa pesanan asalnya
+        $this->get('/client/sales-invoices/create?sales_order_id[]=' . $a->id . '&sales_order_id[]=' . $b->id)->assertOk()
+            ->assertSee('"order_id":' . $a->id, false)->assertSee('"order_id":' . $b->id, false);
+
+        $base = ['customer_id' => $this->customer->id, 'invoice_date' => date('Y-m-d'), 'due_date' => date('Y-m-d'),
+            'products' => [$this->product->id, $this->product->id], 'prices' => [15000, 15000], 'discounts' => [0, 0]];
+
+        // melebihi sisa SO-A ditolak
+        $this->post('/client/sales-invoices', $base + ['quantities' => [3, 2], 'row_orders' => [$a->id, $a->id]])->assertSessionHas('error');
+        $this->assertSame(0, SalesInvoice::count());
+
+        // pesanan milik pelanggan lain ditolak
+        $other = Customer::create(['company_id' => $this->user->company_id, 'name' => 'Pelanggan Lain', 'default_term_days' => 30, 'is_active' => true]);
+        $this->post('/client/sales-invoices', array_merge($base, ['customer_id' => $other->id, 'quantities' => [3, 2], 'row_orders' => [$a->id, $b->id]]))->assertSessionHas('error');
+        $this->assertSame(0, SalesInvoice::count());
+
+        // satu faktur untuk dua SO
+        $this->post('/client/sales-invoices', $base + ['quantities' => [3, 2], 'row_orders' => [$a->id, $b->id]])->assertRedirect();
+        $inv = SalesInvoice::firstOrFail();
+        $this->assertEquals(75000, $inv->total);
+        $this->assertSame([$a->id, $b->id], $inv->items()->orderBy('id')->pluck('sales_order_id')->map(fn ($x) => (int) $x)->all());
+        $this->assertEquals(3, \App\Services\OrderProgress::forSalesOrder($a)[0]['invoiced']);
+        $this->assertEquals(2, \App\Services\OrderProgress::forSalesOrder($b)[0]['invoiced']);
+        // kedua SO tampil sebagai dokumen terkait faktur, dan faktur tampil di tiap SO
+        $this->get('/client/sales-invoices/' . $inv->id)->assertOk()->assertSee('SO-M-A')->assertSee('SO-M-B');
+        $this->get('/client/sales/orders/' . $b->id)->assertOk()->assertSee($inv->invoice_number);
+
+        // membatalkan faktur mengembalikan kuota kedua SO
+        $this->post('/client/sales-invoices/' . $inv->id . '/void')->assertRedirect();
+        $this->assertEquals(0, \App\Services\OrderProgress::forSalesOrder($a)[0]['invoiced']);
+        $this->assertEquals(0, \App\Services\OrderProgress::forSalesOrder($b)[0]['invoiced']);
+    }
+
+    public function test_service_lines_need_a_price_and_services_are_not_offered_for_delivery(): void
+    {
+        $svc = Product::create(['company_id' => $this->user->company_id, 'name' => 'Konsultasi', 'type' => 'service', 'unit' => 'kali', 'sell_price' => 0, 'buy_price' => 0, 'is_active' => true]);
+        // jasa tanpa nilai ditolak
+        $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => 'SO-SV-0', 'order_date' => date('Y-m-d'),
+            'products' => [$svc->id], 'quantities' => [1], 'prices' => [0], 'discounts' => [0]])->assertSessionHas('error');
+        $this->assertSame(0, SalesOrder::count());
+        $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => 'SO-SV-1', 'order_date' => date('Y-m-d'),
+            'products' => [$svc->id], 'quantities' => [1], 'prices' => [2500000], 'discounts' => [0]])->assertRedirect();
+        $so = SalesOrder::firstOrFail();
+
+        // SO khusus jasa tidak muncul di pilihan pengiriman dan tidak ada tombol Buat Pengiriman
+        $this->get('/client/sales/deliveries/create')->assertOk()->assertDontSee('SO-SV-1');
+        $this->get('/client/sales/orders/' . $so->id)->assertOk()->assertDontSee('Buat Pengiriman')->assertSee('Buat Faktur');
     }
 }

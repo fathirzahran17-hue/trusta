@@ -51,10 +51,11 @@ class PurchaseOrderController extends Controller
             'lines' => $lines,
             'showPrices' => true,
             'total' => (float) $purchaseOrder->total,
-            'actions' => [
-                ['label' => 'Buat Penerimaan', 'url' => route('client.purchases.receipts.create', ['purchase_order_id' => $purchaseOrder->id])],
+            'actions' => array_values(array_filter([
+                \App\Services\OrderProgress::needsFulfilment(\App\Services\OrderProgress::forPurchaseOrder($purchaseOrder))
+                    ? ['label' => 'Buat Penerimaan', 'url' => route('client.purchases.receipts.create', ['purchase_order_id' => $purchaseOrder->id])] : null,
                 ['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['po_id' => $purchaseOrder->id])],
-            ],
+            ])),
             'progress' => ['fulfilledLabel' => 'Diterima', 'rows' => \App\Services\OrderProgress::forPurchaseOrder($purchaseOrder)],
             'groups' => \App\Services\DocumentLinker::relatedForPurchaseOrder($purchaseOrder),
         ]);
@@ -93,6 +94,12 @@ class PurchaseOrderController extends Controller
             'discounts' => 'nullable|array',
             'discounts.*' => 'nullable|numeric|min:0|max:100',
         ]);
+
+        try {
+            \App\Services\ServiceLines::assertPriced($request->products, $request->prices);
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
 
         try {
             DB::beginTransaction();

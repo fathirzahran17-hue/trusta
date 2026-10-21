@@ -54,10 +54,12 @@ class SalesOrderController extends Controller
             'lines' => $lines,
             'showPrices' => true,
             'total' => (float) $salesOrder->total,
-            'actions' => [
-                ['label' => 'Buat Pengiriman', 'url' => route('client.sales.deliveries.create', ['sales_order_id' => $salesOrder->id])],
+            'actions' => array_values(array_filter([
+                // jasa tidak dikirim: tombol pengiriman hanya muncul bila masih ada barang yang belum dikirim
+                \App\Services\OrderProgress::needsFulfilment(\App\Services\OrderProgress::forSalesOrder($salesOrder))
+                    ? ['label' => 'Buat Pengiriman', 'url' => route('client.sales.deliveries.create', ['sales_order_id' => $salesOrder->id])] : null,
                 ['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['sales_order_id' => $salesOrder->id])],
-            ],
+            ])),
             'progress' => ['fulfilledLabel' => 'Terkirim', 'rows' => \App\Services\OrderProgress::forSalesOrder($salesOrder)],
             'groups' => \App\Services\DocumentLinker::relatedForSalesOrder($salesOrder),
         ]);
@@ -97,6 +99,12 @@ class SalesOrderController extends Controller
             'discounts' => 'nullable|array',
             'discounts.*' => 'nullable|numeric|min:0|max:100',
         ]);
+
+        try {
+            \App\Services\ServiceLines::assertPriced($request->products, $request->prices);
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
 
         try {
             DB::beginTransaction();
@@ -157,7 +165,7 @@ class SalesOrderController extends Controller
                 SalesOrderDetail::create(array_merge($item, [
                     'sales_order_id' => $salesOrder->id,
                     'tax_id' => $request->tax_id,
-                    'tax_amount' => ($item['subtotal'] / $subtotal) * $taxAmount, // proportional tax per item
+                    'tax_amount' => ($subtotal > 0 ? $item['subtotal'] / $subtotal : 0) * $taxAmount, // proportional tax per item
                 ]));
             }
 

@@ -236,12 +236,7 @@ class InvoicePaymentService
             $inv->save();
 
             // Jumlah yang sudah ditagih pada pesanan asal dikembalikan
-            if ($kind === 'sales' && $inv->sales_order_id && ($so = \App\Models\SalesOrder::find($inv->sales_order_id))) {
-                OrderProgress::syncSalesOrder($so);
-            }
-            if ($kind === 'purchase' && $inv->po_id && ($po = \App\Models\PurchaseOrder::find($inv->po_id))) {
-                OrderProgress::syncPurchaseOrder($po);
-            }
+            InvoiceSources::syncFor($inv, $kind);
         });
     }
 }

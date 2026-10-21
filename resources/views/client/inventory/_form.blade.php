@@ -49,11 +49,12 @@
 </div>
 
 <div class="pay-card">
-    <div class="pay-card-head"><h3>Harga &amp; Pendapatan</h3><span class="sub">Pendapatan dicatat otomatis ke akun di bawah saat faktur penjualan dibuat.</span></div>
+    <div class="pay-card-head"><h3>{{ $isService ? 'Nilai Jasa & Pendapatan' : 'Harga & Pendapatan' }}</h3><span class="sub">Pendapatan dicatat otomatis ke akun di bawah saat faktur penjualan dibuat.</span></div>
     <div class="pay-form-grid">
         <div class="pay-field">
-            <label for="sell_price">{{ $isService ? 'Tarif / Harga Jual (Rp)' : 'Harga Jual (Rp)' }} <span style="color:var(--danger)">*</span></label>
-            <input type="number" step="0.01" min="0" name="sell_price" id="sell_price" value="{{ $val('sell_price', 0) }}" required>
+            <label for="sell_price">{{ $isService ? 'Tarif Acuan (Rp) — opsional' : 'Harga Jual (Rp)' }} @unless($isService)<span style="color:var(--danger)">*</span>@endunless</label>
+            <input type="number" step="0.01" min="0" name="sell_price" id="sell_price" value="{{ $val('sell_price', 0) }}" @unless($isService) required @endunless>
+            @if($isService)<div style="font-size:.7rem;color:var(--text-dim);margin-top:3px;line-height:1.4">Nilai jasa berbeda di tiap pekerjaan, jadi tidak ada harga tetap. Isi 0 bila tidak ada acuan — nilai sebenarnya diisi pada pesanan/faktur.</div>@endif
             @error('sell_price')<div style="color:var(--danger);font-size:.72rem;margin-top:3px">{{ $message }}</div>@enderror
         </div>
         @unless($isService)

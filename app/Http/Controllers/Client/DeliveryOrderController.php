@@ -34,7 +34,10 @@ class DeliveryOrderController extends Controller
         $salesOrders = SalesOrder::with('customer')->where('company_id', $companyId)
             ->whereIn('status', ['open'])
             ->orderBy('order_date', 'desc')
-            ->get();
+            ->get()
+            // pesanan khusus jasa (atau semua barangnya sudah dikirim) tidak perlu pengiriman
+            ->filter(fn ($so) => \App\Services\OrderProgress::needsFulfilment(\App\Services\OrderProgress::forSalesOrder($so)))
+            ->values();
             
         $products = Product::where('company_id', $companyId)
             ->where('is_active', true)
