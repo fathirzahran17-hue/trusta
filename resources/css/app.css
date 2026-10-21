@@ -1136,7 +1136,7 @@ html.dark .st-paid { color: #4ade80; } html.dark .st-partial { color: #fbbf24; }
 
 /* ===== Pusat Penjualan / Pembelian ===== */
 .hub-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; padding: 18px; }
-.hub-step { flex: 1 1 190px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 12px; }
+.hub-step { flex: 1 1 160px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 12px; }
 .hub-step-main { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: inherit; flex: 1; border-radius: 8px; }
 .hub-step-main:hover .hub-title { color: var(--accent); }
 .hub-no { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: .75rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
@@ -1156,3 +1156,11 @@ html.dark .st-paid { color: #4ade80; } html.dark .st-partial { color: #fbbf24; }
 .hub-tile-add { width: 36px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 1.1rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-left: 1px solid var(--border); }
 .hub-tile-add:hover { background: var(--accent); color: #fff; }
 @media (max-width: 900px) { .hub-cols { grid-template-columns: 1fr; } .hub-arrow { display: none; } }
+
+/* ===== Tarik dokumen sumber ===== */
+.pull-bar { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; margin-bottom: 14px; border: 1px dashed var(--accent); border-radius: 12px; background: var(--accent-soft); }
+.pull-ico { width: 30px; height: 30px; flex: none; border-radius: 8px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.pull-body { flex: 1; max-width: 560px; }
+.pull-body label { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: 4px; }
+.pull-body select { width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-strong); border-radius: 8px; padding: 8px 10px; font-size: .84rem; }
+.pull-body small { display: block; margin-top: 4px; font-size: .7rem; color: var(--text-dim); }

@@ -31,7 +31,7 @@ class ItemReceiptController extends Controller
         $companyId = auth()->user()->company_id;
         $suppliers = Supplier::where('company_id', $companyId)->orderBy('name')->get();
         
-        $purchaseOrders = PurchaseOrder::where('company_id', $companyId)
+        $purchaseOrders = PurchaseOrder::with('supplier')->where('company_id', $companyId)
             ->whereIn('status', ['sent']) // Sent POs can be received
             ->orderBy('order_date', 'desc')
             ->get();

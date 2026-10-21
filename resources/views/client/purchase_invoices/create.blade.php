@@ -15,6 +15,8 @@
         </div>
     @endif
 
+    @include('partials.pull-source', ['label' => 'Tarik dari Pesanan Pembelian (PO)', 'options' => $sourceOrders, 'selected' => optional($prefill['order'])->id, 'baseUrl' => route('client.purchase-invoices.create'), 'param' => 'po_id'])
+
     <form action="{{ route('client.purchase-invoices.store') }}" method="POST" id="invoiceForm">
         @csrf
         @if($prefill['order'])<input type="hidden" name="po_id" value="{{ $prefill['order']->id }}">@endif

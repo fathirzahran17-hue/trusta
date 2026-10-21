@@ -41,7 +41,14 @@ class SalesInvoiceController extends Controller
             
         $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder(request('sales_order_id'), auth()->user()->company_id);
 
-        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill'));
+        $sourceOrders = \App\Models\SalesOrder::with('customer')->where('company_id', auth()->user()->company_id)
+            ->whereIn('status', ['draft', 'open'])->orderByDesc('id')->get()
+            ->map(fn ($o) => ['id' => $o->id, 'text' => $o->order_number . ' — ' . optional($o->customer)->name])->all();
+        if ($prefill['order'] && !collect($sourceOrders)->contains('id', $prefill['order']->id)) {
+            $sourceOrders[] = ['id' => $prefill['order']->id, 'text' => $prefill['order']->order_number . ' — ' . optional($prefill['order']->customer)->name];
+        }
+
+        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders'));
     }
 
     public function store(Request $request)

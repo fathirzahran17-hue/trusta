@@ -41,7 +41,14 @@ class PurchaseInvoiceController extends Controller
             
         $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('po_id'), auth()->user()->company_id);
 
-        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill'));
+        $sourceOrders = \App\Models\PurchaseOrder::with('supplier')->where('company_id', auth()->user()->company_id)
+            ->whereIn('status', ['draft', 'sent', 'received'])->orderByDesc('id')->get()
+            ->map(fn ($o) => ['id' => $o->id, 'text' => $o->po_number . ' — ' . optional($o->supplier)->name])->all();
+        if ($prefill['order'] && !collect($sourceOrders)->contains('id', $prefill['order']->id)) {
+            $sourceOrders[] = ['id' => $prefill['order']->id, 'text' => $prefill['order']->po_number . ' — ' . optional($prefill['order']->supplier)->name];
+        }
+
+        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders'));
     }
 
     public function store(Request $request)

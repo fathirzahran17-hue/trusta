@@ -43,6 +43,7 @@ class HubController extends Controller
         // alur kerja: [judul, jumlah yang masih berjalan, label jumlah, rute daftar, rute buat (atau null)]
         if ($sales) {
             $flow = [
+                ['Pelanggan', Customer::where('company_id', $cid)->count(), 'terdaftar', 'client.customers.index', 'client.customers.create', 'Tambah Pelanggan'],
                 ['Pesanan Penjualan', SalesOrder::where('company_id', $cid)->whereIn('status', ['draft', 'open'])->count(), 'belum selesai', 'client.sales.orders', 'client.sales.orders.create', 'Buat Pesanan'],
                 ['Pengiriman Pesanan', DeliveryOrder::where('company_id', $cid)->whereIn('status', ['draft', 'shipped'])->count(), 'belum terkirim', 'client.sales.deliveries', 'client.sales.deliveries.create', 'Buat Pengiriman'],
                 ['Faktur Penjualan', $stats['openCount'], 'belum lunas', 'client.sales-invoices.index', 'client.sales-invoices.create', 'Buat Faktur'],
@@ -60,6 +61,7 @@ class HubController extends Controller
             ];
         } else {
             $flow = [
+                ['Pemasok', Supplier::where('company_id', $cid)->count(), 'terdaftar', 'client.suppliers.index', 'client.suppliers.create', 'Tambah Pemasok'],
                 ['Pesanan Pembelian', PurchaseOrder::where('company_id', $cid)->whereIn('status', ['draft', 'sent'])->count(), 'belum diterima', 'client.purchases.orders', 'client.purchases.orders.create', 'Buat Pesanan'],
                 ['Penerimaan Barang', ItemReceipt::where('company_id', $cid)->where('status', 'draft')->count(), 'draft', 'client.purchases.receipts', 'client.purchases.receipts.create', 'Catat Penerimaan'],
                 ['Faktur Pembelian', $stats['openCount'], 'belum lunas', 'client.purchase-invoices.index', 'client.purchase-invoices.create', 'Buat Faktur'],
