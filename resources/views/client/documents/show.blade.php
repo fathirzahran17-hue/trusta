@@ -7,7 +7,15 @@
         <div class="flex flex-wrap gap-2">
             <button type="button" onclick="window.print()" class="px-4 py-2 border border-gray-600 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors">Cetak</button>
             @foreach($actions as $a)
-                <a href="{{ $a['url'] }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors">{{ $a['label'] }}</a>
+                @if(!empty($a['method']))
+                    <form method="POST" action="{{ $a['url'] }}" class="inline" @if(!empty($a['confirm'])) onsubmit="return confirm(@js($a['confirm']))" @endif>
+                        @csrf
+                        @if($a['method'] !== 'POST') @method($a['method']) @endif
+                        <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ ($a['style'] ?? '') === 'danger' ? 'border border-red-500/60 text-red-400 hover:bg-red-500/10' : 'border border-gray-600 text-gray-300 hover:bg-gray-700' }}">{{ $a['label'] }}</button>
+                    </form>
+                @else
+                    <a href="{{ $a['url'] }}" class="px-4 py-2 {{ ($a['style'] ?? '') === 'secondary' ? 'border border-gray-600 text-gray-300 hover:bg-gray-700' : 'bg-trusta-teal text-navy-900 hover:bg-teal-400' }} font-medium rounded-lg text-sm transition-colors">{{ $a['label'] }}</a>
+                @endif
             @endforeach
         </div>
     </div>

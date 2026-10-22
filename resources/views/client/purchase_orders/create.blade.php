@@ -1,5 +1,5 @@
 <x-app-layout>
-    @section('title', 'Buat Pesanan Pembelian (PO)')
+    @section('title', isset($order) ? 'Ubah Pesanan Pembelian' : 'Buat Pesanan Pembelian (PO)')
     @section('subtitle', 'Pencatatan pemesanan barang ke Pemasok')
 
     <div class="mb-4">
@@ -15,8 +15,9 @@
         </div>
     @endif
 
-    <form action="{{ route('client.purchases.orders.store') }}" method="POST" id="orderForm">
+    <form action="{{ isset($order) ? route('client.purchases.orders.update', $order) : route('client.purchases.orders.store') }}" method="POST" id="orderForm">
         @csrf
+        @isset($order) @method('PUT') @endisset
         
         <div style="background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden; margin-bottom: 14px;">
             {{-- Header: Supplier & Doc Info --}}
@@ -25,7 +26,7 @@
                     <h3 style="font-size: 0.82rem; font-weight: 600; color: #fff; margin: 0;">Informasi Pemasok & Pesanan</h3>
                     <div style="text-align: right;">
                         <span style="font-size: 0.65rem; color: #64748b; display: block;">Nomor PO (Auto / Manual)</span>
-                        <input type="text" name="po_number" value="{{ $orderNumber }}" style="font-size: 1rem; font-weight: 700; color: var(--trusta-teal); background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; text-align: right; padding: 2px 6px; outline: none; width: 170px;">
+                        <input type="text" name="po_number" value="{{ old('po_number', $orderNumber) }}" style="font-size: 1rem; font-weight: 700; color: var(--trusta-teal); background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; text-align: right; padding: 2px 6px; outline: none; width: 170px;">
                     </div>
                 </div>
 
@@ -35,19 +36,19 @@
                         <select name="supplier_id" id="supplier_id" required>
                             <option value="">-- Pilih Pemasok --</option>
                             @foreach($suppliers as $supp)
-                                <option value="{{ $supp->id }}" {{ old('supplier_id') == $supp->id ? 'selected' : '' }}>{{ $supp->name }}</option>
+                                <option value="{{ $supp->id }}" {{ old('supplier_id', optional($order ?? null)->supplier_id) == $supp->id ? 'selected' : '' }}>{{ $supp->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     
                     <div>
                         <label for="order_date">Tanggal Pesanan <span style="color:#f87171">*</span></label>
-                        <input type="date" name="order_date" id="order_date" value="{{ old('order_date', date('Y-m-d')) }}" required>
+                        <input type="date" name="order_date" id="order_date" value="{{ old('order_date', isset($order) ? $order->order_date->format('Y-m-d') : date('Y-m-d')) }}" required>
                     </div>
 
                     <div>
                         <label for="expected_date">Ekspektasi Kedatangan</label>
-                        <input type="date" name="expected_date" id="expected_date" value="{{ old('expected_date', date('Y-m-d', strtotime('+7 days'))) }}">
+                        <input type="date" name="expected_date" id="expected_date" value="{{ old('expected_date', isset($order) && $order->expected_date ? $order->expected_date->format('Y-m-d') : date('Y-m-d', strtotime('+7 days'))) }}">
                     </div>
                 </div>
             </div>
@@ -124,7 +125,7 @@
                                 <td colspan="3" style="padding: 8px; text-align: right;">
                                     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
                                         <span style="color: #94a3b8; font-weight: 500; font-size: 0.78rem;">Diskon Keseluruhan (%)</span>
-                                        <input type="number" step="0.01" name="discount_percent" id="discount_percent" value="0" min="0" max="100" style="width: 70px; text-align: right;" onchange="calculateTotals()" onkeyup="calculateTotals()">
+                                        <input type="number" step="0.01" name="discount_percent" id="discount_percent" value="{{ old('discount_percent', $editDiscPct ?? 0) }}" min="0" max="100" style="width: 70px; text-align: right;" onchange="calculateTotals()" onkeyup="calculateTotals()">
                                     </div>
                                 </td>
                                 <td style="padding: 8px; text-align: right; font-weight: 700; color: #fbbf24; font-size: 0.9rem;" id="displayDiscount">0.00</td>
@@ -138,7 +139,7 @@
                                         <select name="tax_id" id="tax_id" style="width: 130px;">
                                             <option value="" data-rate="0">Tanpa Pajak</option>
                                             @foreach($taxes as $tax)
-                                                <option value="{{ $tax->id }}" data-rate="{{ $tax->rate }}">{{ $tax->name }} ({{ (float)$tax->rate }}%)</option>
+                                                <option value="{{ $tax->id }}" data-rate="{{ $tax->rate }}" @selected(old('tax_id', $editTaxId ?? null) == $tax->id)>{{ $tax->name }} ({{ (float)$tax->rate }}%)</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -158,7 +159,7 @@
 
                 <div style="margin-top: 12px;">
                     <label for="notes">Catatan Tambahan (Opsional)</label>
-                    <textarea name="notes" id="notes" rows="2" placeholder="Instruksi tambahan untuk supplier..."></textarea>
+                    <textarea name="notes" id="notes" rows="2" placeholder="Instruksi tambahan untuk supplier...">{{ old('notes', optional($order ?? null)->notes) }}</textarea>
                 </div>
             </div>
 
@@ -172,7 +173,7 @@
                         Batal
                     </a>
                     <button type="submit" id="btnSubmit" class="btn-primary">
-                        Kirim Pesanan
+                        {{ isset($order) ? 'Simpan Perubahan' : 'Kirim Pesanan' }}
                     </button>
                 </div>
             </div>
@@ -347,4 +348,5 @@
             updateRemoveButtons();
         });
     </script>
+    @isset($prefillRows) @include('partials.prefill-rows', ['rows' => $prefillRows]) @endisset
 </x-app-layout>

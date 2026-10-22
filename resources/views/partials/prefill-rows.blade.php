@@ -30,7 +30,7 @@
                 price.value = r.price;
                 var disp = tr.querySelector('.input-price-display');
                 if (disp) {
-                    disp.value = r.price;
+                    disp.value = String(r.price).replace('.', ',');
                     if (typeof window.formatRupiah === 'function') window.formatRupiah(disp, price);
                 }
             }

@@ -785,4 +785,60 @@ class DocumentFlowTest extends TestCase
         $this->get('/client/sales/deliveries/create')->assertOk()->assertDontSee('SO-SV-1');
         $this->get('/client/sales/orders/' . $so->id)->assertOk()->assertDontSee('Buat Pengiriman')->assertSee('Buat Faktur');
     }
+
+    public function test_orders_can_be_edited_deleted_or_cancelled_and_delivery_receipt_cancel_returns_stock(): void
+    {
+        // PO tanpa turunan: bisa diubah & dihapus
+        $this->post('/client/purchases/orders', ['supplier_id' => $this->supplier->id, 'po_number' => 'PO-L-1', 'order_date' => date('Y-m-d'),
+            'products' => [$this->product->id], 'quantities' => [4], 'prices' => [10000], 'discounts' => [0]])->assertRedirect();
+        $po = PurchaseOrder::firstOrFail();
+        $this->get('/client/purchases/orders/' . $po->id . '/edit')->assertOk()->assertSee('PO-L-1');
+        $this->put('/client/purchases/orders/' . $po->id, ['supplier_id' => $this->supplier->id, 'po_number' => 'PO-L-1', 'order_date' => date('Y-m-d'),
+            'products' => [$this->product->id], 'quantities' => [6], 'prices' => [10000], 'discounts' => [0]])->assertRedirect();
+        $this->assertEquals(60000, $po->fresh()->total);
+        $this->delete('/client/purchases/orders/' . $po->id)->assertRedirect();
+        $this->assertSame(0, PurchaseOrder::count());
+
+        // PO dengan penerimaan: tidak bisa dihapus/diubah, hanya dibatalkan
+        $po = $this->createPurchaseAndReceive(10);
+        $this->delete('/client/purchases/orders/' . $po->id)->assertSessionHas('error');
+        $this->get('/client/purchases/orders/' . $po->id . '/edit')->assertSessionHas('error');
+        $this->assertSame(1, PurchaseOrder::count());
+        $receipt = \App\Models\ItemReceipt::firstOrFail();
+        $this->assertEquals(10, $this->product->fresh()->stock);
+
+        // SO + pengiriman
+        $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => 'SO-L-1', 'order_date' => date('Y-m-d'),
+            'products' => [$this->product->id], 'quantities' => [4], 'prices' => [15000], 'discounts' => [0]])->assertRedirect();
+        $so = SalesOrder::firstOrFail();
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'sales_order_id' => $so->id, 'delivery_number' => 'DO-L-1',
+            'delivery_date' => date('Y-m-d'), 'status' => 'shipped', 'products' => [$this->product->id], 'quantities' => [4]])->assertRedirect();
+        $do = DeliveryOrder::firstOrFail();
+        $this->assertEquals(6, $this->product->fresh()->stock);
+        $this->delete('/client/sales/orders/' . $so->id)->assertSessionHas('error');
+
+        // penerimaan tidak bisa dibatalkan bila stoknya sudah dipakai (stok 6 < 10)
+        $this->post('/client/purchases/receipts/' . $receipt->id . '/cancel')->assertSessionHas('error');
+        $this->assertSame('received', $receipt->fresh()->status);
+
+        // batalkan pengiriman -> stok kembali
+        $this->post('/client/sales/deliveries/' . $do->id . '/cancel')->assertRedirect();
+        $this->assertSame('cancelled', $do->fresh()->status);
+        $this->assertEquals(10, $this->product->fresh()->stock);
+        $this->get('/client/sales/deliveries/' . $do->id)->assertOk()->assertSee('Dibatalkan');
+
+        // SO tanpa pengiriman aktif lagi bisa dihapus; kalau dibatalkan tidak bisa dikirim
+        $this->post('/client/sales/orders/' . $so->id . '/cancel')->assertRedirect();
+        $this->assertSame('cancelled', $so->fresh()->status);
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'sales_order_id' => $so->id, 'delivery_number' => 'DO-L-2',
+            'delivery_date' => date('Y-m-d'), 'status' => 'shipped', 'products' => [$this->product->id], 'quantities' => [1]])->assertSessionHas('error');
+        $this->get('/client/sales/orders/' . $so->id)->assertOk()->assertSee('Dibatalkan');
+
+        // penerimaan bisa dibatalkan setelah stok bebas
+        $this->post('/client/purchases/receipts/' . $receipt->id . '/cancel')->assertRedirect();
+        $this->assertEquals(0, $this->product->fresh()->stock);
+        $this->post('/client/purchases/orders/' . $po->id . '/cancel')->assertRedirect();
+        $this->assertSame('cancelled', $po->fresh()->status);
+        $this->get('/client/purchases/orders/' . $po->id)->assertOk();
+    }
 }

@@ -41,6 +41,9 @@ class InvoiceSources
         foreach ($ids as $id) {
             $o = $orders[$id];
             $label = $sales ? $o->order_number : $o->po_number;
+            if ($o->status === 'cancelled') {
+                throw new \DomainException("Pesanan {$label} sudah dibatalkan dan tidak bisa ditagih.");
+            }
             if ((int) ($sales ? $o->customer_id : $o->supplier_id) !== $partyId) {
                 throw new \DomainException("Pesanan {$label} milik " . ($sales ? 'pelanggan' : 'pemasok') . ' lain — pilih ' . ($sales ? 'pelanggan' : 'pemasok') . ' yang sama untuk semua pesanan dalam satu faktur.');
             }

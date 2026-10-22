@@ -80,15 +80,17 @@ class ItemReceiptController extends Controller
                 'Tanggal' => optional($itemReceipt->receipt_date)->format('d M Y'),
                 'Pemasok' => optional($itemReceipt->supplier)->name,
                 'No. Surat Jalan' => $itemReceipt->delivery_note_number,
-                'Status' => $itemReceipt->status,
+                'Status' => ['draft' => 'Draft', 'received' => 'Diterima', 'cancelled' => 'Dibatalkan'][$itemReceipt->status] ?? $itemReceipt->status,
                 'Catatan' => $itemReceipt->notes,
             ],
             'lines' => $lines,
             'showPrices' => false,
             'total' => null,
-            'actions' => $itemReceipt->purchase_order_id
-                ? [['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['item_receipt_id' => $itemReceipt->id])]]
-                : [],
+            'actions' => $itemReceipt->status === 'cancelled' ? [] : array_values(array_filter([
+                $itemReceipt->purchase_order_id ? ['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['item_receipt_id' => $itemReceipt->id])] : null,
+                ['label' => 'Batalkan Penerimaan', 'url' => route('client.purchases.receipts.cancel', $itemReceipt), 'method' => 'POST', 'style' => 'danger',
+                    'confirm' => 'Batalkan penerimaan ' . $itemReceipt->receipt_number . '? Stok masuk akan ditarik kembali (hanya bila barangnya belum terpakai).'],
+            ])),
             'groups' => \App\Services\DocumentLinker::relatedForReceipt($itemReceipt),
         ]);
     }
@@ -112,6 +114,9 @@ class ItemReceiptController extends Controller
         $po = $request->purchase_order_id ? PurchaseOrder::where('company_id', $companyId)->find($request->purchase_order_id) : null;
         if ($request->purchase_order_id && !$po) {
             return back()->withInput()->with('error', 'Pesanan Pembelian tidak ditemukan.');
+        }
+        if ($po && $po->status === 'cancelled') {
+            return back()->withInput()->with('error', 'Pesanan ' . $po->po_number . ' sudah dibatalkan.');
         }
         try {
             if ($po && $request->status == 'received') {
@@ -209,5 +214,17 @@ class ItemReceiptController extends Controller
             DB::rollBack();
             return back()->withInput()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
+    }
+
+    public function cancel(ItemReceipt $itemReceipt)
+    {
+        abort_if($itemReceipt->company_id !== auth()->user()->company_id, 403);
+        try {
+            \App\Services\OrderLifecycle::cancelReceipt($itemReceipt);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('client.purchases.receipts.show', $itemReceipt)->with('success', 'Penerimaan ' . $itemReceipt->receipt_number . ' dibatalkan, stok ditarik kembali.');
     }
 }
