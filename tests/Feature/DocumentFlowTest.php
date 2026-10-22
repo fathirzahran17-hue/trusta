@@ -960,4 +960,12 @@ class DocumentFlowTest extends TestCase
         $this->assertEquals(40000, $pay->deduction_amount);
         $this->assertBooksBalanced();
     }
+
+    public function test_post_only_url_opened_as_get_with_hosting_challenge_param_redirects_back_with_message(): void
+    {
+        $url = '/client/cash-bank/' . $this->cash->id . '/transaction?i=1';
+        $this->get($url)->assertRedirect('http://localhost/client/cash-bank/' . $this->cash->id)->assertSessionHas('error');
+        // tanpa parameter tantangan tetap 405 seperti biasa
+        $this->get('/client/cash-bank/' . $this->cash->id . '/transaction')->assertStatus(405);
+    }
 }
