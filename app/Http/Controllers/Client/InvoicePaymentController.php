@@ -12,6 +12,8 @@ class InvoicePaymentController extends Controller
 {
     private function validated(Request $request): array
     {
+        \App\Support\Money::normalize($request, ['amount', 'deductions.*.amount']);
+
         return $request->validate([
             'account_id' => 'required|integer',
             'amount' => 'required|numeric|min:0.01',

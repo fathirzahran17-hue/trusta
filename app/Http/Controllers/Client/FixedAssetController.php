@@ -213,7 +213,7 @@ class FixedAssetController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
-            return back()->with('success', count($assets) . ' aset berhasil disusutkan untuk bulan ini sebesar Rp ' . number_format($totalDepreciation, 0, ',', '.'));
+            return back()->with('success', count($assets) . ' aset berhasil disusutkan untuk bulan ini sebesar Rp ' . number_format($totalDepreciation, 2, ',', '.'));
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();

@@ -13,7 +13,7 @@ class ReportFormat
         if ($v === null || $v === '') return '';
         $v = (float) $v;
         if (abs($v) < 0.005) return '-';
-        $s = number_format(abs($v), 0, ',', '.');
+        $s = number_format(abs($v), 2, ',', '.');
         return $v < 0 ? '(' . $s . ')' : $s;
     }
 

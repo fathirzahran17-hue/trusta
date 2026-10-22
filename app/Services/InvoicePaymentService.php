@@ -115,14 +115,14 @@ class InvoicePaymentService
                     throw new \DomainException('Faktur ' . $inv->invoice_number . ' sudah dibatalkan dan tidak dapat dibayar.');
                 }
                 if ($amount > round((float) $inv->amount_due, 2) + 0.001) {
-                    throw new \DomainException('Jumlah untuk faktur ' . $inv->invoice_number . ' melebihi sisa tagihan (Rp ' . number_format($inv->amount_due, 0, ',', '.') . ').');
+                    throw new \DomainException('Jumlah untuk faktur ' . $inv->invoice_number . ' melebihi sisa tagihan (Rp ' . number_format($inv->amount_due, 2, ',', '.') . ').');
                 }
             }
 
             $total = round(array_sum($allocations), 2);
             $dedTotal = round(array_sum($ded), 2);
             if ($dedTotal > $total + 0.001) {
-                throw new \DomainException('Total potongan (Rp ' . number_format($dedTotal, 0, ',', '.') . ') melebihi jumlah yang dilunasi (Rp ' . number_format($total, 0, ',', '.') . ').');
+                throw new \DomainException('Total potongan (Rp ' . number_format($dedTotal, 2, ',', '.') . ') melebihi jumlah yang dilunasi (Rp ' . number_format($total, 2, ',', '.') . ').');
             }
             $cashAmount = round($total - $dedTotal, 2);
             $ref = self::nextRef($companyId, $kind === 'sales' ? 'RC-' : 'SP-', $date);

@@ -14,7 +14,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 /** Mengubah dokumen laporan menjadi file Excel berformat (kop, header, angka, border, siap cetak A4). */
 class ReportXlsx
 {
-    private const MONEY = '#,##0;(#,##0);"-"';
+    private const MONEY = '#,##0.00;(#,##0.00);"-"';
     private const QTY = '#,##0.##';
     private const DATE = 'dd mmm yyyy';
 

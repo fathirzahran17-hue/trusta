@@ -28,7 +28,7 @@
                 <p style="font-size: 0.65rem; font-family: monospace; color: #64748b; margin-bottom: 2px;">{{ $account->code }}</p>
                 <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 10px;">{{ $account->name }}</h3>
                 <p style="font-size: 0.55rem; color: #475569; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Saldo Berjalan</p>
-                <p style="font-size: 1.25rem; font-weight: 700; color: {{ $account->balance < 0 ? '#ef4444' : 'var(--trusta-teal)' }}; font-variant-numeric: tabular-nums;">Rp {{ number_format($account->balance, 0, ',', '.') }}</p>
+                <p style="font-size: 1.25rem; font-weight: 700; color: {{ $account->balance < 0 ? '#ef4444' : 'var(--trusta-teal)' }}; font-variant-numeric: tabular-nums;">Rp {{ number_format($account->balance, 2, ',', '.') }}</p>
             </div>
 
             {{-- Right: Compact Form --}}

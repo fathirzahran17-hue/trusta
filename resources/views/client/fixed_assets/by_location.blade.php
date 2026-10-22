@@ -63,14 +63,14 @@
                                 <span class="text-gray-300 print:text-black">{{ $k }}</span>
                             </td>
                             <td class="px-6 py-3 text-right tabular-nums text-gray-300 print:text-black">
-                                Rp {{ number_format($asset->book_value, 0, ',', '.') }}
+                                Rp {{ number_format($asset->book_value, 2, ',', '.') }}
                             </td>
                         </tr>
                         @php $totalBookValue += $asset->book_value; @endphp
                         @endforeach
                         <tr class="bg-gray-800/30 print:bg-transparent font-bold">
                             <td colspan="4" class="px-6 py-3 text-right text-gray-400 print:text-black">Total Nilai Buku di Lokasi Ini</td>
-                            <td class="px-6 py-3 text-right text-white print:text-black">Rp {{ number_format($totalBookValue, 0, ',', '.') }}</td>
+                            <td class="px-6 py-3 text-right text-white print:text-black">Rp {{ number_format($totalBookValue, 2, ',', '.') }}</td>
                         </tr>
                     </tbody>
                 </table>

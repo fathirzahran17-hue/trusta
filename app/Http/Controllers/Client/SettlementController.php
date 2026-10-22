@@ -111,6 +111,7 @@ class SettlementController extends Controller
     public function store(Request $r, string $kind)
     {
         $c = $this->cfg($kind);
+        \App\Support\Money::normalize($r, ['alloc.*', 'deductions.*.amount']);
         $d = $r->validate([
             'party_id' => 'required|integer',
             'account_id' => 'required|integer',
@@ -130,7 +131,7 @@ class SettlementController extends Controller
         }
 
         $total = array_sum(array_map(fn ($p) => (float) $p->amount, $pays));
-        return redirect()->route($c['route'])->with('success', ($kind === 'sales' ? 'Penerimaan ' : 'Pembayaran ') . $pays[0]->payment_number . ' sebesar Rp ' . number_format($total, 0, ',', '.') . ' untuk ' . count($pays) . ' faktur berhasil dicatat.');
+        return redirect()->route($c['route'])->with('success', ($kind === 'sales' ? 'Penerimaan ' : 'Pembayaran ') . $pays[0]->payment_number . ' sebesar Rp ' . number_format($total, 2, ',', '.') . ' untuk ' . count($pays) . ' faktur berhasil dicatat.');
     }
 
     public function storeSales(Request $r)    { return $this->store($r, 'sales'); }

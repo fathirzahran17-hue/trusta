@@ -12,7 +12,7 @@ class JournalGuard
         $d = (float) $journal->details()->sum('debit');
         $c = (float) $journal->details()->sum('credit');
         if (abs($d - $c) > 0.005) {
-            throw new \Exception('Jurnal tidak seimbang (debit ' . number_format($d, 0, ',', '.') . ' ≠ kredit ' . number_format($c, 0, ',', '.')
+            throw new \Exception('Jurnal tidak seimbang (debit ' . number_format($d, 2, ',', '.') . ' ≠ kredit ' . number_format($c, 2, ',', '.')
                 . '). Periksa pengaturan pajak dan akun, lalu coba lagi.');
         }
     }

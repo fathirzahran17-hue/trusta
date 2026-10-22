@@ -10,7 +10,7 @@
 <div class="related-panel no-print">
     <div class="related-panel-head">
         <span>{{ $isSales ? 'Pembayaran dari Pelanggan' : 'Pembayaran ke Pemasok' }}</span>
-        <span class="ri-meta">Dibayar Rp {{ number_format($invoice->amount_paid, 0, ',', '.') }} &bull; Sisa Rp {{ number_format($invoice->amount_due, 0, ',', '.') }}</span>
+        <span class="ri-meta">Dibayar Rp {{ number_format($invoice->amount_paid, 2, ',', '.') }} &bull; Sisa Rp {{ number_format($invoice->amount_due, 2, ',', '.') }}</span>
     </div>
 
     <div class="related-group">
@@ -18,7 +18,7 @@
         @forelse($payments as $p)
             <a href="{{ $p->journal_id ? route('client.journals.show', $p->journal_id) : '#' }}" class="related-item">
                 <span><span class="ri-main">{{ $p->payment_number }}</span> &middot; {{ optional($p->account)->name }}</span>
-                <span class="ri-meta">{{ $p->payment_date->format('d M Y') }} &bull; Rp {{ number_format($p->amount, 0, ',', '.') }}@if((float) $p->deduction_amount > 0) <span title="Bagian yang tidak lewat kas (potongan)">(potongan Rp {{ number_format($p->deduction_amount, 0, ',', '.') }})</span>@endif</span>
+                <span class="ri-meta">{{ $p->payment_date->format('d M Y') }} &bull; Rp {{ number_format($p->amount, 2, ',', '.') }}@if((float) $p->deduction_amount > 0) <span title="Bagian yang tidak lewat kas (potongan)">(potongan Rp {{ number_format($p->deduction_amount, 2, ',', '.') }})</span>@endif</span>
             </a>
         @empty
             <div class="related-empty">Belum ada pembayaran.</div>
@@ -45,7 +45,7 @@
             </div>
             <div>
                 <label class="related-group-label" for="pay_amount">Jumlah dilunasi (Rp)</label>
-                <input type="number" step="0.01" min="0.01" max="{{ $invoice->amount_due }}" name="amount" id="pay_amount" value="{{ old('amount', (float) $invoice->amount_due) }}" required>
+                <input type="text" inputmode="decimal" autocomplete="off" class="money-in" data-max="{{ (float) $invoice->amount_due }}" name="amount" id="pay_amount" value="{{ old('amount', number_format((float) $invoice->amount_due, 2, ',', '.')) }}" required>
             </div>
             <div>
                 <label class="related-group-label" for="pay_notes">Catatan</label>
@@ -56,6 +56,12 @@
                 <button type="submit" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors">{{ $isSales ? 'Terima Pembayaran' : 'Catat Pembayaran' }}</button>
             </div>
         </form>
+        <script>
+            (function () {
+                var a = document.getElementById('pay_amount'); if (!a) return;
+                a.addEventListener('input', function () { var m = parseFloat(a.dataset.max); if (window.parseMoney(a.value) > m) { a.value = window.fmtMoney(m); a.dispatchEvent(new Event('moneyfix')); } });
+            })();
+        </script>
         @endif
 
         @if((float) $invoice->amount_paid <= 0)

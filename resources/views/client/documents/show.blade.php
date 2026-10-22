@@ -57,8 +57,8 @@
                                     </td>
                                     <td class="border-b border-gray-700 p-3 text-right tabular-nums">{{ rtrim(rtrim(number_format($l['quantity'], 2, ',', '.'), '0'), ',') }}</td>
                                     @if($showPrices)
-                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['price'], 0, ',', '.') }}</td>
-                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['total'], 0, ',', '.') }}</td>
+                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['price'], 2, ',', '.') }}</td>
+                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['total'], 2, ',', '.') }}</td>
                                     @endif
                                 </tr>
                             @empty
@@ -67,7 +67,7 @@
                         </tbody>
                         @if($showPrices && $total !== null)
                             <tfoot>
-                                <tr><td colspan="3" class="p-3 text-right font-semibold text-gray-300">Total</td><td class="p-3 text-right font-bold text-white tabular-nums">Rp {{ number_format($total, 0, ',', '.') }}</td></tr>
+                                <tr><td colspan="3" class="p-3 text-right font-semibold text-gray-300">Total</td><td class="p-3 text-right font-bold text-white tabular-nums">Rp {{ number_format($total, 2, ',', '.') }}</td></tr>
                             </tfoot>
                         @endif
                     </table>

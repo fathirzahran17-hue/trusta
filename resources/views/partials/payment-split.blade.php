@@ -29,7 +29,7 @@
                     <option value="">— Pilih akun potongan —</option>
                     @foreach($deductionAccounts as $a)<option value="{{ $a->id }}">{{ $a->code }} - {{ $a->name }}</option>@endforeach
                 </select>
-                <input type="number" step="0.01" min="0" data-f="amount" placeholder="Jumlah (Rp)">
+                <input type="text" inputmode="decimal" autocomplete="off" class="money-in" data-f="amount" placeholder="Jumlah (Rp) 0,00">
                 <button type="button" class="split-del" aria-label="Hapus baris">&times;</button>
             </div>
         </template>
@@ -58,13 +58,13 @@
     if (!rows || !tpl) return;
     const form = box.closest('form');
     const sum = document.getElementById('splitSum');
-    const fmt = n => 'Rp ' + Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const fmt = n => window.fmtRp(n);
     let total = 0;
 
     function reindex() {
         [...rows.children].forEach((r, i) => r.querySelectorAll('[data-f]').forEach(el => el.name = 'deductions[' + i + '][' + el.dataset.f + ']'));
     }
-    function dedTotal() { return [...rows.querySelectorAll('[data-f="amount"]')].reduce((s, e) => s + (parseFloat(e.value) || 0), 0); }
+    function dedTotal() { return [...rows.querySelectorAll('[data-f="amount"]')].reduce((s, e) => s + window.parseMoney(e.value), 0); }
     function refresh() {
         const ded = dedTotal();
         sum.hidden = rows.children.length === 0;
@@ -81,13 +81,14 @@
     }
     add.addEventListener('click', () => addRow());
     rows.addEventListener('input', refresh);
+    rows.addEventListener('moneyfix', refresh);
     rows.addEventListener('click', e => { if (e.target.closest('.split-del')) { e.target.closest('.split-row').remove(); reindex(); refresh(); } });
 
     // jumlah yang dilunasi: dari input tunggal (panel faktur) atau event dari halaman multi-faktur
     const sel = box.dataset.totalInput;
     if (sel) {
         const inp = document.querySelector(sel);
-        if (inp) { const read = () => { total = parseFloat(inp.value) || 0; refresh(); }; inp.addEventListener('input', read); read(); }
+        if (inp) { const read = () => { total = window.parseMoney(inp.value); refresh(); }; inp.addEventListener('input', read); read(); }
     }
     if (form) form.addEventListener('paytotal', e => { total = e.detail.total || 0; refresh(); });
 

@@ -296,7 +296,7 @@ class DocumentLinker
 
     private static function rp($n): string
     {
-        return 'Rp ' . number_format((float) $n, 0, ',', '.');
+        return 'Rp ' . number_format((float) $n, 2, ',', '.');
     }
 
     private static function journalItems(?Journal $j): array

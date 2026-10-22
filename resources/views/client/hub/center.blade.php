@@ -1,6 +1,6 @@
 @php
     $sales = $kind === 'sales';
-    $rp = fn ($n) => 'Rp ' . number_format($n, 0, ',', '.');
+    $rp = fn ($n) => 'Rp ' . number_format($n, 2, ',', '.');
     $partyLabel = $sales ? 'Pelanggan' : 'Pemasok';
     $show = $sales ? 'client.sales-invoices.show' : 'client.purchase-invoices.show';
     $settle = $sales ? route('client.sales.settlement') : route('client.purchases.settlement');

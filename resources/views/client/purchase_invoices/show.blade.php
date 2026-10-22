@@ -108,13 +108,14 @@
                     @foreach($purchase_invoice->items as $item)
                         <tr>
                             <td class="py-4 px-2">
-                                <div class="font-bold text-gray-900">{{ $item->product->name }}</div>
-                                @if($item->description)
+                                <div class="font-bold text-gray-900">{{ $item->product->name ?? optional($item->account)->name ?? $item->description }}</div>
+                                @if($item->account_id)<div class="text-gray-400 text-xs">Akun {{ optional($item->account)->code }}</div>@endif
+                                @if($item->description && $item->description !== optional($item->account)->name)
                                     <div class="text-gray-500 text-xs mt-1">{{ $item->description }}</div>
                                 @endif
                             </td>
                             <td class="py-4 px-2 text-right text-gray-600">{{ (float)$item->quantity }}</td>
-                            <td class="py-4 px-2 text-center text-gray-600">{{ $item->product->unit ?? 'pcs' }}</td>
+                            <td class="py-4 px-2 text-center text-gray-600">{{ $item->product ? ($item->product->unit ?? 'pcs') : '-' }}</td>
                             <td class="py-4 px-2 text-right text-gray-600">Rp {{ number_format($item->unit_price, 2, ',', '.') }}</td>
                             <td class="py-4 px-2 text-right text-gray-600">{{ $item->discount_percent > 0 ? (float)$item->discount_percent . '%' : '-' }}</td>
                             <td class="py-4 px-2 text-right font-medium text-gray-900">Rp {{ number_format($item->total, 2, ',', '.') }}</td>

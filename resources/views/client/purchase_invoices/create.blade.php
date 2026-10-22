@@ -1,6 +1,9 @@
 <x-app-layout>
-    @section('title', 'Catat Faktur Pembelian Baru')
-    @section('subtitle', 'Pencatatan tagihan masuk yang otomatis membukukan Jurnal Akuntansi')
+    @php
+        $__acctOpts = $expenseAccounts->map(fn ($a) => '<option value="a' . $a->id . '" data-price="0" data-unit="-" data-type="account">' . e($a->code . ' - ' . $a->name) . '</option>')->implode('');
+    @endphp
+    @section('title', $mode === 'biaya' ? 'Catat Biaya / Tagihan Pemasok' : 'Catat Faktur Pembelian Baru')
+    @section('subtitle', $mode === 'biaya' ? 'Catat tagihan biaya (listrik, sewa, jasa, dll.) langsung ke akun biaya, tanpa memilih produk' : 'Pencatatan tagihan masuk yang otomatis membukukan Jurnal Akuntansi')
 
     <div class="mb-6">
         <a href="{{ route('client.purchase-invoices.index') }}" class="text-trusta-teal hover:text-white flex items-center text-sm transition-colors">
@@ -66,18 +69,18 @@
 
             <!-- Detail Barang/Jasa -->
             <div class="p-6 md:p-8 bg-gray-900/50">
-                <h3 class="text-lg font-medium text-white mb-4">Item Produk / Layanan yang Dibeli</h3>
+                <h3 class="text-lg font-medium text-white mb-1">{{ $mode === 'biaya' ? 'Rincian Biaya / Akun Lawan' : 'Item Produk / Layanan / Biaya yang Dibeli' }}</h3>
+                <p class="text-xs text-gray-400 mb-4">Pilih <b>produk/jasa</b>, atau pilih <b>akun biaya</b> langsung (mis. Biaya Listrik) bila yang dicatat bukan barang. Jurnal: Debit akun yang dipilih, Kredit Hutang Usaha. Satu faktur boleh mencampur keduanya.</p>
 
                 <div class="overflow-x-auto">
-                    @include("partials.no-products")
                     <table class="w-full text-sm text-left" id="itemsTable">
                         <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
                             <tr>
-                                <th class="px-4 py-3 w-1/4">Produk / Jasa</th>
+                                <th class="px-4 py-3 w-1/4">{{ $mode === 'biaya' ? 'Akun Biaya / Produk' : 'Produk / Jasa / Akun Biaya' }}</th>
                                 <th class="px-4 py-3" style="width: 16%;">Keterangan</th>
                                 <th class="px-4 py-3 w-20 text-right">Qty</th>
                                 <th class="px-4 py-3 text-center" style="width: 50px;">Satuan</th>
-                                <th class="px-4 py-3 w-36 text-right">Harga Satuan</th>
+                                <th class="px-4 py-3 text-right" style="min-width: 170px;">Harga Satuan</th>
                                 <th class="px-4 py-3 text-right" style="width: 70px;">Disk (%)</th>
                                 <th class="px-4 py-3 w-36 text-right">Jumlah</th>
                                 <th class="px-4 py-3 w-12"></th>
@@ -86,11 +89,15 @@
                         <tbody id="itemsBody" class="divide-y divide-gray-700/50">
                             <tr class="group item-row">
                                 <td class="px-2 py-3">
-                                    <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" required>
-                                        <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
+                                                                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" style="min-width: 230px;" required>
+                                        <option value="" data-price="0" data-unit="">{{ $mode === 'biaya' ? '-- Pilih Akun Biaya --' : '-- Pilih Produk / Akun Biaya --' }}</option>
+                                        @if($mode === 'biaya')<optgroup label="Akun Biaya / Akun Lawan">{!! $__acctOpts !!}</optgroup>@endif
+                                        <optgroup label="Produk / Jasa">
                                         @foreach($products as $prod)
                                             <option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
                                         @endforeach
+                                        </optgroup>
+                                        @if($mode !== 'biaya')<optgroup label="Akun Biaya / Akun Lawan">{!! $__acctOpts !!}</optgroup>@endif
                                     </select>
                                 </td>
                                 <td class="px-2 py-3">
@@ -191,27 +198,6 @@
     </form>
 
     <script>
-        function formatRupiah(element, hiddenElement) {
-            let value = element.value.toString().replace(/[^,\d]/g, '');
-            let split = value.split(',');
-            let sisa = split[0].length % 3;
-            let rupiah = split[0].substr(0, sisa);
-            let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-
-            if (ribuan) {
-                let separator = sisa ? '.' : '';
-                rupiah += separator + ribuan.join('.');
-            }
-
-            rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
-            element.value = rupiah;
-            
-            let realValue = value ? value.replace(/,/g, '.') : 0;
-            if(hiddenElement) {
-                hiddenElement.value = realValue;
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             const tableBody = document.getElementById('itemsBody');
             const btnAddRow = document.getElementById('btnAddRow');
@@ -222,7 +208,7 @@
             const displayTax = document.getElementById('displayTax');
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            const productOptions = `{!! ($mode === 'biaya' ? '<optgroup label="Akun Biaya / Akun Lawan">' . $__acctOpts . '</optgroup>' : '') !!}<optgroup label="Produk / Jasa">@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach</optgroup>{!! ($mode !== 'biaya' ? '<optgroup label="Akun Biaya / Akun Lawan">' . $__acctOpts . '</optgroup>' : '') !!}`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;
@@ -260,8 +246,8 @@
                 tr.className = 'group item-row';
                 tr.innerHTML = `
                     <td class="px-2 py-3">
-                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" required>
-                            <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
+                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" style="min-width: 230px;" required>
+                            <option value="" data-price="0" data-unit="">{{ $mode === 'biaya' ? '-- Pilih Akun Biaya --' : '-- Pilih Produk / Akun Biaya --' }}</option>
                             ${productOptions}
                         </select>
                     </td>

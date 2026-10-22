@@ -906,4 +906,58 @@ class DocumentFlowTest extends TestCase
         $this->assertBooksBalanced();
         $this->get('/client/purchases/payments')->assertOk()->assertSee('termasuk potongan');
     }
+
+    public function test_purchase_invoice_can_record_expense_straight_to_an_account_without_product(): void
+    {
+        $cid = $this->user->company_id;
+        $exp = Account::where('company_id', $cid)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header);
+        $this->get('/client/purchase-invoices/create?mode=biaya')->assertOk()->assertSee($exp->name);
+        $this->get('/client/purchase-invoices/create')->assertOk()->assertSee($exp->name);
+
+        $base = ['supplier_id' => $this->supplier->id, 'invoice_date' => date('Y-m-d'), 'due_date' => date('Y-m-d'),
+            'quantities' => [1], 'prices' => [350000.5], 'discounts' => [0]];
+        // akun kas / akun milik perusahaan lain / baris kosong ditolak
+        $this->post('/client/purchase-invoices', $base + ['products' => ['a' . $this->cash->id]])->assertSessionHas('error');
+        $this->post('/client/purchase-invoices', $base + ['products' => ['']])->assertSessionHas('error');
+        $this->assertSame(0, PurchaseInvoice::count());
+
+        $this->post('/client/purchase-invoices', $base + ['products' => ['a' . $exp->id], 'row_descriptions' => ['Listrik Oktober']])->assertRedirect();
+        $inv = PurchaseInvoice::firstOrFail();
+        $this->assertEquals(350000.5, $inv->total);
+        $item = $inv->items()->firstOrFail();
+        $this->assertNull($item->product_id);
+        $this->assertSame($exp->id, (int) $item->account_id);
+        $d = \App\Models\JournalDetail::where('journal_id', $inv->journal_id)->where('account_id', $exp->id)->first();
+        $this->assertEquals(350000.5, $d->debit);
+        $this->assertBooksBalanced();
+        $this->get('/client/purchase-invoices/' . $inv->id)->assertOk()->assertSee($exp->name)->assertSee('Listrik Oktober');
+
+        // campuran produk + akun dalam satu faktur
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'invoice_date' => date('Y-m-d'), 'due_date' => date('Y-m-d'),
+            'products' => [(string) $this->product->id, 'a' . $exp->id], 'quantities' => [2, 1], 'prices' => [10000, 5000], 'discounts' => [0, 0]])->assertRedirect();
+        $this->assertSame(2, PurchaseInvoice::count());
+        $this->assertBooksBalanced();
+    }
+
+    public function test_money_is_displayed_with_two_decimals_and_form_amounts_accept_indonesian_format(): void
+    {
+        $this->createPurchaseAndReceive(10);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => date('Y-m-d'), 'due_date' => date('Y-m-d'),
+            'products' => [$this->product->id], 'quantities' => [1], 'prices' => [2000000.13], 'discounts' => [0]])->assertRedirect();
+        $inv = SalesInvoice::firstOrFail();
+        $this->get('/client/sales-invoices')->assertOk()->assertSee('2.000.000,13');
+        $this->get('/client/sales-invoices/' . $inv->id)->assertOk()->assertSee('2.000.000,13');
+        $this->get('/client/sales/receipts')->assertOk()->assertSee('2.000.000,13')->assertDontSee('Rp 2.000.000<');
+
+        // angka berformat Indonesia dari form dipahami server
+        $prepaid = Account::where('company_id', $this->user->company_id)->where('name', 'Pajak Dibayar Dimuka')->firstOrFail();
+        $this->post("/client/sales-invoices/{$inv->id}/payments", ['account_id' => $this->cash->id, 'amount' => '2.000.000,13', 'payment_date' => date('Y-m-d'),
+            'deductions' => [['account_id' => $prepaid->id, 'amount' => '40.000,00']]])->assertSessionHasNoErrors();
+        $inv->refresh();
+        $this->assertSame('paid', $inv->status);
+        $pay = \App\Models\InvoicePayment::firstOrFail();
+        $this->assertEquals(2000000.13, $pay->amount);
+        $this->assertEquals(40000, $pay->deduction_amount);
+        $this->assertBooksBalanced();
+    }
 }

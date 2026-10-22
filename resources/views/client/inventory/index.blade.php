@@ -1,7 +1,7 @@
 @php
     $isAll = $kind === 'all';
     $isService = $kind === 'service';
-    $rp = fn ($n) => 'Rp ' . number_format($n, 0, ',', '.');
+    $rp = fn ($n) => 'Rp ' . number_format($n, 2, ',', '.');
     $self = $isAll ? route('client.inventory.all') : ($isService ? route('client.inventory.services') : route('client.inventory.index'));
     $create = $isService ? route('client.inventory.services.create') : route('client.inventory.create');
 @endphp

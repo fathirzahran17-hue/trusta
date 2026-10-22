@@ -32,7 +32,7 @@
                             </span>
                         </td>
                         <td class="px-6 py-3 text-right font-semibold tabular-nums {{ $isMasuk ? 'text-emerald-400' : 'text-red-400' }}">
-                            {{ $isMasuk ? '+' : '-' }} Rp {{ number_format($amount, 0, ',', '.') }}
+                            {{ $isMasuk ? '+' : '-' }} Rp {{ number_format($amount, 2, ',', '.') }}
                         </td>
                     </tr>
                     @empty
