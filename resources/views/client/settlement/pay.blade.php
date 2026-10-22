@@ -84,6 +84,10 @@
         </div>
         @endforeach
 
+        <div class="pay-split-wrap" style="padding:0 16px 14px">
+            @include('partials.payment-split', ['deductionAccounts' => $deductionAccounts, 'sales' => $sales, 'totalInput' => ''])
+        </div>
+
         <div class="pay-foot">
             <div class="pay-total"><span id="pf_count">0 faktur dipilih</span> &middot; Total {{ $sales ? 'diterima' : 'dibayar' }}<b id="pf_total">Rp 0</b></div>
             <button type="submit" class="btn-primary" id="pf_submit" disabled style="opacity:.5;cursor:not-allowed">{{ $sales ? 'Terima Pembayaran' : 'Catat Pembayaran' }}</button>
@@ -103,7 +107,7 @@
                             <td class="wrap">{{ $h->party ?: '-' }}</td>
                             <td class="wrap">{{ $h->invoices }}</td>
                             <td>{{ $h->account }}</td>
-                            <td class="r">{{ $rp($h->amount) }}</td>
+                            <td class="r">{{ $rp($h->amount) }}@if($h->deduction > 0)<div style="font-size:.68rem;color:var(--text-dim)">termasuk potongan {{ $rp($h->deduction) }}</div>@endif</td>
                             <td class="c">
                                 @if($h->voided)
                                     <span class="st st-void" style="text-decoration:none">Dibatalkan</span>
@@ -144,6 +148,7 @@
                 });
                 f.querySelector('#pf_count').textContent = n + ' faktur dipilih';
                 f.querySelector('#pf_total').textContent = fmt(total);
+                f.dispatchEvent(new CustomEvent('paytotal', { detail: { total: total } }));
                 const btn = f.querySelector('#pf_submit'); btn.disabled = !(total > 0);
                 btn.style.opacity = total > 0 ? '' : '.5'; btn.style.cursor = total > 0 ? '' : 'not-allowed';
             }

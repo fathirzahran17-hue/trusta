@@ -17,6 +17,9 @@ class InvoicePaymentController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'payment_date' => 'required|date',
             'notes' => 'nullable|string|max:255',
+            'deductions' => 'nullable|array|max:10',
+            'deductions.*.account_id' => 'nullable|integer',
+            'deductions.*.amount' => 'nullable|numeric|min:0',
         ]);
     }
 
@@ -25,7 +28,7 @@ class InvoicePaymentController extends Controller
         abort_if($sales_invoice->company_id !== auth()->user()->company_id, 403);
         $d = $this->validated($request);
         try {
-            InvoicePaymentService::paySales($sales_invoice, (int) $d['account_id'], (float) $d['amount'], $d['payment_date'], $d['notes'] ?? null, auth()->id());
+            InvoicePaymentService::paySales($sales_invoice, (int) $d['account_id'], (float) $d['amount'], $d['payment_date'], $d['notes'] ?? null, auth()->id(), $d['deductions'] ?? []);
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
@@ -38,7 +41,7 @@ class InvoicePaymentController extends Controller
         abort_if($purchase_invoice->company_id !== auth()->user()->company_id, 403);
         $d = $this->validated($request);
         try {
-            InvoicePaymentService::payPurchase($purchase_invoice, (int) $d['account_id'], (float) $d['amount'], $d['payment_date'], $d['notes'] ?? null, auth()->id());
+            InvoicePaymentService::payPurchase($purchase_invoice, (int) $d['account_id'], (float) $d['amount'], $d['payment_date'], $d['notes'] ?? null, auth()->id(), $d['deductions'] ?? []);
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }

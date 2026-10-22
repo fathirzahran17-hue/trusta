@@ -841,4 +841,69 @@ class DocumentFlowTest extends TestCase
         $this->assertSame('cancelled', $po->fresh()->status);
         $this->get('/client/purchases/orders/' . $po->id)->assertOk();
     }
+
+    public function test_settlement_can_be_split_to_deduction_accounts_for_sales_and_purchases(): void
+    {
+        $cid = $this->user->company_id;
+        $prepaid = Account::where('company_id', $cid)->where('name', 'Pajak Dibayar Dimuka')->firstOrFail();
+        $pph23 = Account::where('company_id', $cid)->where('name', 'Hutang PPh 23')->firstOrFail();
+        $pph25 = Account::where('company_id', $cid)->where('name', 'Hutang PPh 25')->firstOrFail();
+        $this->assertTrue((bool) $prepaid->is_settlement_deduction);
+        $this->assertTrue((bool) $pph23->is_settlement_deduction);
+        $this->assertFalse((bool) $pph25->is_settlement_deduction);
+        $this->assertFalse((bool) $this->cash->fresh()->is_settlement_deduction);
+
+        // ---- penjualan: pelanggan memotong PPh 2% dari 1.000.000
+        $this->createPurchaseAndReceive(10);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => date('Y-m-d'), 'due_date' => date('Y-m-d'),
+            'products' => [$this->product->id], 'quantities' => [2], 'prices' => [500000], 'discounts' => [0]])->assertRedirect();
+        $inv = SalesInvoice::firstOrFail();
+        $this->assertEquals(1000000, $inv->total);
+
+        // potongan lebih besar dari jumlah, atau akun yang tidak ditandai, ditolak
+        $base = ['account_id' => $this->cash->id, 'amount' => 1000000, 'payment_date' => date('Y-m-d')];
+        $this->post("/client/sales-invoices/{$inv->id}/payments", $base + ['deductions' => [['account_id' => $prepaid->id, 'amount' => 1500000]]])->assertSessionHas('error');
+        $this->post("/client/sales-invoices/{$inv->id}/payments", $base + ['deductions' => [['account_id' => $pph25->id, 'amount' => 20000]]])->assertSessionHas('error');
+        $this->post("/client/sales-invoices/{$inv->id}/payments", $base + ['deductions' => [['account_id' => $this->cash->id, 'amount' => 20000]]])->assertSessionHas('error');
+        $this->assertSame('unpaid', $inv->fresh()->status);
+
+        $this->post("/client/sales-invoices/{$inv->id}/payments", $base + ['deductions' => [['account_id' => $prepaid->id, 'amount' => 20000], ['account_id' => '', 'amount' => '']]])->assertSessionHasNoErrors();
+        $inv->refresh();
+        $this->assertSame('paid', $inv->status); // faktur lunas penuh walau kas hanya 980.000
+        $pay = \App\Models\InvoicePayment::firstOrFail();
+        $this->assertEquals(1000000, $pay->amount);
+        $this->assertEquals(20000, $pay->deduction_amount);
+        $d = fn ($accId) => \App\Models\JournalDetail::where('journal_id', $pay->journal_id)->where('account_id', $accId);
+        $this->assertEquals(980000, $d($this->cash->id)->sum('debit'));
+        $this->assertEquals(20000, $d($prepaid->id)->sum('debit'));
+        $this->assertEquals(1000000, \App\Models\JournalDetail::where('journal_id', $pay->journal_id)->sum('credit'));
+        $this->assertBooksBalanced();
+        $this->get("/client/sales-invoices/{$inv->id}")->assertOk()->assertSee('potongan Rp 20.000');
+        $this->get('/client/sales/receipts')->assertOk()->assertSee('Potongan / split pelunasan');
+
+        // batalkan -> jurnal balik termasuk akun potongan
+        $this->post('/client/invoice-payments/' . $pay->id . '/void')->assertRedirect();
+        $this->assertSame('unpaid', $inv->fresh()->status);
+        $this->assertEquals(0, $prepaid->fresh()->balance);
+        $this->assertBooksBalanced();
+
+        // ---- pembelian: pemasok ditahan PPh 23, dibayar lewat halaman multi-faktur (dua faktur, potongan dibagi proporsional)
+        foreach (['PI-S-1' => 600000, 'PI-S-2' => 400000] as $no => $amt) {
+            $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'invoice_number' => $no, 'invoice_date' => date('Y-m-d'), 'due_date' => date('Y-m-d'),
+                'products' => [$this->product->id], 'quantities' => [1], 'prices' => [$amt], 'discounts' => [0]])->assertRedirect();
+        }
+        $invs = PurchaseInvoice::orderBy('id')->get();
+        $this->post('/client/purchases/payments', ['party_id' => $this->supplier->id, 'account_id' => $this->cash->id, 'payment_date' => date('Y-m-d'),
+            'alloc' => [$invs[0]->id => 600000, $invs[1]->id => 400000],
+            'deductions' => [['account_id' => $pph23->id, 'amount' => 20000]]])->assertSessionHasNoErrors();
+        $pays = \App\Models\InvoicePayment::whereNotNull('purchase_invoice_id')->orderBy('id')->get();
+        $this->assertEquals([12000, 8000], $pays->pluck('deduction_amount')->map(fn ($x) => (float) $x)->all());
+        $j = $pays->first()->journal_id;
+        $this->assertEquals(980000, \App\Models\JournalDetail::where('journal_id', $j)->where('account_id', $this->cash->id)->sum('credit'));
+        $this->assertEquals(20000, \App\Models\JournalDetail::where('journal_id', $j)->where('account_id', $pph23->id)->sum('credit'));
+        $this->assertEquals(1000000, \App\Models\JournalDetail::where('journal_id', $j)->sum('debit'));
+        $this->assertSame(['paid', 'paid'], PurchaseInvoice::orderBy('id')->pluck('status')->all());
+        $this->assertBooksBalanced();
+        $this->get('/client/purchases/payments')->assertOk()->assertSee('termasuk potongan');
+    }
 }

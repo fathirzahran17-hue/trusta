@@ -12,7 +12,7 @@ class Account extends Model
 
     protected $fillable = [
         'company_id', 'parent_id', 'code', 'name', 'type', 'normal_balance',
-        'opening_balance', 'is_active', 'is_system', 'is_cash_bank',
+        'opening_balance', 'is_active', 'is_system', 'is_cash_bank', 'is_settlement_deduction',
     ];
 
     protected $appends = ['is_header'];
@@ -28,6 +28,11 @@ class Account extends Model
                 $a->is_cash_bank = true;
             }
         });
+        static::creating(function (Account $a) {
+            if (!$a->is_settlement_deduction && self::nameLooksLikeSettlementDeduction((string) $a->name, (string) $a->type)) {
+                $a->is_settlement_deduction = true;
+            }
+        });
         static::saved(fn () => self::$parentIdCache = null);
         static::deleted(fn () => self::$parentIdCache = null);
     }
@@ -37,6 +42,20 @@ class Account extends Model
         return $type === 'asset'
             && preg_match('/^(kas|bank)\b/i', trim($name)) === 1
             && !preg_match('/(&|\bdan\b|\bsetara\b)/i', $name);
+    }
+
+    /** Akun pajak yang lazim dipotong saat pelunasan: PPh dibayar di muka (aset) / Hutang PPh (kewajiban). */
+    public static function nameLooksLikeSettlementDeduction(string $name, string $type): bool
+    {
+        $n = trim($name);
+        if ($type === 'asset') {
+            return preg_match('/(pajak dibayar di ?muka|piutang pajak|piutang pph|pph.*dibayar di ?muka|uang muka pajak)/i', $n) === 1;
+        }
+        if ($type === 'liability') {
+            return preg_match('/(hutang|utang)\s+pph(?!\s*(25|29)\b)/i', $n) === 1;
+        }
+
+        return false;
     }
 
     public function getIsHeaderAttribute(): bool
@@ -55,6 +74,8 @@ class Account extends Model
         'opening_balance' => 'decimal:2',
         'is_active' => 'boolean',
         'is_system' => 'boolean',
+        'is_cash_bank' => 'boolean',
+        'is_settlement_deduction' => 'boolean',
     ];
 
     public function company(): BelongsTo

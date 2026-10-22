@@ -36,25 +36,30 @@ class InvoicePaymentService
     }
 
     /** Catat pembayaran dari pelanggan untuk satu faktur. */
-    public static function paySales(SalesInvoice $inv, int $accountId, float $amount, string $date, ?string $notes, int $userId): InvoicePayment
+    public static function paySales(SalesInvoice $inv, int $accountId, float $amount, string $date, ?string $notes, int $userId, array $deductions = []): InvoicePayment
     {
-        return self::payMany('sales', (int) $inv->company_id, (int) $inv->customer_id, [$inv->id => $amount], $accountId, $date, $notes, $userId)[0];
+        return self::payMany('sales', (int) $inv->company_id, (int) $inv->customer_id, [$inv->id => $amount], $accountId, $date, $notes, $userId, $deductions)[0];
     }
 
     /** Catat pembayaran ke pemasok untuk satu faktur. */
-    public static function payPurchase(PurchaseInvoice $inv, int $accountId, float $amount, string $date, ?string $notes, int $userId): InvoicePayment
+    public static function payPurchase(PurchaseInvoice $inv, int $accountId, float $amount, string $date, ?string $notes, int $userId, array $deductions = []): InvoicePayment
     {
-        return self::payMany('purchase', (int) $inv->company_id, (int) $inv->supplier_id, [$inv->id => $amount], $accountId, $date, $notes, $userId)[0];
+        return self::payMany('purchase', (int) $inv->company_id, (int) $inv->supplier_id, [$inv->id => $amount], $accountId, $date, $notes, $userId, $deductions)[0];
     }
 
     /**
      * Satu penerimaan/pembayaran yang dialokasikan ke beberapa faktur milik SATU pelanggan/pemasok.
      * Menghasilkan satu jurnal (Kas vs Piutang/Hutang per faktur) dan satu baris pembayaran per faktur.
      *
-     * @param array<int,float|string> $allocations [id faktur => jumlah]
+     * Pelunasan boleh di-split: sebagian jumlah tidak lewat kas/bank melainkan ke akun potongan
+     * (mis. PPh yang dipotong pelanggan → Pajak Dibayar Dimuka, atau PPh yang ditahan dari pemasok → Hutang PPh).
+     * Penjualan: Dr Kas (sisa), Dr akun potongan, Cr Piutang. Pembelian: Dr Hutang, Cr Kas (sisa), Cr akun potongan.
+     *
+     * @param array<int,float|string> $allocations [id faktur => jumlah yang dilunasi]
+     * @param array<int,array{account_id:int|string,amount:float|string}> $deductions
      * @return InvoicePayment[]
      */
-    public static function payMany(string $kind, int $companyId, int $partyId, array $allocations, int $accountId, string $date, ?string $notes, int $userId): array
+    public static function payMany(string $kind, int $companyId, int $partyId, array $allocations, int $accountId, string $date, ?string $notes, int $userId, array $deductions = []): array
     {
         $allocations = array_filter(array_map(fn ($v) => round((float) $v, 2), $allocations), fn ($v) => $v > 0);
         if (!$allocations) {
@@ -65,12 +70,33 @@ class InvoicePaymentService
         if (!$cash) {
             throw new \DomainException('Akun kas/bank tidak valid.');
         }
+
+        // potongan / split: gabungkan per akun, buang baris kosong
+        $ded = [];
+        foreach ($deductions as $row) {
+            $amt = round((float) ($row['amount'] ?? 0), 2);
+            $accId = (int) ($row['account_id'] ?? 0);
+            if ($amt <= 0 || !$accId) {
+                continue;
+            }
+            $ded[$accId] = round(($ded[$accId] ?? 0) + $amt, 2);
+        }
+        $dedAccounts = [];
+        if ($ded) {
+            $dedAccounts = Account::where('company_id', $companyId)->where('is_settlement_deduction', true)->where('is_active', true)
+                ->where('normal_balance', $kind === 'sales' ? 'debit' : 'credit')->whereIn('id', array_keys($ded))->get()->reject(fn ($a) => $a->is_header)->keyBy('id');
+            foreach (array_keys($ded) as $accId) {
+                if (!$dedAccounts->has($accId)) {
+                    throw new \DomainException('Akun potongan tidak valid (' . ($kind === 'sales' ? 'penerimaan butuh akun bersaldo normal debit, mis. Pajak Dibayar Dimuka' : 'pembayaran butuh akun bersaldo normal kredit, mis. Hutang PPh') . '). Centang "Bisa dipakai untuk potongan / split pelunasan" di Akun Perkiraan.');
+                }
+            }
+        }
         $counter = $kind === 'sales' ? AccountResolver::receivable($companyId) : AccountResolver::payable($companyId);
         if (!$counter) {
             throw new \DomainException($kind === 'sales' ? 'Akun Piutang belum disiapkan di COA.' : 'Akun Hutang belum disiapkan di COA.');
         }
 
-        return DB::transaction(function () use ($kind, $companyId, $partyId, $allocations, $cash, $counter, $date, $notes, $userId) {
+        return DB::transaction(function () use ($kind, $companyId, $partyId, $allocations, $cash, $counter, $date, $notes, $userId, $ded, $dedAccounts) {
             $model = $kind === 'sales' ? SalesInvoice::class : PurchaseInvoice::class;
             $partyCol = $kind === 'sales' ? 'customer_id' : 'supplier_id';
 
@@ -94,6 +120,11 @@ class InvoicePaymentService
             }
 
             $total = round(array_sum($allocations), 2);
+            $dedTotal = round(array_sum($ded), 2);
+            if ($dedTotal > $total + 0.001) {
+                throw new \DomainException('Total potongan (Rp ' . number_format($dedTotal, 0, ',', '.') . ') melebihi jumlah yang dilunasi (Rp ' . number_format($total, 0, ',', '.') . ').');
+            }
+            $cashAmount = round($total - $dedTotal, 2);
             $ref = self::nextRef($companyId, $kind === 'sales' ? 'RC-' : 'SP-', $date);
             $first = $invoices->first();
             $party = $kind === 'sales' ? optional($first->customer)->name : optional($first->supplier)->name;
@@ -109,12 +140,22 @@ class InvoicePaymentService
                 'created_by' => $userId,
             ]);
 
-            // Penjualan: Dr Kas (total), Cr Piutang per faktur. Pembelian: Dr Hutang per faktur, Cr Kas (total).
-            JournalDetail::create([
-                'journal_id' => $journal->id, 'account_id' => $cash->id,
-                'debit' => $kind === 'sales' ? $total : 0, 'credit' => $kind === 'sales' ? 0 : $total,
-                'description' => ($kind === 'sales' ? 'Diterima dari ' : 'Dibayar kepada ') . ($party ?: '-'),
-            ]);
+            // Penjualan: Dr Kas (sisa) + Dr akun potongan, Cr Piutang per faktur.
+            // Pembelian: Dr Hutang per faktur, Cr Kas (sisa) + Cr akun potongan.
+            if ($cashAmount > 0.004) {
+                JournalDetail::create([
+                    'journal_id' => $journal->id, 'account_id' => $cash->id,
+                    'debit' => $kind === 'sales' ? $cashAmount : 0, 'credit' => $kind === 'sales' ? 0 : $cashAmount,
+                    'description' => ($kind === 'sales' ? 'Diterima dari ' : 'Dibayar kepada ') . ($party ?: '-'),
+                ]);
+            }
+            foreach ($ded as $accId => $amt) {
+                JournalDetail::create([
+                    'journal_id' => $journal->id, 'account_id' => $accId,
+                    'debit' => $kind === 'sales' ? $amt : 0, 'credit' => $kind === 'sales' ? 0 : $amt,
+                    'description' => 'Potongan pelunasan: ' . $dedAccounts[$accId]->name . ($party ? ' - ' . $party : ''),
+                ]);
+            }
             foreach ($allocations as $id => $amount) {
                 JournalDetail::create([
                     'journal_id' => $journal->id, 'account_id' => $counter->id,
@@ -125,8 +166,13 @@ class InvoicePaymentService
             JournalGuard::assertBalanced($journal);
 
             $payments = [];
+            $dedLeft = $dedTotal;
+            $lastId = array_key_last($allocations);
             foreach ($allocations as $id => $amount) {
                 $inv = $invoices[$id];
+                // potongan dibagi proporsional ke tiap faktur; faktur terakhir menampung sisa pembulatan
+                $share = $id === $lastId ? $dedLeft : round($dedTotal * $amount / $total, 2);
+                $dedLeft = round($dedLeft - $share, 2);
                 $payments[] = InvoicePayment::create([
                     'company_id' => $companyId,
                     'sales_invoice_id' => $kind === 'sales' ? $id : null,
@@ -135,6 +181,7 @@ class InvoicePaymentService
                     'payment_date' => $date,
                     'account_id' => $cash->id,
                     'amount' => $amount,
+                    'deduction_amount' => $share,
                     'notes' => $notes,
                     'journal_id' => $journal->id,
                     'created_by' => $userId,

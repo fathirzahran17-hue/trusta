@@ -3,6 +3,7 @@
     $isSales = $kind === 'sales';
     $payments = $invoice->payments()->with(['account', 'journal'])->orderBy('payment_date')->orderBy('id')->get();
     $cashAccounts = \App\Models\Account::where('company_id', $invoice->company_id)->where('is_cash_bank', true)->orderBy('code')->get();
+    $deductionAccounts = \App\Models\Account::where('company_id', $invoice->company_id)->where('is_settlement_deduction', true)->where('is_active', true)->where('normal_balance', $isSales ? 'debit' : 'credit')->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
     $payUrl = $isSales ? route('client.sales-invoices.payments.store', $invoice) : route('client.purchase-invoices.payments.store', $invoice);
     $voidUrl = $isSales ? route('client.sales-invoices.void', $invoice) : route('client.purchase-invoices.void', $invoice);
 @endphp
@@ -17,7 +18,7 @@
         @forelse($payments as $p)
             <a href="{{ $p->journal_id ? route('client.journals.show', $p->journal_id) : '#' }}" class="related-item">
                 <span><span class="ri-main">{{ $p->payment_number }}</span> &middot; {{ optional($p->account)->name }}</span>
-                <span class="ri-meta">{{ $p->payment_date->format('d M Y') }} &bull; Rp {{ number_format($p->amount, 0, ',', '.') }}</span>
+                <span class="ri-meta">{{ $p->payment_date->format('d M Y') }} &bull; Rp {{ number_format($p->amount, 0, ',', '.') }}@if((float) $p->deduction_amount > 0) <span title="Bagian yang tidak lewat kas (potongan)">(potongan Rp {{ number_format($p->deduction_amount, 0, ',', '.') }})</span>@endif</span>
             </a>
         @empty
             <div class="related-empty">Belum ada pembayaran.</div>
@@ -43,13 +44,14 @@
                 <input type="date" name="payment_date" id="pay_date" value="{{ old('payment_date', date('Y-m-d')) }}" required>
             </div>
             <div>
-                <label class="related-group-label" for="pay_amount">Jumlah (Rp)</label>
+                <label class="related-group-label" for="pay_amount">Jumlah dilunasi (Rp)</label>
                 <input type="number" step="0.01" min="0.01" max="{{ $invoice->amount_due }}" name="amount" id="pay_amount" value="{{ old('amount', (float) $invoice->amount_due) }}" required>
             </div>
             <div>
                 <label class="related-group-label" for="pay_notes">Catatan</label>
                 <input type="text" name="notes" id="pay_notes" value="{{ old('notes') }}" placeholder="Opsional">
             </div>
+            @include('partials.payment-split', ['deductionAccounts' => $deductionAccounts, 'sales' => $isSales, 'totalInput' => '#pay_amount'])
             <div>
                 <button type="submit" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors">{{ $isSales ? 'Terima Pembayaran' : 'Catat Pembayaran' }}</button>
             </div>

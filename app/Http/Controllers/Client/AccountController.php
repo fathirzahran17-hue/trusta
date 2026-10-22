@@ -78,6 +78,7 @@ class AccountController extends Controller
             'opening_balance' => 'numeric',
             'is_active' => 'boolean',
             'is_cash_bank' => 'boolean',
+            'is_settlement_deduction' => 'boolean',
         ]);
 
         // Validate unique code per company
@@ -99,6 +100,7 @@ class AccountController extends Controller
             'opening_balance' => 0,
             'is_active' => $request->has('is_active') ? $request->is_active : true,
             'is_cash_bank' => $request->has('is_cash_bank'),
+            'is_settlement_deduction' => $request->has('is_settlement_deduction'),
             'is_system' => false,
         ]);
 
@@ -130,11 +132,13 @@ class AccountController extends Controller
             'normal_balance' => 'required|in:debit,credit',
             'is_active' => 'boolean',
             'is_cash_bank' => 'boolean',
+            'is_settlement_deduction' => 'boolean',
         ]);
 
         $data = $request->only(['parent_id', 'name', 'type', 'normal_balance']);
         $data['is_active'] = $request->has('is_active');
         $data['is_cash_bank'] = $request->has('is_cash_bank');
+        $data['is_settlement_deduction'] = $request->has('is_settlement_deduction');
         
         // Code dan Opening Balance bisa diubah kalau bukan akun system
         if (!$account->is_system) {

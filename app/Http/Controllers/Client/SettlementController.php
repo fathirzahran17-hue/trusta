@@ -69,6 +69,7 @@ class SettlementController extends Controller
         })->sortBy('name')->values();
 
         $cashAccounts = Account::where('company_id', $cid)->where('is_cash_bank', true)->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
+        $deductionAccounts = Account::where('company_id', $cid)->where('is_settlement_deduction', true)->where('is_active', true)->where('normal_balance', $kind === 'sales' ? 'debit' : 'credit')->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
 
         // riwayat: kelompokkan per jurnal
         $rows = InvoicePayment::where('company_id', $cid)->whereNotNull($c['fk'])
@@ -85,6 +86,7 @@ class SettlementController extends Controller
                 'party' => $kind === 'sales' ? optional(optional($inv)->customer)->name : optional(optional($inv)->supplier)->name,
                 'invoices' => $g->map(fn ($p) => optional($kind === 'sales' ? $p->salesInvoice : $p->purchaseInvoice)->invoice_number)->filter()->unique()->implode(', '),
                 'amount' => $g->sum('amount'),
+                'deduction' => $g->sum('deduction_amount'),
                 'voided' => (bool) $f->voided_at,
                 'journal_id' => $f->journal_id,
                 'notes' => $f->notes,
@@ -97,11 +99,11 @@ class SettlementController extends Controller
             'overdue' => round($open->filter(fn ($i) => $i->due_date && $i->due_date->lt(today()))->sum('amount_due'), 2),
             'overdueCount' => $open->filter(fn ($i) => $i->due_date && $i->due_date->lt(today()))->count(),
             'month' => round(InvoicePayment::where('company_id', $cid)->whereNotNull($c['fk'])->whereNull('voided_at')
-                ->whereYear('payment_date', now()->year)->whereMonth('payment_date', now()->month)->sum('amount'), 2),
+                ->whereYear('payment_date', now()->year)->whereMonth('payment_date', now()->month)->selectRaw('COALESCE(SUM(amount - deduction_amount), 0) as t')->value('t'), 2),
         ];
 
         return view('client.settlement.pay', [
-            'kind' => $kind, 'parties' => $parties, 'cashAccounts' => $cashAccounts, 'history' => $history, 'stats' => $stats,
+            'kind' => $kind, 'parties' => $parties, 'cashAccounts' => $cashAccounts, 'deductionAccounts' => $deductionAccounts, 'history' => $history, 'stats' => $stats,
             'preInvoice' => (int) $r->query('invoice'), 'preParty' => (int) $r->query('party'),
         ]);
     }
@@ -116,10 +118,13 @@ class SettlementController extends Controller
             'notes' => 'nullable|string|max:255',
             'alloc' => 'required|array',
             'alloc.*' => 'nullable|numeric|min:0',
+            'deductions' => 'nullable|array|max:10',
+            'deductions.*.account_id' => 'nullable|integer',
+            'deductions.*.amount' => 'nullable|numeric|min:0',
         ], ['alloc.required' => 'Pilih minimal satu faktur yang dibayar.']);
 
         try {
-            $pays = InvoicePaymentService::payMany($kind, $this->cid(), (int) $d['party_id'], $d['alloc'], (int) $d['account_id'], $d['payment_date'], $d['notes'] ?? null, auth()->id());
+            $pays = InvoicePaymentService::payMany($kind, $this->cid(), (int) $d['party_id'], $d['alloc'], (int) $d['account_id'], $d['payment_date'], $d['notes'] ?? null, auth()->id(), $d['deductions'] ?? []);
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
