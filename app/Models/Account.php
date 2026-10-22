@@ -98,6 +98,24 @@ class Account extends Model
         return $this->hasMany(JournalDetail::class);
     }
 
+    /** Sisi normal menurut jenis akun (aset/biaya = debit, kewajiban/modal/pendapatan = kredit). */
+    public function getNaturalSideAttribute(): string
+    {
+        return in_array($this->type, ['asset', 'expense', 'cost_of_sales', 'other_expense'], true) ? 'debit' : 'credit';
+    }
+
+    /** Akun lawan: saldo normalnya berlawanan dengan jenisnya (mis. Akumulasi Penyusutan = aset bersaldo kredit). */
+    public function getIsContraAttribute(): bool
+    {
+        return $this->normal_balance !== $this->natural_side;
+    }
+
+    /** Saldo untuk ditampilkan di Bagan Akun: akun lawan tampil minus karena mengurangi kelompoknya. */
+    public function getDisplayBalanceAttribute(): float
+    {
+        return $this->is_contra ? -1 * $this->balance : $this->balance;
+    }
+
     /**
      * Hitung saldo berjalan akun (termasuk saldo awal dan transaksi)
      */
@@ -120,7 +138,8 @@ class Account extends Model
         // 2. Sum up balances of all children
         $childrenBalance = 0;
         foreach ($this->children as $child) {
-            $childrenBalance += $child->balance; // recursively calls getBalanceAttribute
+            // akun lawan (mis. Akumulasi Penyusutan, saldo normal kredit di bawah induk aset) mengurangi induknya
+            $childrenBalance += $child->balance * ($child->normal_balance === $this->normal_balance ? 1 : -1);
         }
 
         return $ownBalance + $childrenBalance;

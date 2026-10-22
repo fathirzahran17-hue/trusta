@@ -121,104 +121,145 @@ class FixedAssetController extends Controller
             ->with('success', 'Aset tetap berhasil dihapus.');
     }
 
+    /** Aset yang masih punya sisa nilai untuk disusutkan, lengkap dengan status kelayakan pada bulan terpilih. */
+    private function depreciationRows(int $companyId, string $month)
+    {
+        return FixedAsset::where('company_id', $companyId)
+            ->where('status', 'aktif')
+            ->with('category')
+            ->orderBy('code')
+            ->get()
+            ->map(function (FixedAsset $a) use ($companyId, $month) {
+                $reason = null;
+                $depreciable = (float) $a->acquisition_cost - (float) $a->salvage_value;
+                if ((float) $a->accumulated_depreciation >= $depreciable - 0.004) {
+                    $reason = 'Sudah habis disusutkan';
+                } elseif ($a->acquisition_date && $a->acquisition_date->format('Y-m') > $month) {
+                    $reason = 'Belum diperoleh pada bulan ini';
+                } elseif ($a->last_depreciation_date && date('Y-m', strtotime($a->last_depreciation_date)) >= $month) {
+                    $reason = 'Sudah disusutkan s/d ' . date('M Y', strtotime($a->last_depreciation_date));
+                }
+                $expDefault = $a->depreciation_expense_account_id
+                    ?: optional(\App\Services\AccountResolver::depreciationExpense($companyId, $a->category?->account_expense_code))->id;
+                $accDefault = $a->accumulated_account_id
+                    ?: optional(\App\Services\AccountResolver::accumulatedDepreciation($companyId, $a->category?->account_depreciation_code))->id;
+
+                return (object) ['asset' => $a, 'amount' => $a->nextDepreciationAmount(), 'reason' => $reason, 'exp' => $expDefault, 'acc' => $accDefault];
+            });
+    }
+
+    private function depreciationAccounts(int $companyId): array
+    {
+        $all = \App\Models\Account::where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get()->reject(fn ($a) => $a->is_header);
+        $expense = $all->whereIn('type', ['expense', 'cost_of_sales', 'other_expense'])
+            ->sortBy(fn ($a) => (stripos($a->name, 'penyusutan') !== false ? '0' : '1') . $a->code)->values();
+        $accum = $all->where('type', 'asset')->where('is_cash_bank', false)
+            ->sortBy(fn ($a) => (stripos($a->name, 'akumulasi') !== false ? '0' : '1') . $a->code)->values();
+
+        return [$expense, $accum];
+    }
+
+    /** Halaman Jalankan Penyusutan: pilih bulan, aset, dan akun jurnalnya. */
+    public function depreciation(Request $request)
+    {
+        $companyId = auth()->user()->company_id;
+        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('month')) ? $request->query('month') : date('Y-m');
+        $rows = $this->depreciationRows($companyId, $month);
+        [$expenseAccounts, $accumAccounts] = $this->depreciationAccounts($companyId);
+        $date = date('Y-m-t', strtotime($month . '-01'));
+
+        return view('client.fixed_assets.depreciation', compact('rows', 'month', 'date', 'expenseAccounts', 'accumAccounts'));
+    }
+
     public function runDepreciation(Request $request)
     {
         $companyId = auth()->user()->company_id;
-        $date = $request->date ?? date('Y-m-t'); // Default end of current month
-        
-        // Find all active assets that haven't been fully depreciated
-        $month = date('Y-m', strtotime($date));
-        $assets = FixedAsset::where('company_id', $companyId)
-            ->where('status', 'aktif')
-            ->whereRaw('accumulated_depreciation < (acquisition_cost - salvage_value)')
-            ->with('category')
-            ->get()
-            // Belum disusutkan bulan ini (disaring di PHP agar jalan di MySQL maupun SQLite)
-            ->filter(fn ($a) => !$a->last_depreciation_date || date('Y-m', strtotime($a->last_depreciation_date)) < $month)
-            ->values();
+        $request->validate([
+            'month' => ['required', 'regex:/^\d{4}-\d{2}$/'],
+            'date' => 'required|date',
+            'assets' => 'required|array|min:1',
+            'assets.*' => 'integer',
+            'exp' => 'required|array',
+            'acc' => 'required|array',
+        ], ['assets.required' => 'Pilih minimal satu aset yang akan disusutkan.']);
 
-        if ($assets->isEmpty()) {
-            return back()->with('info', 'Tidak ada aset yang perlu disusutkan untuk bulan ini.');
+        $month = $request->month;
+        $date = $request->date;
+        if (date('Y-m', strtotime($date)) !== $month) {
+            return back()->withInput()->with('error', 'Tanggal jurnal harus berada pada bulan penyusutan yang dipilih (' . date('M Y', strtotime($month . '-01')) . ').');
         }
+
+        [$expenseAccounts, $accumAccounts] = $this->depreciationAccounts($companyId);
+        $rows = $this->depreciationRows($companyId, $month)->keyBy(fn ($r) => $r->asset->id);
 
         try {
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            $totalDepreciation = 0;
-            $journalDetails = [];
-
-            $perAccount = []; // [expenseId.'-'.accId => ['exp'=>..,'acc'=>..,'amount'=>..]]
-
-            foreach ($assets as $asset) {
-                $depreciableAmount = $asset->acquisition_cost - $asset->salvage_value;
-                $monthlyDepreciation = 0;
-
-                if ($asset->depreciation_method === 'straight_line') {
-                    $monthlyDepreciation = $depreciableAmount / $asset->useful_life_months;
-                } else if ($asset->depreciation_method === 'declining_balance') {
-                    // Simplified declining balance: (Book Value) * (Rate)
-                    // Assuming standard double declining rate for monthly = (2 / useful_life) 
-                    $bookValue = $asset->acquisition_cost - $asset->accumulated_depreciation;
-                    $rate = (2 / ($asset->useful_life_months / 12)) / 12; // Monthly rate
-                    $monthlyDepreciation = $bookValue * $rate;
+            $perAccount = [];
+            $count = 0;
+            $total = 0.0;
+            foreach ($request->assets as $id) {
+                $row = $rows->get((int) $id);
+                if (!$row) {
+                    throw new \Exception('Aset tidak ditemukan.');
+                }
+                $asset = $row->asset;
+                if ($row->reason) {
+                    throw new \Exception($asset->name . ': ' . $row->reason . '.');
+                }
+                $expId = (int) ($request->exp[$id] ?? 0);
+                $accId = (int) ($request->acc[$id] ?? 0);
+                if (!$expenseAccounts->contains('id', $expId)) {
+                    throw new \Exception($asset->name . ': pilih Akun Beban Penyusutan yang valid.');
+                }
+                if (!$accumAccounts->contains('id', $accId)) {
+                    throw new \Exception($asset->name . ': pilih Akun Akumulasi Penyusutan yang valid.');
+                }
+                if ($row->amount <= 0) {
+                    continue;
                 }
 
-                // Check if last depreciation amount would exceed salvage value
-                $remainingToDepreciate = $depreciableAmount - $asset->accumulated_depreciation;
-                if ($monthlyDepreciation > $remainingToDepreciate) {
-                    $monthlyDepreciation = $remainingToDepreciate;
-                }
+                $key = $expId . '-' . $accId;
+                $perAccount[$key] = ['exp' => $expId, 'acc' => $accId, 'amount' => round(($perAccount[$key]['amount'] ?? 0) + $row->amount, 2)];
+                $total += $row->amount;
+                $count++;
 
-                if ($monthlyDepreciation <= 0) continue;
-                $totalDepreciation += $monthlyDepreciation;
-
-                $exp = \App\Services\AccountResolver::depreciationExpense($companyId, $asset->category?->account_expense_code);
-                $acc = \App\Services\AccountResolver::accumulatedDepreciation($companyId, $asset->category?->account_depreciation_code);
-                if (!$exp || !$acc) {
-                    throw new \Exception('Akun Beban Penyusutan / Akumulasi Penyusutan tidak ditemukan di Bagan Akun.');
-                }
-                $key = $exp->id . '-' . $acc->id;
-                $perAccount[$key] = ['exp' => $exp->id, 'acc' => $acc->id, 'amount' => ($perAccount[$key]['amount'] ?? 0) + $monthlyDepreciation];
-
-                // Update asset
-                $asset->accumulated_depreciation += $monthlyDepreciation;
+                $asset->accumulated_depreciation = round((float) $asset->accumulated_depreciation + $row->amount, 2);
                 $asset->last_depreciation_date = $date;
+                $asset->depreciation_expense_account_id = $expId; // diingat untuk penyusutan berikutnya
+                $asset->accumulated_account_id = $accId;
                 $asset->save();
-
-                $journalDetails[] = [
-                    'asset_name' => $asset->name,
-                    'amount' => $monthlyDepreciation
-                ];
             }
 
-            // Create Journal
-            if ($totalDepreciation > 0) {
-                $journal = \App\Models\Journal::create([
-                    'company_id' => $companyId,
-                    'ref_number' => 'JV-DEP-' . date('Ym', strtotime($date)) . '-' . time(),
-                    'type' => 'general',
-                    'transaction_date' => $date,
-                    'description' => 'Penyusutan Aset Tetap Periode ' . date('F Y', strtotime($date)),
-                    'status' => 'posted',
-                    'created_by' => auth()->id(),
-                ]);
-
-                foreach ($perAccount as $row) {
-                    \App\Models\JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $row['exp'],
-                        'description' => 'Beban Penyusutan Aset', 'debit' => $row['amount'], 'credit' => 0]);
-                    \App\Models\JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $row['acc'],
-                        'description' => 'Akumulasi Penyusutan Aset', 'debit' => 0, 'credit' => $row['amount']]);
-                }
-                \App\Services\JournalGuard::assertBalanced($journal);
+            if ($total <= 0) {
+                throw new \Exception('Tidak ada nilai penyusutan yang bisa dijurnal.');
             }
+
+            $journal = \App\Models\Journal::create([
+                'company_id' => $companyId,
+                'ref_number' => \App\Services\DocumentNumber::next(\App\Models\Journal::class, 'ref_number', 'DEP-', (int) $companyId, $date),
+                'type' => 'general',
+                'transaction_date' => $date,
+                'description' => 'Penyusutan Aset Tetap Periode ' . date('F Y', strtotime($month . '-01')),
+                'status' => 'posted',
+                'created_by' => auth()->id(),
+            ]);
+            foreach ($perAccount as $row) {
+                \App\Models\JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $row['exp'],
+                    'description' => 'Beban Penyusutan Aset', 'debit' => $row['amount'], 'credit' => 0]);
+                \App\Models\JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $row['acc'],
+                    'description' => 'Akumulasi Penyusutan Aset', 'debit' => 0, 'credit' => $row['amount']]);
+            }
+            \App\Services\JournalGuard::assertBalanced($journal);
 
             \Illuminate\Support\Facades\DB::commit();
-            return back()->with('success', count($assets) . ' aset berhasil disusutkan untuk bulan ini sebesar Rp ' . number_format($totalDepreciation, 2, ',', '.'));
-
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
-            return back()->with('error', 'Gagal memproses penyusutan: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Gagal memproses penyusutan: ' . $e->getMessage());
         }
+
+        return redirect()->route('client.fixed_assets.index')
+            ->with('success', $count . ' aset disusutkan untuk ' . date('F Y', strtotime($month . '-01')) . ' sebesar Rp ' . number_format($total, 2, ',', '.') . ' (jurnal ' . $journal->ref_number . ').');
     }
 
     // ========== KATEGORI ASET ==========

@@ -355,19 +355,46 @@ class DocumentFlowTest extends TestCase
         $this->get('/client/reports/profit-loss')->assertSee('LABA KOTOR');
     }
 
-    public function test_depreciation_posts_balanced_journal_with_seeded_accounts(): void
+    public function test_depreciation_lets_you_pick_month_and_accounts_and_contra_balance_reduces_its_group(): void
     {
         $cid = $this->user->company_id;
-        \App\Models\FixedAsset::create(['company_id' => $cid, 'code' => 'FA-1', 'name' => 'Laptop', 'acquisition_date' => date('Y-m-d'),
+        $asset = \App\Models\FixedAsset::create(['company_id' => $cid, 'code' => 'FA-1', 'name' => 'Laptop', 'acquisition_date' => '2026-04-24',
             'acquisition_cost' => 12000000, 'useful_life_months' => 48, 'salvage_value' => 0, 'depreciation_method' => 'straight_line',
             'status' => 'aktif']);
-        $this->post('/client/fixed-assets/run-depreciation', ['date' => date('Y-m-t')])->assertSessionHas('success');
-        $dep = Account::where('company_id', $cid)->where('name', 'like', 'Biaya Penyusutan%')->first();
-        $this->assertEquals(250000, $dep->fresh()->balance);
-        $this->assertEquals(250000, (float) \App\Models\FixedAsset::first()->accumulated_depreciation);
-        // bulan yang sama tidak disusutkan dua kali
-        $this->post('/client/fixed-assets/run-depreciation', ['date' => date('Y-m-t')]);
-        $this->assertEquals(250000, $dep->fresh()->balance);
+        $exp = Account::where('company_id', $cid)->where('name', 'like', 'Biaya Penyusutan%')->first();
+        $mk = fn ($code, $name, $type, $nb) => Account::create(['company_id' => $cid, 'code' => $code, 'name' => $name, 'type' => $type, 'normal_balance' => $nb]);
+        $accNew = $mk('1-2010', 'Akumulasi Penyusutan Peralatan Kantor', 'asset', 'credit');
+        $expNew = $mk('6-2010', 'Beban Penyusutan Peralatan Kantor', 'expense', 'debit');
+
+        $this->get('/client/fixed-assets/depreciation?month=2026-04')->assertOk()->assertSee('Akumulasi Penyusutan Peralatan Kantor')->assertSee('250.000,00');
+        // bulan sebelum perolehan tidak bisa disusutkan; akun tidak valid ditolak
+        $this->post('/client/fixed-assets/run-depreciation', ['month' => '2026-03', 'date' => '2026-03-31', 'assets' => [$asset->id], 'exp' => [$asset->id => $expNew->id], 'acc' => [$asset->id => $accNew->id]])->assertSessionHas('error');
+        $this->post('/client/fixed-assets/run-depreciation', ['month' => '2026-04', 'date' => '2026-04-30', 'assets' => [$asset->id], 'exp' => [$asset->id => $this->cash->id], 'acc' => [$asset->id => $accNew->id]])->assertSessionHas('error');
+        $this->post('/client/fixed-assets/run-depreciation', ['month' => '2026-04', 'date' => '2026-05-02', 'assets' => [$asset->id], 'exp' => [$asset->id => $expNew->id], 'acc' => [$asset->id => $accNew->id]])->assertSessionHas('error');
+        $this->assertEquals(0, (float) $asset->fresh()->accumulated_depreciation);
+
+        // April ke akun pilihan
+        $this->post('/client/fixed-assets/run-depreciation', ['month' => '2026-04', 'date' => '2026-04-30', 'assets' => [$asset->id], 'exp' => [$asset->id => $expNew->id], 'acc' => [$asset->id => $accNew->id]])->assertSessionHas('success');
+        $this->assertEquals(250000, $expNew->fresh()->balance);
+        $this->assertEquals(250000, $accNew->fresh()->balance);
+        $this->assertEquals(0, $exp->fresh()->balance); // akun lama tidak tersentuh
+        $this->assertSame($accNew->id, (int) $asset->fresh()->accumulated_account_id);
+        $this->assertBooksBalanced();
+        // bulan yang sama tidak dua kali; Mei memakai akun yang diingat
+        $this->post('/client/fixed-assets/run-depreciation', ['month' => '2026-04', 'date' => '2026-04-30', 'assets' => [$asset->id], 'exp' => [$asset->id => $expNew->id], 'acc' => [$asset->id => $accNew->id]])->assertSessionHas('error');
+        $this->assertEquals(250000, $expNew->fresh()->balance);
+        $this->get('/client/fixed-assets/depreciation?month=2026-05')->assertOk()->assertSee('250.000,00');
+        $this->assertSame($accNew->id, (int) \App\Models\FixedAsset::first()->accumulated_account_id);
+
+        // Bagan Akun: akun lawan mengurangi induk (Aset Tetap) dan tampil minus
+        $parent = Account::where('company_id', $cid)->where('name', 'Aset Tetap')->first();
+        $accNew->forceFill(['parent_id' => $parent->id])->save();
+        $before = $parent->fresh()->balance;
+        $land = Account::where('company_id', $cid)->where('name', 'Tanah')->first();
+        $this->assertEquals(-250000, $accNew->fresh()->display_balance);
+        $this->assertTrue($accNew->fresh()->is_contra);
+        $this->assertEquals($before, (float) $parent->fresh()->balance);
+        $this->assertEquals(-250000, $before - 0); // hanya ada akun lawan di bawah Aset Tetap pada data uji
     }
 
     public function test_settlement_flow_multi_invoice_receipt_partial_void_and_filters(): void
