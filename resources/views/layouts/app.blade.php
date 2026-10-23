@@ -21,10 +21,43 @@
         <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
         <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
         <script>
-            // Daftar pilihan dirender di <body> agar tidak terpotong kartu/tabel (overflow hidden) dan selalu terlihat penuh.
+            // Daftar akun ("1-1001 - Kas") selalu berurutan menurut kode, di semua dropdown (biasa maupun pencarian).
             (function () {
+                var CODED = /^\s*\d+-\d+/;
+                function sortSelect(sel) {
+                    if (!sel || sel.dataset.codeSorted) return;
+                    var opts = [].slice.call(sel.options);
+                    var coded = opts.filter(function (o) { return CODED.test(o.text); });
+                    if (coded.length < 2 || coded.length < opts.length * 0.5) return;
+                    sel.dataset.codeSorted = '1';
+                    [sel].concat([].slice.call(sel.querySelectorAll('optgroup'))).forEach(function (box) {
+                        var list = [].filter.call(box.children, function (c) { return c.tagName === 'OPTION'; });
+                        if (list.length < 2) return;
+                        var anchor = [].filter.call(box.children, function (c) { return c.tagName !== 'OPTION'; })[0] || null;
+                        var head = list.filter(function (o) { return !CODED.test(o.text); });
+                        var body = list.filter(function (o) { return CODED.test(o.text); }).sort(function (a, b) { return a.text.trim() < b.text.trim() ? -1 : (a.text.trim() > b.text.trim() ? 1 : 0); });
+                        head.concat(body).forEach(function (o) { box.insertBefore(o, anchor); });
+                    });
+                }
+                window.sortAccountSelect = sortSelect;
+                function sweep(root) { (root.querySelectorAll ? root.querySelectorAll('select') : []).forEach(sortSelect); if (root.tagName === 'SELECT') sortSelect(root); }
+                document.addEventListener('DOMContentLoaded', function () {
+                    sweep(document);
+                    new MutationObserver(function (ms) { ms.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) sweep(n); }); }); }).observe(document.body, { childList: true, subtree: true });
+                });
+
+                // Daftar pilihan dirender di <body> agar tidak terpotong kartu/tabel (overflow hidden) dan selalu terlihat penuh.
                 var Orig = window.TomSelect; if (!Orig) return;
-                var Wrapped = function (el, opts) { return new Orig(el, Object.assign({ dropdownParent: 'body', maxOptions: 1000, create: false, sortField: [{ field: '$order' }] }, opts || {})); };
+                var Wrapped = function (el, opts) {
+                    var o = Object.assign({ dropdownParent: 'body', maxOptions: 1000, create: false, sortField: [{ field: '$order' }] }, opts || {});
+                    var target = typeof el === 'string' ? document.querySelector(el) : el;
+                    if (target && target.tagName === 'SELECT') {
+                        sortSelect(target);
+                        // daftar akun: saat mengetik pencarian pun tetap urut kode (bukan menurut skor kecocokan)
+                        if (target.dataset.codeSorted) o.sortField = [{ field: 'text', direction: 'asc' }, { field: '$score' }];
+                    }
+                    return new Orig(el, o);
+                };
                 Wrapped.prototype = Orig.prototype; Object.assign(Wrapped, Orig); window.TomSelect = Wrapped;
             })();
         </script>
