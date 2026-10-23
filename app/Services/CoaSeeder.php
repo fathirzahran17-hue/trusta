@@ -113,7 +113,8 @@ class CoaSeeder
 
         $modal = Account::create(['company_id' => $companyId, 'code' => '3-1000', 'name' => 'Modal', 'type' => 'equity', 'normal_balance' => 'credit', 'parent_id' => $equity->id, 'is_system' => true]);
         foreach (['3-1001' => 'Modal Pemilik', '3-1002' => 'Prive Pemilik'] as $code => $name) {
-            Account::create(['company_id' => $companyId, 'code' => $code, 'name' => $name, 'type' => 'equity', 'normal_balance' => 'credit', 'parent_id' => $modal->id, 'is_system' => false]);
+            // Prive = akun lawan modal: saldo normal debit (penarikan pemilik mengurangi ekuitas)
+            Account::create(['company_id' => $companyId, 'code' => $code, 'name' => $name, 'type' => 'equity', 'normal_balance' => str_starts_with($name, 'Prive') ? 'debit' : 'credit', 'parent_id' => $modal->id, 'is_system' => false]);
         }
 
         // ===== 4. PENDAPATAN =====

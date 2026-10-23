@@ -995,4 +995,86 @@ class DocumentFlowTest extends TestCase
         // tanpa parameter tantangan tetap 405 seperti biasa
         $this->get('/client/cash-bank/' . $this->cash->id . '/transaction')->assertStatus(405);
     }
+
+    public function test_retained_and_current_year_earnings_link_to_profit_per_fiscal_year_and_prive_is_contra(): void
+    {
+        $cid = $this->user->company_id;
+        $acc = fn ($name) => Account::where('company_id', $cid)->where('name', $name)->firstOrFail();
+        $rev = $acc('Pendapatan Penjualan');
+        $exp = Account::where('company_id', $cid)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header);
+        $prive = $acc('Prive Pemilik');
+        $cur = $acc('Current Year Earnings');
+        $ret = $acc('Laba Ditahan');
+        $this->assertSame('debit', $prive->normal_balance);
+
+        $post = function (string $date, array $lines) use ($cid) {
+            $j = \App\Models\Journal::create(['company_id' => $cid, 'ref_number' => 'T-' . uniqid(), 'type' => 'general', 'transaction_date' => $date, 'description' => 't', 'status' => 'posted', 'created_by' => $this->user->id]);
+            foreach ($lines as [$a, $d, $c]) {
+                \App\Models\JournalDetail::create(['journal_id' => $j->id, 'account_id' => $a->id, 'debit' => $d, 'credit' => $c, 'description' => 't']);
+            }
+        };
+        $year = (int) date('Y');
+        $post(($year - 1) . '-06-10', [[$this->cash, 1000, 0], [$rev, 0, 1000]]);   // laba tahun lalu 1000
+        $post($year . '-01-15', [[$this->cash, 500, 0], [$rev, 0, 500]]);            // tahun ini
+        $post($year . '-02-15', [[$exp, 200, 0], [$this->cash, 0, 200]]);            // beban tahun ini -> laba berjalan 300
+        $post($year . '-03-01', [[$prive, 100, 0], [$this->cash, 0, 100]]);          // prive 100
+
+        $this->assertEquals(300, $cur->fresh()->balance);
+        $this->assertEquals(1000, $ret->fresh()->balance);
+        $this->assertEquals(-100, $prive->fresh()->display_balance);
+        $this->assertTrue($prive->fresh()->is_contra);
+        $equity = $acc('Ekuitas');
+        $this->assertEquals(1000 + 300 - 100, $equity->fresh()->balance);
+
+        // Neraca: dua baris laba terhubung, seimbang, dan ekuitas = 1200
+        $b = new \App\Services\Reports\ReportBuilder($cid);
+        $doc = $b->balanceSheet(new \Illuminate\Http\Request(['as_of_date' => $year . '-12-31']));
+        $text = json_encode($doc['rows']);
+        $this->assertStringContainsString('Laba Ditahan', $text);
+        $this->assertStringContainsString('Current Year Earnings', $text);
+        $this->assertSame('good', $doc['notes_tone']);
+        $this->assertEquals(1200, $doc['summary'][2]['value']);
+        // tahun fiskal berikutnya: semua laba lama jadi Laba Ditahan, laba berjalan kosong
+        $next = $b->balanceSheet(new \Illuminate\Http\Request(['as_of_date' => ($year + 1) . '-02-01']));
+        $this->assertSame('good', $next['notes_tone']);
+        $this->assertEquals(1200, $next['summary'][2]['value']);
+
+        // Laporan terpadu: Neraca dulu, baru Laba Rugi
+        $int = json_encode($b->integrated(new \Illuminate\Http\Request(['start_date' => $year . '-01-01', 'end_date' => $year . '-12-31']))['rows']);
+        $this->assertLessThan(strpos($int, 'II. LAPORAN LABA RUGI'), strpos($int, 'I. NERACA'));
+        $this->get('/client/reports/integrated')->assertOk();
+    }
+
+    public function test_cash_bank_transaction_can_split_across_several_contra_accounts(): void
+    {
+        $cid = $this->user->company_id;
+        $exps = Account::where('company_id', $cid)->where('type', 'expense')->get()->filter(fn ($a) => !$a->is_header)->values();
+        [$a1, $a2] = [$exps[0], $exps[1]];
+        $base = ['transaction_type' => 'spend', 'transaction_date' => date('Y-m-d'), 'description' => 'Belanja kantor'];
+
+        // split 3 akun lawan (angka berformat Indonesia), total keluar dari kas
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', $base + [
+            'contra_account_id' => [$a1->id, $a2->id, $a1->id], 'amounts' => ['100.000,50', '49.999,50', '50'], 'project_job_id' => ['', '', ''],
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $j = \App\Models\Journal::latest('id')->first();
+        $this->assertEquals(150050, \App\Models\JournalDetail::where('journal_id', $j->id)->where('account_id', $this->cash->id)->sum('credit'));
+        $this->assertEquals(3, \App\Models\JournalDetail::where('journal_id', $j->id)->where('debit', '>', 0)->count());
+        $this->assertBooksBalanced();
+
+        // terima uang dengan split ke dua akun
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', ['transaction_type' => 'receive'] + $base + [
+            'contra_account_id' => [$a1->id, $a2->id], 'amounts' => [300, 200], 'project_job_id' => ['', ''],
+        ])->assertSessionHasNoErrors();
+        $j2 = \App\Models\Journal::latest('id')->first();
+        $this->assertEquals(500, \App\Models\JournalDetail::where('journal_id', $j2->id)->where('account_id', $this->cash->id)->sum('debit'));
+        $this->assertBooksBalanced();
+
+        // kas sebagai akun lawan sendiri / nominal 0 ditolak; form lama (satu akun) tetap jalan
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', $base + ['contra_account_id' => [$this->cash->id], 'amounts' => [10]])->assertSessionHas('error');
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', $base + ['contra_account_id' => [$a1->id], 'amounts' => [0]])->assertSessionHasErrors();
+        $n = \App\Models\Journal::count();
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', $base + ['contra_account_id' => $a1->id, 'amount' => 1000])->assertSessionHasNoErrors();
+        $this->assertSame($n + 1, \App\Models\Journal::count());
+        $this->get('/client/cash-bank/' . $this->cash->id)->assertOk()->assertSee('Tambah akun lawan');
+    }
 }

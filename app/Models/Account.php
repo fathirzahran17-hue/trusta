@@ -33,8 +33,8 @@ class Account extends Model
                 $a->is_settlement_deduction = true;
             }
         });
-        static::saved(fn () => self::$parentIdCache = null);
-        static::deleted(fn () => self::$parentIdCache = null);
+        static::saved(function () { self::$parentIdCache = null; \App\Services\EarningsLink::flush(); });
+        static::deleted(function () { self::$parentIdCache = null; \App\Services\EarningsLink::flush(); });
     }
 
     public static function nameLooksLikeCashBank(string $name, string $type): bool
@@ -133,6 +133,14 @@ class Account extends Model
             $ownBalance = $this->opening_balance + $ownDebits - $ownCredits;
         } else {
             $ownBalance = $this->opening_balance + $ownCredits - $ownDebits;
+        }
+
+        // Akun Laba Tahun Berjalan / Laba Ditahan terhubung ke laba rugi (lihat EarningsLink)
+        if ($this->type === 'equity') {
+            $adj = \App\Services\EarningsLink::creditAdjustment($this);
+            if ($adj != 0.0) {
+                $ownBalance += $this->normal_balance === 'credit' ? $adj : -$adj;
+            }
         }
 
         // 2. Sum up balances of all children

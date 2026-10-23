@@ -198,7 +198,7 @@ class DefaultAccountController extends Controller
             '3-1001' => 'Modal Pemilik',
             '3-1002' => 'Prive Pemilik',
         ] as $code => $name) {
-            DefaultAccount::create(['code' => $code, 'name' => $name, 'type' => 'equity', 'normal_balance' => 'credit', 'parent_id' => $modal->id, 'is_system' => false, 'sort_order' => $s++]);
+            DefaultAccount::create(['code' => $code, 'name' => $name, 'type' => 'equity', 'normal_balance' => str_starts_with($name, 'Prive') ? 'debit' : 'credit', 'parent_id' => $modal->id, 'is_system' => false, 'sort_order' => $s++]);
         }
 
         // ============================================================
