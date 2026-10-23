@@ -45,7 +45,7 @@ class HubController extends Controller
             $flow = [
                 ['Pelanggan', Customer::where('company_id', $cid)->count(), 'terdaftar', 'client.customers.index', 'client.customers.create', 'Tambah Pelanggan'],
                 ['Pesanan Penjualan', SalesOrder::where('company_id', $cid)->whereIn('status', ['draft', 'open'])->count(), 'belum selesai', 'client.sales.orders', 'client.sales.orders.create', 'Buat Pesanan'],
-                ['Pengiriman Pesanan', DeliveryOrder::where('company_id', $cid)->whereIn('status', ['draft', 'shipped'])->count(), 'belum terkirim', 'client.sales.deliveries', 'client.sales.deliveries.create', 'Buat Pengiriman'],
+                ['Pengiriman Barang', SalesOrder::with('details.product')->where('company_id', $cid)->where('status', 'open')->get()->filter(fn ($o) => \App\Services\OrderProgress::needsFulfilment(\App\Services\OrderProgress::forSalesOrder($o)))->count(), 'pesanan menunggu dikirim', 'client.sales.deliveries', 'client.sales.deliveries.create', 'Buat Pengiriman'],
                 ['Faktur Penjualan', $stats['openCount'], 'belum lunas', 'client.sales-invoices.index', 'client.sales-invoices.create', 'Buat Faktur'],
                 ['Penerimaan Penjualan', $stats['overdueCount'], 'jatuh tempo', 'client.sales.settlement', 'client.sales.receipts', 'Terima Pembayaran'],
             ];
@@ -63,7 +63,7 @@ class HubController extends Controller
             $flow = [
                 ['Pemasok', Supplier::where('company_id', $cid)->count(), 'terdaftar', 'client.suppliers.index', 'client.suppliers.create', 'Tambah Pemasok'],
                 ['Pesanan Pembelian', PurchaseOrder::where('company_id', $cid)->whereIn('status', ['draft', 'sent'])->count(), 'belum diterima', 'client.purchases.orders', 'client.purchases.orders.create', 'Buat Pesanan'],
-                ['Penerimaan Barang', ItemReceipt::where('company_id', $cid)->where('status', 'draft')->count(), 'draft', 'client.purchases.receipts', 'client.purchases.receipts.create', 'Catat Penerimaan'],
+                ['Penerimaan Barang', PurchaseOrder::with('items.product')->where('company_id', $cid)->where('status', 'sent')->get()->filter(fn ($o) => \App\Services\OrderProgress::needsFulfilment(\App\Services\OrderProgress::forPurchaseOrder($o)))->count(), 'pesanan menunggu diterima', 'client.purchases.receipts', 'client.purchases.receipts.create', 'Catat Penerimaan'],
                 ['Faktur Pembelian', $stats['openCount'], 'belum lunas', 'client.purchase-invoices.index', 'client.purchase-invoices.create', 'Buat Faktur'],
                 ['Pembayaran Pembelian', $stats['overdueCount'], 'jatuh tempo', 'client.purchases.settlement', 'client.purchases.payments', 'Catat Pembayaran'],
             ];

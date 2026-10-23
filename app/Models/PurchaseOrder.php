@@ -55,6 +55,15 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseInvoice::class, 'po_id');
     }
 
+    /** Semua faktur yang menagih PO ini, termasuk faktur gabungan beberapa PO. */
+    public function allInvoices()
+    {
+        $id = $this->id;
+        return PurchaseInvoice::where('company_id', $this->company_id)->where(function ($q) use ($id) {
+            $q->where('po_id', $id)->orWhereHas('items', fn ($i) => $i->where('po_id', $id));
+        });
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseOrderItem::class);

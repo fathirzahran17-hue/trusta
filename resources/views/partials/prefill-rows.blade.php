@@ -17,6 +17,12 @@
             }
             var qty = tr.querySelector('input[name="quantities[]"]');
             if (qty) { qty.value = r.quantity; qty.dispatchEvent(new Event('input', { bubbles: true })); }
+            var ord = tr.querySelector('.input-row-order');
+            if (ord && r.order_id) ord.value = String(r.order_id);
+            if (r.order_no && sel) {
+                var cell = sel.closest('td');
+                if (cell && !cell.querySelector('.src-tag')) { var t = document.createElement('div'); t.className = 'src-tag'; t.textContent = 'dari ' + r.order_no; cell.appendChild(t); }
+            }
             var desc = tr.querySelector('input[name="row_descriptions[]"]');
             if (desc && r.description) desc.value = r.description;
             var price = tr.querySelector('.input-price');
@@ -24,7 +30,7 @@
                 price.value = r.price;
                 var disp = tr.querySelector('.input-price-display');
                 if (disp) {
-                    disp.value = r.price;
+                    disp.value = String(r.price).replace('.', ',');
                     if (typeof window.formatRupiah === 'function') window.formatRupiah(disp, price);
                 }
             }

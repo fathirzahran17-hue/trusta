@@ -20,5 +20,20 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Hosting gratis (InfinityFree) kadang mencegat kiriman form (POST) untuk verifikasi keamanan dan mengalihkannya
+        // ke alamat yang sama sebagai GET dengan "?i=1" -> muncul 405. Data memang belum tersimpan; arahkan kembali ke
+        // halaman form dengan pesan yang jelas supaya pengguna tinggal mengirim ulang.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException $e, \Illuminate\Http\Request $request) {
+            if (! $request->isMethod('GET') || ! $request->query->has('i') || ! $request->user()) {
+                return null;
+            }
+            $prev = url()->previous();
+            $prevPath = parse_url($prev, PHP_URL_PATH) ?: '/';
+            $unusable = $prevPath === '/' || $prevPath === '/' . ltrim($request->path(), '/');
+            $target = (! $unusable && str_starts_with($prev, $request->getSchemeAndHttpHost()))
+                ? $prev
+                : $request->getSchemeAndHttpHost() . '/' . implode('/', array_slice(explode('/', trim($request->path(), '/')), 0, -1));
+
+            return redirect($target)->with('error', 'Pengiriman terakhir sempat terputus oleh verifikasi keamanan hosting, sehingga data BELUM tersimpan. Silakan isi dan kirim lagi.');
+        });
     })->create();

@@ -16,13 +16,10 @@
             </div>
         </form>
         <div class="flex items-center gap-2">
-            <form action="{{ route('client.fixed_assets.run_depreciation') }}" method="POST" onsubmit="return confirm('Sistem akan menghitung dan menjurnal penyusutan aset otomatis untuk bulan ini. Lanjutkan?')">
-                @csrf
-                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg text-sm transition-colors shadow-lg flex items-center">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    Jalankan Penyusutan
-                </button>
-            </form>
+            <a href="{{ route('client.fixed_assets.depreciation') }}" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg text-sm transition-colors shadow-lg flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Jalankan Penyusutan
+            </a>
             <a href="{{ route('client.fixed_assets.create') }}" class="px-4 py-2 bg-trusta-teal hover:bg-teal-400 text-navy-900 font-semibold rounded-lg text-sm transition-colors shadow-lg flex items-center">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 Tambah Aset Baru
@@ -58,9 +55,9 @@
                         </td>
                         <td class="px-6 py-4 text-gray-400">{{ $asset->category->name ?? '-' }}</td>
                         <td class="px-6 py-4 text-gray-400">{{ $asset->acquisition_date->format('d/m/Y') }}</td>
-                        <td class="px-6 py-4 text-right font-medium text-white tabular-nums">Rp {{ number_format($asset->acquisition_cost, 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 text-right font-medium text-white tabular-nums">Rp {{ number_format($asset->acquisition_cost, 2, ',', '.') }}</td>
                         <td class="px-6 py-4 text-right">
-                            <div class="font-medium text-white tabular-nums">Rp {{ number_format($asset->book_value, 0, ',', '.') }}</div>
+                            <div class="font-medium text-white tabular-nums">Rp {{ number_format($asset->book_value, 2, ',', '.') }}</div>
                             <div class="text-xs text-gray-500 mt-1">
                                 <div class="w-full bg-gray-700 rounded-full h-1.5">
                                     <div class="bg-trusta-teal h-1.5 rounded-full" style="width: {{ $asset->depreciation_percent }}%"></div>

@@ -58,6 +58,15 @@ class SalesOrder extends Model
         return $this->hasMany(SalesInvoice::class, 'sales_order_id');
     }
 
+    /** Semua faktur yang menagih pesanan ini, termasuk faktur gabungan beberapa pesanan. */
+    public function allInvoices()
+    {
+        $id = $this->id;
+        return SalesInvoice::where('company_id', $this->company_id)->where(function ($q) use ($id) {
+            $q->where('sales_order_id', $id)->orWhereHas('items', fn ($i) => $i->where('sales_order_id', $id));
+        });
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

@@ -54,6 +54,13 @@ class PurchaseInvoice extends Model
         return $this->belongsTo(PurchaseOrder::class, 'po_id');
     }
 
+    /** Semua PO asal faktur ini (bisa lebih dari satu). */
+    public function sourceOrders()
+    {
+        $ids = $this->items()->whereNotNull('po_id')->pluck('po_id')->push($this->po_id)->filter()->unique()->values();
+        return PurchaseOrder::whereIn('id', $ids)->orderBy('po_number')->get();
+    }
+
     public function tax(): BelongsTo
     {
         return $this->belongsTo(Tax::class);

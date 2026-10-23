@@ -197,8 +197,8 @@
                     totalC += val;
                 });
 
-                totalDebitEl.textContent = 'Rp ' + totalD.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-                totalCreditEl.textContent = 'Rp ' + totalC.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+                totalDebitEl.textContent = 'Rp ' + totalD.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                totalCreditEl.textContent = 'Rp ' + totalC.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                 let diff = Math.abs(totalD - totalC);
                 if (diff < 0.01 && totalD > 0) {
@@ -213,7 +213,7 @@
                     btnSave.classList.add('opacity-50', 'cursor-not-allowed');
                 } else {
                     balanceStatusEl.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 border border-rose-500/30 text-rose-400';
-                    balanceStatusEl.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> SELISIH: Rp ' + diff.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+                    balanceStatusEl.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> SELISIH: Rp ' + diff.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     btnSave.disabled = true;
                     btnSave.classList.add('opacity-50', 'cursor-not-allowed');
                 }

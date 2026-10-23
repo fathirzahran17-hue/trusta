@@ -7,7 +7,15 @@
         <div class="flex flex-wrap gap-2">
             <button type="button" onclick="window.print()" class="px-4 py-2 border border-gray-600 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors">Cetak</button>
             @foreach($actions as $a)
-                <a href="{{ $a['url'] }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors">{{ $a['label'] }}</a>
+                @if(!empty($a['method']))
+                    <form method="POST" action="{{ $a['url'] }}" class="inline" @if(!empty($a['confirm'])) onsubmit="return confirm(@js($a['confirm']))" @endif>
+                        @csrf
+                        @if($a['method'] !== 'POST') @method($a['method']) @endif
+                        <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ ($a['style'] ?? '') === 'danger' ? 'border border-red-500/60 text-red-400 hover:bg-red-500/10' : 'border border-gray-600 text-gray-300 hover:bg-gray-700' }}">{{ $a['label'] }}</button>
+                    </form>
+                @else
+                    <a href="{{ $a['url'] }}" class="px-4 py-2 {{ ($a['style'] ?? '') === 'secondary' ? 'border border-gray-600 text-gray-300 hover:bg-gray-700' : 'bg-trusta-teal text-navy-900 hover:bg-teal-400' }} font-medium rounded-lg text-sm transition-colors">{{ $a['label'] }}</a>
+                @endif
             @endforeach
         </div>
     </div>
@@ -49,8 +57,8 @@
                                     </td>
                                     <td class="border-b border-gray-700 p-3 text-right tabular-nums">{{ rtrim(rtrim(number_format($l['quantity'], 2, ',', '.'), '0'), ',') }}</td>
                                     @if($showPrices)
-                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['price'], 0, ',', '.') }}</td>
-                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['total'], 0, ',', '.') }}</td>
+                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['price'], 2, ',', '.') }}</td>
+                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['total'], 2, ',', '.') }}</td>
                                     @endif
                                 </tr>
                             @empty
@@ -59,7 +67,7 @@
                         </tbody>
                         @if($showPrices && $total !== null)
                             <tfoot>
-                                <tr><td colspan="3" class="p-3 text-right font-semibold text-gray-300">Total</td><td class="p-3 text-right font-bold text-white tabular-nums">Rp {{ number_format($total, 0, ',', '.') }}</td></tr>
+                                <tr><td colspan="3" class="p-3 text-right font-semibold text-gray-300">Total</td><td class="p-3 text-right font-bold text-white tabular-nums">Rp {{ number_format($total, 2, ',', '.') }}</td></tr>
                             </tfoot>
                         @endif
                     </table>

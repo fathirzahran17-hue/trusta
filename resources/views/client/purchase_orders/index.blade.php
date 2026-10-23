@@ -73,6 +73,8 @@
                                     <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 600; background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2);">Terkirim</span>
                                 @elseif($order->status == 'converted')
                                     <span class="badge" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">Jadi Faktur</span>
+                                @elseif($order->status == 'cancelled')
+                                    <span class="badge badge-danger">Dibatalkan</span>
                                 @else
                                     <span class="badge" style="background: rgba(100,116,139,0.1); color: #94a3b8; border: 1px solid rgba(100,116,139,0.2);">Draft</span>
                                 @endif

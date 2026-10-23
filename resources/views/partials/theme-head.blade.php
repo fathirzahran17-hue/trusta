@@ -15,6 +15,21 @@
         root.dataset.theme = mode;
     })();
 
+    // TRUSTA - format uang: selalu 2 digit di belakang koma (2.000.000,13)
+    window.fmtMoney = function (n) {
+        n = parseFloat(n); if (isNaN(n)) n = 0;
+        return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+    window.fmtRp = function (n) { return 'Rp ' + window.fmtMoney(n); };
+    // "1.234.567,89" -> 1234567.89 ; angka biasa ("1234567.89") dipakai apa adanya
+    window.parseMoney = function (v) {
+        if (v === null || v === undefined) return 0;
+        var s = String(v).trim(); if (!s) return 0;
+        if (s.indexOf(',') !== -1 || /^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+        s = s.replace(/[^0-9.\-]/g, '');
+        return parseFloat(s) || 0;
+    };
+
     // TRUSTA - Universal formatRupiah Helper
     window.formatRupiah = function(element, hiddenElement) {
         if (!element) return 0;
@@ -42,7 +57,12 @@
             rupiah += separator + ribuan.join('.');
         }
 
-        if (split[1] !== undefined) {
+        if (!typing && clean) {
+            // di luar pengetikan (nilai awal/otomatis/selesai mengetik) selalu tampil 2 desimal
+            var dec = (split[1] || '').substring(0, 2);
+            while (dec.length < 2) dec += '0';
+            rupiah = (rupiah || '0') + ',' + dec;
+        } else if (split[1] !== undefined) {
             rupiah = rupiah + ',' + split[1].substring(0, 2);
         }
 
@@ -63,4 +83,27 @@
         }
         return realValue;
     };
+
+    // Isi uang: rapikan ke 2 desimal saat selesai mengetik, blok teks saat fokus, dan pada nilai awal / baris baru
+    (function () {
+        var SEL = 'input[onkeyup*="formatRupiah"], input.money-in';
+        function pad(el) {
+            if (!el.value || !String(el.value).trim()) { return; }
+            window.formatRupiah(el, el.classList.contains('money-in') ? null : el.previousElementSibling);
+            if (!/,\d{2}$/.test(el.value)) { el.value = window.fmtMoney(window.parseMoney(el.value)); }
+        }
+        document.addEventListener('focusout', function (e) { if (e.target.matches && e.target.matches(SEL)) pad(e.target); });
+        document.addEventListener('input', function (e) { if (e.target.matches && e.target.matches('input.money-in')) window.formatRupiah(e.target, null); }, true);
+        document.addEventListener('focusin', function (e) { if (e.target.matches && e.target.matches(SEL)) { try { e.target.select(); } catch (x) {} } });
+        function sweep(root) {
+            (root.querySelectorAll ? root.querySelectorAll(SEL) : []).forEach(function (el) {
+                if (el.dataset.mpad) return; el.dataset.mpad = '1';
+                if (el.value && String(el.value).trim() && !/,\d{2}$/.test(el.value)) { var h = el.classList.contains('money-in') ? null : el.previousElementSibling; var v = el.value; window.formatRupiah(el, h); if (!/,\d{2}$/.test(el.value)) el.value = window.fmtMoney(window.parseMoney(v)); }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            sweep(document);
+            new MutationObserver(function (ms) { ms.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) { if (n.matches && n.matches(SEL)) sweep({ querySelectorAll: function () { return [n]; } }); sweep(n); } }); }); }).observe(document.body, { childList: true, subtree: true });
+        });
+    })();
 </script>

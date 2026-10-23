@@ -12,6 +12,7 @@
             Cetak / PDF
         </button>
         <a href="{{ route('client.purchases.settlement') }}" class="rpt-btn">Status Pelunasan</a>
+        <a href="{{ route('client.purchase-invoices.create', ['mode' => 'biaya']) }}" class="rpt-btn">Catat Biaya (tanpa produk)</a>
         <a href="{{ route('client.purchase-invoices.create') }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50 flex items-center">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
             Catat Tagihan Baru
@@ -71,7 +72,7 @@
                             <td class="px-6 py-4 text-right font-bold text-trusta-teal">
                                 Rp {{ number_format($invoice->total, 2, ',', '.') }}
                             </td>
-                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">{{ $invoice->status === 'void' ? '-' : 'Rp ' . number_format($invoice->amount_due, 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">{{ $invoice->status === 'void' ? '-' : 'Rp ' . number_format($invoice->amount_due, 2, ',', '.') }}</td>
                             <td class="px-6 py-4 text-center">
                                 @include('partials.invoice-status', ['invoice' => $invoice])
                             </td>

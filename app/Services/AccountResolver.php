@@ -129,4 +129,16 @@ class AccountResolver
         if ($code && ($a = Account::where('company_id', $companyId)->where('code', $code)->first())) return $a;
         return self::find($companyId, 'asset', ['Akumulasi Penyusutan%']);
     }
+
+    /** Akun ekuitas "Laba Tahun Berjalan" / Current Year Earnings (terhubung otomatis ke laba rugi tahun fiskal berjalan). */
+    public static function currentYearEarnings(int $companyId): ?Account
+    {
+        return self::find($companyId, 'equity', ['Laba Tahun Berjalan%', 'Laba Berjalan%', 'Current Year Earnings%']);
+    }
+
+    /** Akun ekuitas "Laba Ditahan" (terhubung otomatis ke laba rugi tahun-tahun fiskal sebelumnya). */
+    public static function retainedEarnings(int $companyId): ?Account
+    {
+        return self::find($companyId, 'equity', ['Laba Ditahan%', 'Retained Earnings%']);
+    }
 }

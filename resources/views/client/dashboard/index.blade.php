@@ -19,13 +19,13 @@
         @if($alerts['overdue_ar_count'])
             <a href="{{ route('client.sales-invoices.index') }}" class="block rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-400 hover:bg-red-500/20 transition-colors">
                 <div class="font-semibold">{{ $alerts['overdue_ar_count'] }} piutang jatuh tempo</div>
-                <div class="text-xs opacity-90">Sisa tagihan Rp {{ number_format($alerts['overdue_ar_amount'], 0, ',', '.') }}</div>
+                <div class="text-xs opacity-90">Sisa tagihan Rp {{ number_format($alerts['overdue_ar_amount'], 2, ',', '.') }}</div>
             </a>
         @endif
         @if($alerts['overdue_ap_count'])
             <a href="{{ route('client.purchase-invoices.index') }}" class="block rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-500 hover:bg-yellow-500/20 transition-colors">
                 <div class="font-semibold">{{ $alerts['overdue_ap_count'] }} hutang jatuh tempo</div>
-                <div class="text-xs opacity-90">Perlu dibayar Rp {{ number_format($alerts['overdue_ap_amount'], 0, ',', '.') }}</div>
+                <div class="text-xs opacity-90">Perlu dibayar Rp {{ number_format($alerts['overdue_ap_amount'], 2, ',', '.') }}</div>
             </a>
         @endif
         @if($alerts['low_stock'])
@@ -122,19 +122,19 @@
                 <div class="w-1/2 pl-2 flex flex-col justify-center space-y-3">
                     <div>
                         <div class="flex items-center text-xs mb-1"><span class="w-2 h-2 rounded-full bg-teal-400 mr-2"></span> <span class="text-gray-400">Pendapatan</span></div>
-                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($revenue, 0, ',', '.') }}</div>
+                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($revenue, 2, ',', '.') }}</div>
                     </div>
                     <div>
                         <div class="flex items-center text-xs mb-1"><span class="w-2 h-2 rounded-full bg-red-400 mr-2"></span> <span class="text-gray-400">Nilai HPP</span></div>
-                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($cogs, 0, ',', '.') }}</div>
+                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($cogs, 2, ',', '.') }}</div>
                     </div>
                     <div>
                         <div class="flex items-center text-xs mb-1"><span class="w-2 h-2 rounded-full bg-orange-400 mr-2"></span> <span class="text-gray-400">Beban</span></div>
-                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($expense, 0, ',', '.') }}</div>
+                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($expense, 2, ',', '.') }}</div>
                     </div>
                     <div class="pt-2 border-t border-gray-700">
                         <div class="text-xs text-gray-400">Laba Bersih</div>
-                        <div class="text-sm font-bold {{ $netProfit >= 0 ? 'text-green-400' : 'text-red-400' }} text-right">Rp {{ number_format($netProfit, 0, ',', '.') }}</div>
+                        <div class="text-sm font-bold {{ $netProfit >= 0 ? 'text-green-400' : 'text-red-400' }} text-right">Rp {{ number_format($netProfit, 2, ',', '.') }}</div>
                     </div>
                 </div>
             </div>
@@ -177,7 +177,7 @@
                             <span class="w-2 h-2 rounded-full {{ $colors[$idx % 5] }} mr-1"></span> 
                             <span class="text-gray-400 truncate w-full" title="{{ $exp->name }}">{{ Str::limit($exp->name, 15) }}</span>
                         </div>
-                        <div class="text-xs font-semibold text-gray-200 text-right">Rp {{ number_format($exp->total, 0, ',', '.') }}</div>
+                        <div class="text-xs font-semibold text-gray-200 text-right">Rp {{ number_format($exp->total, 2, ',', '.') }}</div>
                     </div>
                     @empty
                     <p class="text-xs text-gray-500">Belum ada data beban</p>
@@ -196,11 +196,11 @@
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <p class="text-xs text-gray-400">Total Pendapatan</p>
-                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($salesOverview['total'], 0, ',', '.') }}</h4>
+                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($salesOverview['total'], 2, ',', '.') }}</h4>
                     </div>
                     <div class="text-right">
                         <p class="text-xs text-gray-400">Total Belum Lunas</p>
-                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($salesOverview['unpaid'], 0, ',', '.') }}</h4>
+                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($salesOverview['unpaid'], 2, ',', '.') }}</h4>
                     </div>
                 </div>
 
@@ -211,10 +211,10 @@
                     <div class="w-1/4 text-right">Lewat Jatuh Tempo</div>
                 </div>
                 <div class="flex space-x-2 text-xs font-semibold mb-2">
-                    <div class="w-1/4 text-green-400">Rp {{ number_format($salesOverview['paid'], 0, ',', '.') }}</div>
-                    <div class="w-1/4 text-center text-yellow-400">Rp {{ number_format($salesOverview['unpaid'], 0, ',', '.') }}</div>
-                    <div class="w-1/4 text-center text-yellow-500">Rp {{ number_format($salesOverview['not_due'], 0, ',', '.') }}</div>
-                    <div class="w-1/4 text-right text-red-400">Rp {{ number_format($salesOverview['overdue'], 0, ',', '.') }}</div>
+                    <div class="w-1/4 text-green-400">Rp {{ number_format($salesOverview['paid'], 2, ',', '.') }}</div>
+                    <div class="w-1/4 text-center text-yellow-400">Rp {{ number_format($salesOverview['unpaid'], 2, ',', '.') }}</div>
+                    <div class="w-1/4 text-center text-yellow-500">Rp {{ number_format($salesOverview['not_due'], 2, ',', '.') }}</div>
+                    <div class="w-1/4 text-right text-red-400">Rp {{ number_format($salesOverview['overdue'], 2, ',', '.') }}</div>
                 </div>
                 <!-- Progress Bars -->
                 <div class="flex space-x-1 h-3 mt-auto">
@@ -241,11 +241,11 @@
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <p class="text-xs text-gray-400">Total Pembelian</p>
-                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($purchaseOverview['total'], 0, ',', '.') }}</h4>
+                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($purchaseOverview['total'], 2, ',', '.') }}</h4>
                     </div>
                     <div class="text-right">
                         <p class="text-xs text-gray-400">Total Belum Lunas</p>
-                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($purchaseOverview['unpaid'], 0, ',', '.') }}</h4>
+                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($purchaseOverview['unpaid'], 2, ',', '.') }}</h4>
                     </div>
                 </div>
 
@@ -256,10 +256,10 @@
                     <div class="w-1/4 text-right">Lewat Jatuh Tempo</div>
                 </div>
                 <div class="flex space-x-2 text-xs font-semibold mb-2">
-                    <div class="w-1/4 text-green-400">Rp {{ number_format($purchaseOverview['paid'], 0, ',', '.') }}</div>
-                    <div class="w-1/4 text-center text-yellow-400">Rp {{ number_format($purchaseOverview['unpaid'], 0, ',', '.') }}</div>
-                    <div class="w-1/4 text-center text-yellow-500">Rp {{ number_format($purchaseOverview['not_due'], 0, ',', '.') }}</div>
-                    <div class="w-1/4 text-right text-red-400">Rp {{ number_format($purchaseOverview['overdue'], 0, ',', '.') }}</div>
+                    <div class="w-1/4 text-green-400">Rp {{ number_format($purchaseOverview['paid'], 2, ',', '.') }}</div>
+                    <div class="w-1/4 text-center text-yellow-400">Rp {{ number_format($purchaseOverview['unpaid'], 2, ',', '.') }}</div>
+                    <div class="w-1/4 text-center text-yellow-500">Rp {{ number_format($purchaseOverview['not_due'], 2, ',', '.') }}</div>
+                    <div class="w-1/4 text-right text-red-400">Rp {{ number_format($purchaseOverview['overdue'], 2, ',', '.') }}</div>
                 </div>
                 <!-- Progress Bars -->
                 <div class="flex space-x-1 h-3 mt-auto">

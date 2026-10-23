@@ -21,21 +21,15 @@ class CashBankController extends Controller
         return view('client.cash_bank.index', compact('accounts'));
     }
 
-    public function show(Account $account)
+    public function show(Request $request, Account $account)
     {
         if ($account->company_id !== auth()->user()->company_id) abort(403);
 
-        $mutations = JournalDetail::where('account_id', $account->id)
-            ->whereHas('journal', function($query) {
-                $query->where('status', 'posted')
-                      ->where('company_id', auth()->user()->company_id);
-            })
-            ->with('journal')
-            ->join('journals', 'journal_details.journal_id', '=', 'journals.id')
-            ->orderBy('journals.transaction_date', 'desc')
-            ->orderBy('journal_details.id', 'desc')
-            ->select('journal_details.*')
-            ->get();
+        $period = \App\Support\LedgerPeriod::resolve($request);
+        $periodOpening = \App\Support\LedgerPeriod::openingBefore($account, $period['from']);
+        // Menaik, dibalik di view (terbaru di atas) setelah saldo berjalan dihitung.
+        $mutations = \App\Support\LedgerPeriod::mutations($account, $period['from'], $period['to'])->reverse()->values();
+        $totalCount = \App\Support\LedgerPeriod::totalCount($account);
 
         $allAccounts = Account::where('company_id', auth()->user()->company_id)
             ->where('id', '!=', $account->id)
@@ -45,21 +39,47 @@ class CashBankController extends Controller
             
         $jobs = ProjectJob::where('company_id', auth()->user()->company_id)->where('is_active', true)->get();
 
-        return view('client.cash_bank.show', compact('account', 'mutations', 'allAccounts', 'jobs'));
+        return view('client.cash_bank.show', compact('account', 'mutations', 'allAccounts', 'jobs', 'period', 'periodOpening', 'totalCount'));
     }
 
     public function storeTransaction(Request $request, Account $account)
     {
         if ($account->company_id !== auth()->user()->company_id) abort(403);
 
+        // Kompatibel dengan form lama (satu akun lawan): ubah ke bentuk banyak baris
+        if (!is_array($request->input('contra_account_id'))) {
+            $request->merge([
+                'contra_account_id' => [$request->input('contra_account_id')],
+                'project_job_id' => [$request->input('project_job_id')],
+                'amounts' => [$request->input('amount')],
+            ]);
+        }
+        \App\Support\Money::normalize($request, ['amounts.*']);
+
         $request->validate([
             'transaction_type' => 'required|in:spend,receive',
             'transaction_date' => 'required|date',
-            'contra_account_id' => 'required|exists:accounts,id',
-            'amount' => 'required|numeric|min:1',
+            'contra_account_id' => 'required|array|min:1|max:50',
+            'contra_account_id.*' => ['required', \Illuminate\Validation\Rule::exists('accounts', 'id')->where('company_id', auth()->user()->company_id)],
+            'project_job_id' => 'nullable|array',
+            'project_job_id.*' => 'nullable|integer',
+            'amounts' => 'required|array|min:1',
+            'amounts.*' => 'required|numeric|min:0.01',
             'description' => 'required|string|max:255',
             'contact_name' => 'nullable|string|max:255',
         ]);
+        if (count($request->amounts) !== count($request->contra_account_id)) {
+            return back()->withInput()->with('error', 'Setiap akun lawan harus punya nominal.');
+        }
+        if (in_array($account->id, array_map('intval', $request->contra_account_id), true)) {
+            return back()->withInput()->with('error', 'Akun lawan tidak boleh sama dengan akun kas/bank yang sedang dikelola.');
+        }
+        $lines = [];
+        foreach ($request->contra_account_id as $i => $accId) {
+            $lines[] = ['account_id' => (int) $accId, 'amount' => round((float) $request->amounts[$i], 2), 'job' => $request->project_job_id[$i] ?? null];
+        }
+        $total = round(array_sum(array_column($lines, 'amount')), 2);
+        $spend = $request->transaction_type == 'spend';
 
         try {
             DB::beginTransaction();
@@ -82,41 +102,26 @@ class CashBankController extends Controller
                 'created_by' => auth()->id(),
             ]);
 
-            if ($request->transaction_type == 'spend') {
+            // Akun kas/bank: satu baris sebesar total; akun lawan: satu baris per split
+            JournalDetail::create([
+                'journal_id' => $journal->id,
+                'account_id' => $account->id,
+                'debit' => $spend ? 0 : $total,
+                'credit' => $spend ? $total : 0,
+                'description' => $request->description,
+            ]);
+            foreach ($lines as $l) {
                 JournalDetail::create([
                     'journal_id' => $journal->id,
-                    'account_id' => $account->id,
-                    'debit' => 0,
-                    'credit' => $request->amount,
+                    'account_id' => $l['account_id'],
+                    'debit' => $spend ? $l['amount'] : 0,
+                    'credit' => $spend ? 0 : $l['amount'],
                     'description' => $request->description,
+                    'project_job_id' => $l['job'] ?: null,
                 ]);
-                JournalDetail::create([
-                    'journal_id' => $journal->id,
-                    'account_id' => $request->contra_account_id,
-                    'debit' => $request->amount,
-                    'credit' => 0,
-                    'description' => $request->description,
-                    'project_job_id' => $request->project_job_id,
-                ]);
-                $msg = 'Pengeluaran Uang (Spend Money) berhasil dicatat.';
-            } else {
-                JournalDetail::create([
-                    'journal_id' => $journal->id,
-                    'account_id' => $account->id,
-                    'debit' => $request->amount,
-                    'credit' => 0,
-                    'description' => $request->description,
-                ]);
-                JournalDetail::create([
-                    'journal_id' => $journal->id,
-                    'account_id' => $request->contra_account_id,
-                    'debit' => 0,
-                    'credit' => $request->amount,
-                    'description' => $request->description,
-                    'project_job_id' => $request->project_job_id,
-                ]);
-                $msg = 'Penerimaan Uang (Receive Money) berhasil dicatat.';
             }
+            \App\Services\JournalGuard::assertBalanced($journal);
+            $msg = ($spend ? 'Pengeluaran Uang (Spend Money)' : 'Penerimaan Uang (Receive Money)') . ' berhasil dicatat' . (count($lines) > 1 ? ' dengan ' . count($lines) . ' akun lawan.' : '.');
 
             DB::commit();
             return redirect()->route('client.cash-bank.show', $account->id)->with('success', $msg);

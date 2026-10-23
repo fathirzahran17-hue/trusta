@@ -15,6 +15,7 @@ class FixedAsset extends Model
         'acquisition_date', 'acquisition_cost', 'useful_life_months', 'salvage_value',
         'depreciation_method', 'location', 'condition', 'status',
         'serial_number', 'brand', 'supplier_name', 'invoice_number', 'notes',
+        'depreciation_expense_account_id', 'accumulated_account_id',
     ];
 
     protected $casts = [
@@ -31,6 +32,22 @@ class FixedAsset extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(FixedAssetCategory::class, 'fixed_asset_category_id');
+    }
+
+    /** Penyusutan untuk satu bulan berikutnya (garis lurus / saldo menurun), tidak melebihi sisa yang bisa disusutkan. */
+    public function nextDepreciationAmount(): float
+    {
+        $depreciable = (float) $this->acquisition_cost - (float) $this->salvage_value;
+        $accumulated = (float) $this->accumulated_depreciation;
+        $amount = 0.0;
+        if ($this->depreciation_method === 'declining_balance') {
+            $rate = $this->useful_life_months > 0 ? (2 / ($this->useful_life_months / 12)) / 12 : 0;
+            $amount = ((float) $this->acquisition_cost - $accumulated) * $rate;
+        } elseif ($this->useful_life_months > 0) {
+            $amount = $depreciable / $this->useful_life_months;
+        }
+
+        return round(max(0, min($amount, $depreciable - $accumulated)), 2);
     }
 
     /**

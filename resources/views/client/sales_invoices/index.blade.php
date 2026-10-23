@@ -67,7 +67,7 @@
                             <td class="px-6 py-4 text-right font-bold text-trusta-teal" style="font-variant-numeric: tabular-nums;">
                                 Rp {{ number_format($invoice->total, 2, ',', '.') }}
                             </td>
-                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">{{ $invoice->status === 'void' ? '-' : 'Rp ' . number_format($invoice->amount_due, 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">{{ $invoice->status === 'void' ? '-' : 'Rp ' . number_format($invoice->amount_due, 2, ',', '.') }}</td>
                             <td class="px-6 py-4 text-center">
                                 @include('partials.invoice-status', ['invoice' => $invoice])
                             </td>

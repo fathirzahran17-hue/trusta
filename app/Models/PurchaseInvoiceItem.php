@@ -10,7 +10,7 @@ class PurchaseInvoiceItem extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'purchase_invoice_id', 'product_id', 'description', 'quantity',
+        'purchase_invoice_id', 'po_id', 'product_id', 'account_id', 'description', 'quantity',
         'unit_price', 'discount_percent', 'total'
     ];
 
@@ -23,6 +23,11 @@ class PurchaseInvoiceItem extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(PurchaseInvoice::class, 'purchase_invoice_id');
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     public function product(): BelongsTo

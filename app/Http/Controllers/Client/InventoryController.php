@@ -114,7 +114,7 @@ class InventoryController extends Controller
             'name' => 'required|string|max:255',
             'category_id' => ['nullable', \Illuminate\Validation\Rule::exists('product_categories', 'id')->where('company_id', $cid)],
             'unit' => 'nullable|string|max:20',
-            'sell_price' => 'required|numeric|min:0',
+            'sell_price' => ($kind === 'service' ? 'nullable' : 'required') . '|numeric|min:0',
             'buy_price' => 'nullable|numeric|min:0',
             'revenue_account_id' => ['nullable', $accountRule()],
             'expense_account_id' => ['nullable', $accountRule()],
@@ -123,7 +123,7 @@ class InventoryController extends Controller
 
         $data = [
             'sku' => $v['sku'], 'name' => $v['name'], 'type' => $kind, 'category_id' => $v['category_id'] ?? null,
-            'sell_price' => $v['sell_price'],
+            'sell_price' => $v['sell_price'] ?? 0,
             'revenue_account_id' => $v['revenue_account_id'] ?? null,
         ];
 

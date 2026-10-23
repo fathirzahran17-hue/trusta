@@ -78,6 +78,7 @@ class AccountController extends Controller
             'opening_balance' => 'numeric',
             'is_active' => 'boolean',
             'is_cash_bank' => 'boolean',
+            'is_settlement_deduction' => 'boolean',
         ]);
 
         // Validate unique code per company
@@ -99,6 +100,7 @@ class AccountController extends Controller
             'opening_balance' => 0,
             'is_active' => $request->has('is_active') ? $request->is_active : true,
             'is_cash_bank' => $request->has('is_cash_bank'),
+            'is_settlement_deduction' => $request->has('is_settlement_deduction'),
             'is_system' => false,
         ]);
 
@@ -130,11 +132,13 @@ class AccountController extends Controller
             'normal_balance' => 'required|in:debit,credit',
             'is_active' => 'boolean',
             'is_cash_bank' => 'boolean',
+            'is_settlement_deduction' => 'boolean',
         ]);
 
         $data = $request->only(['parent_id', 'name', 'type', 'normal_balance']);
         $data['is_active'] = $request->has('is_active');
         $data['is_cash_bank'] = $request->has('is_cash_bank');
+        $data['is_settlement_deduction'] = $request->has('is_settlement_deduction');
         
         // Code dan Opening Balance bisa diubah kalau bukan akun system
         if (!$account->is_system) {
@@ -160,25 +164,16 @@ class AccountController extends Controller
         return redirect()->route('client.accounts.index')->with('success', 'Akun berhasil diperbarui.');
     }
 
-    public function show(Account $account)
+    public function show(Request $request, Account $account)
     {
         if ($account->company_id !== auth()->user()->company_id) abort(403);
 
-        // Ambil semua detail jurnal yang berkaitan dengan akun ini
-        // Urutkan berdasarkan tanggal jurnal, lalu id detail
-        $mutations = \App\Models\JournalDetail::where('account_id', $account->id)
-            ->whereHas('journal', function($query) {
-                $query->where('status', 'posted')
-                      ->where('company_id', auth()->user()->company_id);
-            })
-            ->with('journal')
-            ->join('journals', 'journal_details.journal_id', '=', 'journals.id')
-            ->orderBy('journals.transaction_date', 'asc')
-            ->orderBy('journal_details.id', 'asc')
-            ->select('journal_details.*')
-            ->get();
+        $period = \App\Support\LedgerPeriod::resolve($request);
+        $periodOpening = \App\Support\LedgerPeriod::openingBefore($account, $period['from']);
+        $mutations = \App\Support\LedgerPeriod::mutations($account, $period['from'], $period['to']);
+        $totalCount = \App\Support\LedgerPeriod::totalCount($account);
 
-        return view('client.accounts.show', compact('account', 'mutations'));
+        return view('client.accounts.show', compact('account', 'mutations', 'period', 'periodOpening', 'totalCount'));
     }
 
     public function destroy(Account $account)

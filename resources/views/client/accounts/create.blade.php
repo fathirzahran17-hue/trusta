@@ -126,6 +126,14 @@
                                 <p class="text-xs text-gray-500 font-normal">Centang jika ini adalah sub-akun kas/bank yang dapat bertransaksi.</p>
                             </label>
                         </div>
+                        <div class="flex items-center">
+                            <input id="is_settlement_deduction" name="is_settlement_deduction" type="checkbox" value="1" {{ old('is_settlement_deduction', false) ? 'checked' : '' }}
+                                class="w-5 h-5 text-trusta-teal bg-gray-800 border-gray-700 rounded focus:ring-trusta-teal focus:ring-2">
+                            <label for="is_settlement_deduction" class="ml-2 block text-sm font-medium text-gray-300">
+                                Bisa dipakai untuk potongan / split pelunasan
+                                <p class="text-xs text-gray-500 font-normal">Centang untuk akun seperti Hutang PPh atau Pajak Dibayar Dimuka, supaya muncul sebagai pilihan saat menerima/membayar faktur yang dipotong pajak.</p>
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>

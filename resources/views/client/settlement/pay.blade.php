@@ -1,6 +1,6 @@
 @php
     $sales = $kind === 'sales';
-    $rp = fn ($n) => 'Rp ' . number_format($n, 0, ',', '.');
+    $rp = fn ($n) => 'Rp ' . number_format($n, 2, ',', '.');
     $partyLabel = $sales ? 'Pelanggan' : 'Pemasok';
     $storeUrl = $sales ? route('client.sales.receipts.store') : route('client.purchases.payments.store');
     $listUrl = $sales ? route('client.sales.settlement') : route('client.purchases.settlement');
@@ -75,7 +75,7 @@
                         <td class="r">{{ $rp($i['total']) }}</td>
                         <td class="r">{{ $rp($i['paid']) }}</td>
                         <td class="r"><b>{{ $rp($i['due']) }}</b></td>
-                        <td class="r"><input type="number" step="0.01" min="0" max="{{ $i['due'] }}" class="pay-amt pf-amt" name="alloc[{{ $i['id'] }}]" disabled placeholder="0"></td>
+                        <td class="r"><input type="text" inputmode="decimal" autocomplete="off" data-max="{{ $i['due'] }}" class="pay-amt pf-amt money-in" name="alloc[{{ $i['id'] }}]" disabled placeholder="0,00"></td>
                     </tr>
                 @endforeach
                 </tbody>
@@ -83,6 +83,10 @@
             </table>
         </div>
         @endforeach
+
+        <div class="pay-split-wrap" style="padding:0 16px 14px">
+            @include('partials.payment-split', ['deductionAccounts' => $deductionAccounts, 'sales' => $sales, 'totalInput' => ''])
+        </div>
 
         <div class="pay-foot">
             <div class="pay-total"><span id="pf_count">0 faktur dipilih</span> &middot; Total {{ $sales ? 'diterima' : 'dibayar' }}<b id="pf_total">Rp 0</b></div>
@@ -103,7 +107,7 @@
                             <td class="wrap">{{ $h->party ?: '-' }}</td>
                             <td class="wrap">{{ $h->invoices }}</td>
                             <td>{{ $h->account }}</td>
-                            <td class="r">{{ $rp($h->amount) }}</td>
+                            <td class="r">{{ $rp($h->amount) }}@if($h->deduction > 0)<div style="font-size:.68rem;color:var(--text-dim)">termasuk potongan {{ $rp($h->deduction) }}</div>@endif</td>
                             <td class="c">
                                 @if($h->voided)
                                     <span class="st st-void" style="text-decoration:none">Dibatalkan</span>
@@ -127,23 +131,24 @@
             const f = document.getElementById('payForm'); if (!f) return;
             const sel = f.querySelector('#pf_party'), hint = f.querySelector('#pf_hint');
             const blocks = [...f.querySelectorAll('.pf-block')];
-            const fmt = n => 'Rp ' + Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            const fmt = n => window.fmtRp(n);
             const cur = () => blocks.find(b => b.dataset.party === sel.value);
 
             function setRow(row, on, val) {
                 const chk = row.querySelector('.pf-chk'), amt = row.querySelector('.pf-amt');
                 chk.checked = on; amt.disabled = !on;
-                amt.value = on ? (val !== undefined ? val : row.dataset.due) : '';
+                amt.value = on ? window.fmtMoney(val !== undefined ? val : parseFloat(row.dataset.due)) : '';
                 row.classList.toggle('picked', on);
             }
             function recalc() {
                 const b = cur(); let n = 0, total = 0;
                 if (b) b.querySelectorAll('.pf-row').forEach(r => {
-                    if (r.querySelector('.pf-chk').checked) { n++; total += Math.min(parseFloat(r.querySelector('.pf-amt').value) || 0, parseFloat(r.dataset.due)); }
+                    if (r.querySelector('.pf-chk').checked) { n++; total += Math.min(window.parseMoney(r.querySelector('.pf-amt').value), parseFloat(r.dataset.due)); }
                     b.querySelector('.pf-all').checked = n === b.querySelectorAll('.pf-row').length;
                 });
                 f.querySelector('#pf_count').textContent = n + ' faktur dipilih';
                 f.querySelector('#pf_total').textContent = fmt(total);
+                f.dispatchEvent(new CustomEvent('paytotal', { detail: { total: total } }));
                 const btn = f.querySelector('#pf_submit'); btn.disabled = !(total > 0);
                 btn.style.opacity = total > 0 ? '' : '.5'; btn.style.cursor = total > 0 ? '' : 'not-allowed';
             }
@@ -163,7 +168,7 @@
             });
             f.addEventListener('input', e => {
                 if (!e.target.classList.contains('pf-amt')) return;
-                const max = parseFloat(e.target.max); if (parseFloat(e.target.value) > max) e.target.value = max;
+                const max = parseFloat(e.target.dataset.max); if (window.parseMoney(e.target.value) > max) e.target.value = window.fmtMoney(max);
                 recalc();
             });
             f.addEventListener('submit', e => { if (f.querySelector('#pf_submit').disabled) e.preventDefault(); });

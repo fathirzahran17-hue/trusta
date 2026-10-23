@@ -34,7 +34,10 @@ class DeliveryOrderController extends Controller
         $salesOrders = SalesOrder::with('customer')->where('company_id', $companyId)
             ->whereIn('status', ['open'])
             ->orderBy('order_date', 'desc')
-            ->get();
+            ->get()
+            // pesanan khusus jasa (atau semua barangnya sudah dikirim) tidak perlu pengiriman
+            ->filter(fn ($so) => \App\Services\OrderProgress::needsFulfilment(\App\Services\OrderProgress::forSalesOrder($so)))
+            ->values();
             
         $products = Product::where('company_id', $companyId)
             ->where('is_active', true)
@@ -78,15 +81,17 @@ class DeliveryOrderController extends Controller
                 'Pengemudi' => $deliveryOrder->driver_name,
                 'Plat Nomor' => $deliveryOrder->license_plate,
                 'Alamat Kirim' => $deliveryOrder->shipping_address,
-                'Status' => $deliveryOrder->status,
+                'Status' => ['draft' => 'Draft', 'shipped' => 'Dikirim', 'delivered' => 'Diterima pelanggan', 'cancelled' => 'Dibatalkan'][$deliveryOrder->status] ?? $deliveryOrder->status,
                 'Catatan' => $deliveryOrder->notes,
             ],
             'lines' => $lines,
             'showPrices' => false,
             'total' => null,
-            'actions' => $deliveryOrder->sales_order_id
-                ? [['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['delivery_order_id' => $deliveryOrder->id])]]
-                : [],
+            'actions' => $deliveryOrder->status === 'cancelled' ? [] : array_values(array_filter([
+                $deliveryOrder->sales_order_id ? ['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['delivery_order_id' => $deliveryOrder->id])] : null,
+                ['label' => 'Batalkan Pengiriman', 'url' => route('client.sales.deliveries.cancel', $deliveryOrder), 'method' => 'POST', 'style' => 'danger',
+                    'confirm' => 'Batalkan pengiriman ' . $deliveryOrder->delivery_number . '? Stok barang akan dikembalikan otomatis.'],
+            ])),
             'groups' => \App\Services\DocumentLinker::relatedForDelivery($deliveryOrder),
         ]);
     }
@@ -109,6 +114,9 @@ class DeliveryOrderController extends Controller
         $so = $request->sales_order_id ? SalesOrder::where('company_id', $companyId)->find($request->sales_order_id) : null;
         if ($request->sales_order_id && !$so) {
             return back()->withInput()->with('error', 'Pesanan Penjualan tidak ditemukan.');
+        }
+        if ($so && $so->status === 'cancelled') {
+            return back()->withInput()->with('error', 'Pesanan ' . $so->order_number . ' sudah dibatalkan.');
         }
         try {
             if ($so) {
@@ -192,5 +200,17 @@ class DeliveryOrderController extends Controller
             DB::rollBack();
             return back()->withInput()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
+    }
+
+    public function cancel(DeliveryOrder $deliveryOrder)
+    {
+        abort_if($deliveryOrder->company_id !== auth()->user()->company_id, 403);
+        try {
+            \App\Services\OrderLifecycle::cancelDelivery($deliveryOrder);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('client.sales.deliveries.show', $deliveryOrder)->with('success', 'Pengiriman ' . $deliveryOrder->delivery_number . ' dibatalkan, stok dikembalikan.');
     }
 }

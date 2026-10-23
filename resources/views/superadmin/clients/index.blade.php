@@ -51,7 +51,7 @@
                             <td class="p-5">
                                 @if($activeSub && $activeSub->plan)
                                     <div class="font-bold text-gray-300">{{ $activeSub->plan->name }}</div>
-                                    <div class="text-xs text-gray-500 mt-1">Rp {{ number_format($activeSub->plan->price, 0, ',', '.') }} / bln</div>
+                                    <div class="text-xs text-gray-500 mt-1">Rp {{ number_format($activeSub->plan->price, 2, ',', '.') }} / bln</div>
                                 @else
                                     <span class="text-gray-500 italic">Belum ada paket</span>
                                 @endif
@@ -185,7 +185,7 @@
                         <select name="plan_id" x-model="selectedPlanId" required class="w-full bg-gray-800 border-gray-700 text-white rounded-lg focus:ring-trusta-teal focus:border-trusta-teal text-sm">
                             <option value="">-- Pilih Paket --</option>
                             @foreach($plans as $plan)
-                                <option value="{{ $plan->id }}">{{ $plan->name }} (Rp {{ number_format($plan->price, 0, ',', '.') }} / bln)</option>
+                                <option value="{{ $plan->id }}">{{ $plan->name }} (Rp {{ number_format($plan->price, 2, ',', '.') }} / bln)</option>
                             @endforeach
                         </select>
                     </div>

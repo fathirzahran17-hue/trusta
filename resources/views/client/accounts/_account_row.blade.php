@@ -22,8 +22,8 @@
     <td class="px-6 py-2 capitalize text-xs {{ $isHeader ? 'font-semibold text-gray-300' : 'text-gray-400' }}">
         {{ $isHeader ? 'Header' : 'Detail' }}
     </td>
-    <td class="px-6 py-2 text-right tabular-nums {{ $isHeader ? 'font-bold' : '' }} {{ $account->balance < 0 ? 'text-red-400' : ($isHeader ? 'text-white' : 'text-gray-300') }}">
-        Rp {{ number_format($account->balance, 2, ',', '.') }}
+    <td class="px-6 py-2 text-right tabular-nums {{ $isHeader ? 'font-bold' : '' }} {{ $account->is_contra ? 'text-amber-400' : ($account->balance < 0 ? 'text-red-400' : ($isHeader ? 'text-white' : 'text-gray-300')) }}" @if($account->is_contra) title="Akun lawan: mengurangi saldo kelompoknya" @endif>
+        Rp {{ number_format($account->display_balance, 2, ',', '.') }}
     </td>
     <td class="px-6 py-2">
         <div class="flex items-center justify-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity">

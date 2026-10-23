@@ -177,22 +177,32 @@ class ReportBuilder
         $rows[] = $this->tot('subtotal', 'Total Kewajiban', $liab);
         $rows[] = ['type' => 'spacer'];
 
-        $eq = $block('EKUITAS', 'equity', false);
-        // Laba ditahan = seluruh pendapatan − beban (semua tipe laba rugi) s.d. tanggal neraca
-        $retained = 0;
-        foreach (['revenue', 'other_income', 'cost_of_sales', 'expense', 'other_expense'] as $type) {
-            foreach ($this->accounts($type) as $a) {
-                [$d, $c] = $sums[$a->id] ?? [0, 0];
-                $retained += $c - $d; // kredit menambah laba, debit mengurangi
-            }
+        // Ekuitas: Laba Tahun Berjalan & Laba Ditahan terhubung ke laba rugi per tahun fiskal (EarningsLink)
+        $rows[] = $this->sec('EKUITAS');
+        $link = \App\Services\EarningsLink::split($this->companyId, $asOf);
+        [$curId, $retId] = \App\Services\EarningsLink::accountIds($this->companyId);
+        $eq = 0;
+        foreach ($this->accounts('equity') as $a) {
+            $v = $bal($a, false);
+            if ($a->id === $curId) $v += $link['current'];
+            if ($a->id === $retId) $v += $link['prior'];
+            $eq += $v;
+            if (abs($v) > 0.004) $rows[] = $this->row([$a->code, $a->name, $v], 1);
         }
-        $rows[] = $this->row(['', 'Laba Ditahan / Berjalan', $retained], 1);
-        $rows[] = $this->tot('subtotal', 'Total Ekuitas', $eq + $retained);
+        if (!$curId && abs($link['current']) > 0.004) {
+            $eq += $link['current'];
+            $rows[] = $this->row(['', 'Laba Tahun Berjalan (otomatis)', $link['current']], 1);
+        }
+        if (!$retId && abs($link['prior']) > 0.004) {
+            $eq += $link['prior'];
+            $rows[] = $this->row(['', 'Laba Ditahan Tahun Sebelumnya (otomatis)', $link['prior']], 1);
+        }
+        $rows[] = $this->tot('subtotal', 'Total Ekuitas', $eq);
         $rows[] = ['type' => 'spacer'];
-        $liabEq = $liab + $eq + $retained;
+        $liabEq = $liab + $eq;
         $rows[] = $this->tot('total', 'TOTAL KEWAJIBAN + EKUITAS', $liabEq);
 
-        return [$rows, $assets, $liabEq, $liab, $eq + $retained];
+        return [$rows, $assets, $liabEq, $liab, $eq];
     }
 
     public function balanceSheet(Request $r): array
@@ -225,10 +235,11 @@ class ReportBuilder
         [$plRows, $rev, $cogs, $exp, $net] = $this->plRows($start, $end);
         [$bsRows, $assets, $liabEq] = $this->bsRows($end);
 
+        // Urutan: Neraca (posisi keuangan) dulu, baru Laba Rugi
         $rows = array_merge(
-            [$this->sec('I. LAPORAN LABA RUGI — ' . $this->period($start, $end))], $plRows,
+            [$this->sec('I. NERACA — Per ' . \App\Support\ReportFormat::date($end))], $bsRows,
             [['type' => 'spacer']],
-            [$this->sec('II. NERACA — Per ' . \App\Support\ReportFormat::date($end))], $bsRows
+            [$this->sec('II. LAPORAN LABA RUGI — ' . $this->period($start, $end))], $plRows
         );
 
         return [
@@ -236,9 +247,9 @@ class ReportBuilder
             'file' => "Laporan_Keuangan_Terpadu_{$end}", 'filters' => $this->dateFilters($start, $end),
             'columns' => $this->acctCols(), 'rows' => $rows, 'indent_col' => 1,
             'summary' => [
-                ['label' => 'Laba/Rugi Bersih', 'value' => $net, 'format' => 'money', 'tone' => $net >= 0 ? 'good' : 'bad'],
                 ['label' => 'Total Aset', 'value' => $assets, 'format' => 'money'],
                 ['label' => 'Total Kewajiban + Ekuitas', 'value' => $liabEq, 'format' => 'money'],
+                ['label' => 'Laba/Rugi Bersih', 'value' => $net, 'format' => 'money', 'tone' => $net >= 0 ? 'good' : 'bad'],
             ],
         ];
     }

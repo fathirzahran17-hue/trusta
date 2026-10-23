@@ -1,6 +1,6 @@
 @php
     $sales = $kind === 'sales';
-    $rp = fn ($n) => 'Rp ' . number_format($n, 0, ',', '.');
+    $rp = fn ($n) => 'Rp ' . number_format($n, 2, ',', '.');
     $partyLabel = $sales ? 'Pelanggan' : 'Pemasok';
     $show = $sales ? 'client.sales-invoices.show' : 'client.purchase-invoices.show';
     $settle = $sales ? route('client.sales.settlement') : route('client.purchases.settlement');
@@ -19,7 +19,7 @@
 
     {{-- ALUR KERJA --}}
     <div class="pay-card">
-        <div class="pay-card-head"><h3>Alur {{ $sales ? 'Penjualan' : 'Pembelian' }}</h3><span class="sub">Klik kotak untuk melihat daftar, atau tombol untuk membuat dokumen baru</span></div>
+        <div class="pay-card-head"><h3>Alur {{ $sales ? 'Penjualan' : 'Pembelian' }}</h3><span class="sub">Klik kotak untuk melihat daftar, atau tombol untuk membuat dokumen baru. Jasa tidak melalui {{ $sales ? 'pengiriman' : 'penerimaan barang' }} — langsung ke faktur.</span></div>
         <div class="hub-flow">
             @foreach($flow as $i => [$title, $n, $nLabel, $listRoute, $createRoute, $createLabel])
                 <div class="hub-step">
