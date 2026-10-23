@@ -21,21 +21,15 @@ class CashBankController extends Controller
         return view('client.cash_bank.index', compact('accounts'));
     }
 
-    public function show(Account $account)
+    public function show(Request $request, Account $account)
     {
         if ($account->company_id !== auth()->user()->company_id) abort(403);
 
-        $mutations = JournalDetail::where('account_id', $account->id)
-            ->whereHas('journal', function($query) {
-                $query->where('status', 'posted')
-                      ->where('company_id', auth()->user()->company_id);
-            })
-            ->with('journal')
-            ->join('journals', 'journal_details.journal_id', '=', 'journals.id')
-            ->orderBy('journals.transaction_date', 'desc')
-            ->orderBy('journal_details.id', 'desc')
-            ->select('journal_details.*')
-            ->get();
+        $period = \App\Support\LedgerPeriod::resolve($request);
+        $periodOpening = \App\Support\LedgerPeriod::openingBefore($account, $period['from']);
+        // Menaik, dibalik di view (terbaru di atas) setelah saldo berjalan dihitung.
+        $mutations = \App\Support\LedgerPeriod::mutations($account, $period['from'], $period['to'])->reverse()->values();
+        $totalCount = \App\Support\LedgerPeriod::totalCount($account);
 
         $allAccounts = Account::where('company_id', auth()->user()->company_id)
             ->where('id', '!=', $account->id)
@@ -45,7 +39,7 @@ class CashBankController extends Controller
             
         $jobs = ProjectJob::where('company_id', auth()->user()->company_id)->where('is_active', true)->get();
 
-        return view('client.cash_bank.show', compact('account', 'mutations', 'allAccounts', 'jobs'));
+        return view('client.cash_bank.show', compact('account', 'mutations', 'allAccounts', 'jobs', 'period', 'periodOpening', 'totalCount'));
     }
 
     public function storeTransaction(Request $request, Account $account)

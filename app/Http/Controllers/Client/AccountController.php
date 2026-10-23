@@ -164,25 +164,16 @@ class AccountController extends Controller
         return redirect()->route('client.accounts.index')->with('success', 'Akun berhasil diperbarui.');
     }
 
-    public function show(Account $account)
+    public function show(Request $request, Account $account)
     {
         if ($account->company_id !== auth()->user()->company_id) abort(403);
 
-        // Ambil semua detail jurnal yang berkaitan dengan akun ini
-        // Urutkan berdasarkan tanggal jurnal, lalu id detail
-        $mutations = \App\Models\JournalDetail::where('account_id', $account->id)
-            ->whereHas('journal', function($query) {
-                $query->where('status', 'posted')
-                      ->where('company_id', auth()->user()->company_id);
-            })
-            ->with('journal')
-            ->join('journals', 'journal_details.journal_id', '=', 'journals.id')
-            ->orderBy('journals.transaction_date', 'asc')
-            ->orderBy('journal_details.id', 'asc')
-            ->select('journal_details.*')
-            ->get();
+        $period = \App\Support\LedgerPeriod::resolve($request);
+        $periodOpening = \App\Support\LedgerPeriod::openingBefore($account, $period['from']);
+        $mutations = \App\Support\LedgerPeriod::mutations($account, $period['from'], $period['to']);
+        $totalCount = \App\Support\LedgerPeriod::totalCount($account);
 
-        return view('client.accounts.show', compact('account', 'mutations'));
+        return view('client.accounts.show', compact('account', 'mutations', 'period', 'periodOpening', 'totalCount'));
     }
 
     public function destroy(Account $account)

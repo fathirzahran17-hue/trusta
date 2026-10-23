@@ -20,15 +20,16 @@
         </div>
     @endif
 
-    {{-- Compact Input Section --}}
-    <div style="background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden; margin-bottom: 16px;" x-data="{ tab: 'spend' }">
+    {{-- Compact Input Section (membeku: hanya riwayat mutasi yang ikut bergulir) --}}
+    <div class="cb-sticky">
+    <div class="cb-card" style="background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 16px;" x-data="{ tab: 'spend' }">
         <div style="display: flex; align-items: stretch;">
             {{-- Left: Account Info (compact) --}}
-            <div style="width: 180px; padding: 14px 16px; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; justify-content: center; flex-shrink: 0;">
+            <div style="width: 215px; padding: 14px 16px; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; justify-content: center; flex-shrink: 0;">
                 <p style="font-size: 0.65rem; font-family: monospace; color: #64748b; margin-bottom: 2px;">{{ $account->code }}</p>
                 <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 10px;">{{ $account->name }}</h3>
                 <p style="font-size: 0.55rem; color: #475569; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Saldo Berjalan</p>
-                <p style="font-size: 1.25rem; font-weight: 700; color: {{ $account->balance < 0 ? '#ef4444' : 'var(--trusta-teal)' }}; font-variant-numeric: tabular-nums;">Rp {{ number_format($account->balance, 2, ',', '.') }}</p>
+                <p style="font-size: 1.15rem; white-space: nowrap; font-weight: 700; color: {{ $account->balance < 0 ? '#ef4444' : 'var(--trusta-teal)' }}; font-variant-numeric: tabular-nums;">Rp {{ number_format($account->balance, 2, ',', '.') }}</p>
             </div>
 
             {{-- Right: Compact Form --}}
@@ -146,6 +147,7 @@
             </div>
         </div>
     </div>
+    </div>{{-- /cb-sticky --}}
 
     {{-- Mutation Table (Ledger) - Focus Area --}}
     <div style="background: rgba(30,41,59,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden;">
@@ -154,7 +156,9 @@
             <span style="font-size: 0.6rem; color: #64748b; background: rgba(15,23,42,0.5); padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06);">Otomatis Terhubung Jurnal</span>
         </div>
         
-        @if(count($mutations) > 0 || $account->opening_balance > 0)
+        @include('partials.ledger-filter')
+
+        @if($totalCount > 0 || (float) $account->opening_balance != 0.0)
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-gray-300">
                     <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
@@ -168,20 +172,8 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-700/50">
-                        <!-- Saldo Awal -->
-                        <tr style="background: rgba(30,41,59,0.3);">
-                            <td class="px-6 py-4 text-gray-500">-</td>
-                            <td class="px-6 py-4 text-gray-500">-</td>
-                            <td class="px-6 py-4 font-medium italic text-gray-400">Saldo Awal (Opening Balance)</td>
-                            <td class="px-6 py-4 text-right text-gray-500">-</td>
-                            <td class="px-6 py-4 text-right text-gray-500">-</td>
-                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums">
-                                Rp {{ number_format($account->opening_balance, 2, ',', '.') }}
-                            </td>
-                        </tr>
-
                         @php
-                            $runningBalance = (float) $account->opening_balance;
+                            $runningBalance = (float) $periodOpening;
                             $calcMutations = [];
                             $reversed = $mutations->reverse();
                             
@@ -222,6 +214,20 @@
                                 </td>
                             </tr>
                         @endforeach
+                        @if(count($calcMutations) === 0)
+                            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Tidak ada mutasi pada periode ini. Ubah tanggal atau pilih "Semua".</td></tr>
+                        @endif
+                        <!-- Saldo awal periode (di dasar karena urutan terbaru di atas) -->
+                        <tr style="background: rgba(30,41,59,0.3);">
+                            <td class="px-6 py-4 text-gray-500">{{ $period['from'] ? \Carbon\Carbon::parse($period['from'])->format('d/m/Y') : '-' }}</td>
+                            <td class="px-6 py-4 text-gray-500">-</td>
+                            <td class="px-6 py-4 font-medium italic text-gray-400">{{ $period['from'] ? 'Saldo Awal Periode' : 'Saldo Awal (Opening Balance)' }}</td>
+                            <td class="px-6 py-4 text-right text-gray-500">-</td>
+                            <td class="px-6 py-4 text-right text-gray-500">-</td>
+                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums">
+                                Rp {{ number_format($periodOpening, 2, ',', '.') }}
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

@@ -822,7 +822,7 @@ html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]){border-color:#33415
 /* tombol teal bertulisan gelap tetap gelap */
 html.dark .bg-trusta-teal.text-gray-900:not(#printableArea), html.dark .bg-teal-400.text-gray-900:not(#printableArea), html.dark .bg-trusta-teal .text-gray-900:not(#printableArea){color:#0f172a}
 /* lembar dokumen (faktur/laporan) selalu terang, juga di mode gelap */
-html.dark #printableArea{background-color:#ffffff;color:#111827}
+html.dark #printableArea.bg-white{background-color:#ffffff;color:#111827}
 
 /* =====================================================================
    Gaya inline (style="...") yang ditulis untuk mode gelap.
@@ -1188,3 +1188,20 @@ html.dark .st-paid { color: #4ade80; } html.dark .st-partial { color: #fbbf24; }
 .input-price-display.need-price { border-color: var(--accent) !important; box-shadow: 0 0 0 2px var(--accent-soft); }
 .src-tag { display: inline-block; margin-top: 4px; margin-right: 4px; padding: 1px 8px; font-size: .64rem; font-weight: 700; border-radius: 10px; background: var(--hover-bg); color: var(--text-muted); border: 1px solid var(--border-strong); }
 .item-row .input-qty { min-width: 72px; }
+
+/* ===== Filter periode mutasi & form kas yang membeku ===== */
+.lf-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.lf-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.lf-chip { font-size: .7rem; font-weight: 600; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); background: var(--surface); text-decoration: none; transition: all .15s; }
+.lf-chip:hover { border-color: var(--accent); color: var(--accent); }
+.lf-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.lf-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.lf-range label { display: flex; align-items: center; gap: 6px; font-size: .7rem; color: var(--text-muted); }
+.lf-range input[type=date] { padding: 4px 8px !important; font-size: .75rem !important; height: 30px; width: auto !important; }
+.lf-go { height: 30px; padding: 0 14px; border-radius: 6px; border: none; background: var(--accent); color: #fff; font-size: .72rem; font-weight: 600; cursor: pointer; }
+.lf-info { width: 100%; font-size: .68rem; color: var(--text-dim); }
+.lf-info b { color: var(--text); }
+
+.cb-sticky { position: sticky; top: -20px; z-index: 30; margin: 0 -24px; padding: 8px 24px 12px; background: var(--bg-page); }
+.cb-sticky > .cb-card { margin-bottom: 0 !important; box-shadow: 0 6px 18px rgba(2, 6, 23, .18); max-height: 62vh; overflow-y: auto; }
+@media (max-width: 768px) { .cb-sticky { position: static; margin: 0; padding: 0 0 12px; } .cb-sticky > .cb-card { max-height: none; } }

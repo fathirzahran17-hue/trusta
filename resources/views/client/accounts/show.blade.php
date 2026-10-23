@@ -49,7 +49,9 @@
             }
         </style>
 
-        @if(count($mutations) > 0 || $account->opening_balance > 0)
+        @include('partials.ledger-filter')
+
+        @if($totalCount > 0 || (float) $account->opening_balance != 0.0)
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-gray-300">
                     <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
@@ -65,19 +67,19 @@
                     <tbody class="divide-y divide-gray-700/50">
                         <!-- Saldo Awal -->
                         <tr class="bg-gray-800/30">
+                            <td class="px-6 py-4 text-gray-500">{{ $period['from'] ? \Carbon\Carbon::parse($period['from'])->format('d/m/Y') : '-' }}</td>
                             <td class="px-6 py-4 text-gray-500">-</td>
-                            <td class="px-6 py-4 text-gray-500">-</td>
-                            <td class="px-6 py-4 font-medium italic text-gray-400">Saldo Awal (Opening Balance)</td>
+                            <td class="px-6 py-4 font-medium italic text-gray-400">{{ $period['from'] ? 'Saldo Awal Periode' : 'Saldo Awal (Opening Balance)' }}</td>
                             <td class="px-6 py-4 text-right text-gray-500">-</td>
                             <td class="px-6 py-4 text-right text-gray-500">-</td>
                             <td class="px-6 py-4 text-right font-bold text-white tabular-nums">
-                                Rp {{ number_format($account->opening_balance, 2, ',', '.') }}
+                                Rp {{ number_format($periodOpening, 2, ',', '.') }}
                             </td>
                         </tr>
 
                         <!-- Iterasi Mutasi -->
                         @php
-                            $runningBalance = (float) $account->opening_balance;
+                            $runningBalance = (float) $periodOpening;
                             $totalDebit = 0;
                             $totalCredit = 0;
                         @endphp
@@ -117,13 +119,16 @@
                                 </td>
                             </tr>
                         @endforeach
+                        @if(count($mutations) === 0)
+                            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Tidak ada mutasi pada periode ini. Ubah tanggal atau pilih "Semua".</td></tr>
+                        @endif
                     </tbody>
                     <tfoot class="bg-gray-800/80 border-t border-gray-700">
                         <tr>
-                            <td colspan="3" class="px-6 py-4 text-right font-bold text-gray-400">TOTAL MUTASI:</td>
-                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums">Rp {{ number_format($totalDebit, 2, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums">Rp {{ number_format($totalCredit, 2, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right font-bold text-trusta-teal tabular-nums text-lg">Rp {{ number_format($runningBalance, 2, ',', '.') }}</td>
+                            <td colspan="3" class="px-6 py-4 text-right font-bold text-gray-400">TOTAL MUTASI PERIODE:</td>
+                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums whitespace-nowrap">Rp {{ number_format($totalDebit, 2, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums whitespace-nowrap">Rp {{ number_format($totalCredit, 2, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right font-bold text-trusta-teal tabular-nums text-lg whitespace-nowrap">Rp {{ number_format($runningBalance, 2, ',', '.') }}</td>
                         </tr>
                     </tfoot>
                 </table>

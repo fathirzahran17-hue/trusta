@@ -56,8 +56,23 @@
                         // daftar akun: saat mengetik pencarian pun tetap urut kode (bukan menurut skor kecocokan)
                         if (target.dataset.codeSorted) o.sortField = [{ field: 'text', direction: 'asc' }, { field: '$score' }];
                     }
-                    return new Orig(el, o);
+                    var inst = new Orig(el, o);
+                    tsRegistry.push(inst);
+                    return inst;
                 };
+                // Daftar pilihan ada di <body>; ikut bergeser saat area halaman (atau kartu) di-scroll / jendela diubah ukurannya.
+                var tsRegistry = [], tsRaf = null;
+                function tsReposition(e) {
+                    if (e && e.target && e.target.closest && e.target.closest('.ts-dropdown')) return;
+                    if (tsRaf) return;
+                    tsRaf = requestAnimationFrame(function () {
+                        tsRaf = null;
+                        tsRegistry = tsRegistry.filter(function (t) { return t.wrapper && document.body.contains(t.wrapper); });
+                        tsRegistry.forEach(function (t) { if (t.isOpen) { try { t.positionDropdown(); } catch (err) {} } });
+                    });
+                }
+                document.addEventListener('scroll', tsReposition, true);
+                window.addEventListener('resize', tsReposition);
                 Wrapped.prototype = Orig.prototype; Object.assign(Wrapped, Orig); window.TomSelect = Wrapped;
             })();
         </script>

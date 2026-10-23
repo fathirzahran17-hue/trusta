@@ -1077,4 +1077,30 @@ class DocumentFlowTest extends TestCase
         $this->assertSame($n + 1, \App\Models\Journal::count());
         $this->get('/client/cash-bank/' . $this->cash->id)->assertOk()->assertSee('Tambah akun lawan');
     }
+
+    public function test_riwayat_mutasi_bisa_difilter_per_tanggal_dengan_saldo_awal_periode(): void
+    {
+        $cid = $this->user->company_id;
+        $other = Account::where('company_id', $cid)->where('type', 'revenue')->where('name', 'Pendapatan Penjualan')->first();
+        $this->cash->forceFill(['opening_balance' => 1000])->save();
+        $mk = function (string $date, float $debit, float $credit, string $ref) use ($cid) {
+            $j = \App\Models\Journal::create(['company_id' => $cid, 'ref_number' => $ref, 'type' => 'general', 'transaction_date' => $date, 'description' => $ref, 'status' => 'posted', 'created_by' => $this->user->id]);
+            \App\Models\JournalDetail::create(['journal_id' => $j->id, 'account_id' => $this->cash->id, 'debit' => $debit, 'credit' => $credit, 'description' => $ref]);
+        };
+        $mk('2026-08-10', 500, 0, 'REF-AGU');
+        $mk('2026-09-05', 0, 200, 'REF-SEP');
+        $mk('2026-09-20', 300, 0, 'REF-SEP2');
+        $mk('2026-10-02', 100, 0, 'REF-OKT');
+
+        foreach (['/client/cash-bank/', '/client/accounts/'] as $base) {
+            $r = $this->get($base . $this->cash->id . '?from=2026-09-01&to=2026-09-30')->assertOk();
+            $r->assertSee('REF-SEP')->assertSee('REF-SEP2')->assertDontSee('REF-AGU')->assertDontSee('REF-OKT');
+            // saldo awal periode = 1000 + 500 = 1.500,00 ; akhir = 1500 - 200 + 300 = 1.600,00
+            $r->assertSee('1.500,00')->assertSee('Saldo Awal Periode');
+            $r->assertSee('1.600,00');
+
+            $this->get($base . $this->cash->id . '?range=all')->assertOk()->assertSee('REF-AGU')->assertSee('REF-OKT');
+            $this->get($base . $this->cash->id . '?from=2030-01-01&to=2030-01-31')->assertOk()->assertSee('Tidak ada mutasi pada periode ini');
+        }
+    }
 }
