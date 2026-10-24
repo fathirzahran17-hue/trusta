@@ -19,7 +19,7 @@ class InvoicePaymentService
     private static function nextRef(int $companyId, string $prefix, string $date): string
     {
         $ref = DocumentNumber::next(Journal::class, 'ref_number', $prefix, $companyId, $date);
-        // Nomor pembayaran yang dibatalkan tetap tersimpan di riwayat (jurnalnya dihapus), jangan dipakai ulang.
+        // Nomor pembayaran (termasuk yang dibatalkan) tidak boleh dipakai ulang.
         if (in_array($prefix, ['RC-', 'SP-'], true)) {
             $pay = DocumentNumber::next(InvoicePayment::class, 'payment_number', $prefix, $companyId, $date);
             if (strcmp($pay, $ref) > 0) {
@@ -31,23 +31,31 @@ class InvoicePaymentService
     }
 
     /**
-     * Hapus jurnal dokumen yang dibatalkan dari Buku Besar sepenuhnya (tanpa jurnal balik),
-     * agar yang dibatalkan benar-benar tidak tercatat di GL. Jejaknya ada di Log Aktivitas.
+     * Jurnal balik (standar akuntansi): jurnal asli tetap ada, lalu dibuat jurnal pembalik bertanggal hari pembatalan
+     * dengan debit/kredit ditukar, sehingga saldo akun kembali seperti sebelum transaksi.
      */
-    public static function dropJournal(?Journal $journal, string $why, int $userId): void
+    private static function reverseJournal(Journal $orig, string $description, int $userId): Journal
     {
-        if (! $journal) {
-            return;
-        }
-        $ref = $journal->ref_number;
-        $id = $journal->id;
-        $company = $journal->company_id;
-        $journal->details()->delete();
-        $journal->delete();
-        \App\Models\ActivityLog::create([
-            'company_id' => $company, 'user_id' => $userId, 'action' => 'delete', 'model_type' => Journal::class, 'model_id' => $id,
-            'description' => $why . ' (jurnal ' . $ref . ' dihapus dari Buku Besar)', 'ip_address' => request()->ip(),
+        $orig->loadMissing('details');
+        $rev = Journal::create([
+            'company_id' => $orig->company_id,
+            'ref_number' => self::nextRef((int) $orig->company_id, 'VOID-', now()->format('Y-m-d')),
+            'type' => $orig->type,
+            'transaction_date' => now()->format('Y-m-d'),
+            'description' => $description,
+            'status' => 'posted',
+            'created_by' => $userId,
         ]);
+        foreach ($orig->details as $d) {
+            JournalDetail::create([
+                'journal_id' => $rev->id, 'account_id' => $d->account_id, 'project_job_id' => $d->project_job_id,
+                'debit' => $d->credit, 'credit' => $d->debit,
+                'description' => 'Balik: ' . $d->description,
+            ]);
+        }
+        JournalGuard::assertBalanced($rev);
+
+        return $rev;
     }
 
     /** Terapkan perubahan jumlah dibayar secara inkremental (aman terhadap retur yang sudah mengurangi sisa tagihan). */
@@ -224,7 +232,7 @@ class InvoicePaymentService
 
     /**
      * Batalkan satu penerimaan/pembayaran (seluruh alokasi pada jurnal yang sama):
-     * jurnalnya dihapus dari Buku Besar, sisa tagihan faktur dipulihkan, riwayat tetap tersimpan sebagai "dibatalkan".
+     * jurnal balik dibuat, sisa tagihan faktur dipulihkan, riwayat tetap tersimpan sebagai "dibatalkan".
      */
     public static function voidPayment(InvoicePayment $payment, int $userId): void
     {
@@ -238,7 +246,10 @@ class InvoicePaymentService
                 ->when($payment->journal_id, fn ($q) => $q->where('journal_id', $payment->journal_id), fn ($q) => $q->where('id', $payment->id))
                 ->lockForUpdate()->get();
 
-            $orig = $payment->journal_id ? Journal::find($payment->journal_id) : null;
+            $orig = $payment->journal_id ? Journal::with('details')->find($payment->journal_id) : null;
+            if ($orig) {
+                self::reverseJournal($orig, 'Pembatalan ' . $orig->ref_number, $userId);
+            }
 
             foreach ($group as $p) {
                 $inv = $p->sales_invoice_id ? SalesInvoice::find($p->sales_invoice_id) : PurchaseInvoice::find($p->purchase_invoice_id);
@@ -247,14 +258,12 @@ class InvoicePaymentService
                 }
                 $p->voided_at = now();
                 $p->voided_by = $userId;
-                $p->journal_id = null;
                 $p->save();
             }
-            self::dropJournal($orig, 'Pembayaran ' . $payment->payment_number . ' dibatalkan', $userId);
         });
     }
 
-    /** Batalkan faktur: jurnal dihapus dari Buku Besar, status void. Hanya jika belum ada pembayaran/retur. */
+    /** Batalkan faktur: jurnal balik, status void. Hanya jika belum ada pembayaran/retur. */
     public static function void($inv, string $kind, int $userId): void
     {
         if ($inv->status === 'void') {
@@ -268,12 +277,13 @@ class InvoicePaymentService
         }
 
         DB::transaction(function () use ($inv, $kind, $userId) {
-            $orig = $inv->journal()->first();
+            $orig = $inv->journal()->with('details')->first();
+            if ($orig) {
+                self::reverseJournal($orig, 'Pembatalan faktur ' . $inv->invoice_number, $userId);
+            }
             $inv->status = 'void';
             $inv->amount_due = 0;
-            $inv->journal_id = null;
             $inv->save();
-            self::dropJournal($orig, 'Faktur ' . $inv->invoice_number . ' dibatalkan', $userId);
 
             // Jumlah yang sudah ditagih pada pesanan asal dikembalikan
             InvoiceSources::syncFor($inv, $kind);
