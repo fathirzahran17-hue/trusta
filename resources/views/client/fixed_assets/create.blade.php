@@ -94,6 +94,8 @@
                     </div>
                 </div>
 
+                @include('client.fixed_assets._acquisition')
+
                 <h3 class="text-lg font-medium text-white mb-4 mt-8 border-b border-gray-700 pb-2">Informasi Tambahan</h3>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

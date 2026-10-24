@@ -126,6 +126,7 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::put('fixed-assets/{fixedAsset}', [\App\Http\Controllers\Client\FixedAssetController::class, 'update'])->name('fixed_assets.update');
     Route::delete('fixed-assets/{fixedAsset}', [\App\Http\Controllers\Client\FixedAssetController::class, 'destroy'])->name('fixed_assets.destroy');
     Route::get('fixed-assets/depreciation', [\App\Http\Controllers\Client\FixedAssetController::class, 'depreciation'])->name('fixed_assets.depreciation');
+    Route::post('fixed-assets/depreciation/{journal}/cancel', [\App\Http\Controllers\Client\FixedAssetController::class, 'cancelDepreciation'])->whereNumber('journal')->name('fixed_assets.cancel_depreciation');
     Route::post('fixed-assets/run-depreciation', [\App\Http\Controllers\Client\FixedAssetController::class, 'runDepreciation'])->name('fixed_assets.run_depreciation');
     Route::get('fixed-assets/categories', [\App\Http\Controllers\Client\FixedAssetController::class, 'categories'])->name('fixed_assets.categories');
     Route::post('fixed-assets/categories', [\App\Http\Controllers\Client\FixedAssetController::class, 'storeCategory'])->name('fixed_assets.categories.store');

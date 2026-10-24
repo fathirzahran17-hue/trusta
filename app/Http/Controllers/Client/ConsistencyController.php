@@ -87,6 +87,12 @@ class ConsistencyController extends Controller
             }
         }
 
+        // 7. Aset tetap tanpa jurnal perolehan (info: abaikan bila asetnya sudah masuk Saldo Awal)
+        foreach (\App\Models\FixedAsset::where('company_id', $cid)->whereNull('acquisition_journal_id')->where('acquisition_cost', '>', 0)->get() as $a) {
+            $add('Aset tetap tanpa jurnal perolehan', "{$a->code} - {$a->name}: Rp " . number_format($a->acquisition_cost, 2, ',', '.') . ' belum punya jurnal perolehan.',
+                route('client.fixed_assets.edit', $a->id), 'Abaikan bila asetnya sudah termasuk Saldo Awal. Bila belum, buka Edit lalu centang "Catat jurnal perolehan".');
+        }
+
         return view('client.consistency.index', compact('issues'));
     }
 

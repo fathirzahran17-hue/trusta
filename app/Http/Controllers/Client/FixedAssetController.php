@@ -41,7 +41,8 @@ class FixedAssetController extends Controller
     {
         $categories = FixedAssetCategory::where('company_id', auth()->user()->company_id)->get();
         $nextCode = $this->generateNextCode();
-        return view('client.fixed_assets.create', compact('categories', 'nextCode'));
+        [$assetAccounts, $fundingAccounts] = $this->acquisitionAccounts(auth()->user()->company_id);
+        return view('client.fixed_assets.create', compact('categories', 'nextCode', 'assetAccounts', 'fundingAccounts'));
     }
 
     public function store(Request $request)
@@ -63,23 +64,41 @@ class FixedAssetController extends Controller
             'invoice_number' => 'nullable|string|max:100',
             'description' => 'nullable|string',
             'notes' => 'nullable|string',
+            'record_journal' => 'nullable|boolean',
+            'asset_account_id' => 'nullable|integer',
+            'funding_account_id' => 'nullable|integer',
         ]);
 
         $validated['company_id'] = auth()->user()->company_id;
         $validated['status'] = 'aktif';
         $validated['salvage_value'] = $validated['salvage_value'] ?? 0;
+        $journalRule = $this->acquisitionRules($request);
+        unset($validated['record_journal'], $validated['asset_account_id'], $validated['funding_account_id']);
 
-        FixedAsset::create($validated);
+        try {
+            $msg = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request, $journalRule) {
+                $asset = FixedAsset::create($validated);
+                if ($journalRule) {
+                    $j = \App\Services\AssetAccounting::post($asset, (int) $request->asset_account_id, (int) $request->funding_account_id, auth()->id());
+                    return ' Jurnal perolehan ' . $j->ref_number . ' dibuat (Debit aset, Kredit sumber dana).';
+                }
+                return '';
+            });
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
 
         return redirect()->route('client.fixed_assets.index')
-            ->with('success', 'Aset tetap berhasil ditambahkan.');
+            ->with('success', 'Aset tetap berhasil ditambahkan.' . $msg);
     }
 
     public function edit(FixedAsset $fixedAsset)
     {
         $this->authorizeCompany($fixedAsset);
         $categories = FixedAssetCategory::where('company_id', auth()->user()->company_id)->get();
-        return view('client.fixed_assets.edit', compact('fixedAsset', 'categories'));
+        [$assetAccounts, $fundingAccounts] = $this->acquisitionAccounts(auth()->user()->company_id);
+        $acquisitionJournal = $fixedAsset->acquisition_journal_id ? \App\Models\Journal::find($fixedAsset->acquisition_journal_id) : null;
+        return view('client.fixed_assets.edit', compact('fixedAsset', 'categories', 'assetAccounts', 'fundingAccounts', 'acquisitionJournal'));
     }
 
     public function update(Request $request, FixedAsset $fixedAsset)
@@ -98,6 +117,9 @@ class FixedAssetController extends Controller
             'location' => 'nullable|string|max:255',
             'condition' => 'required|in:baik,rusak_ringan,rusak_berat',
             'status' => 'required|in:aktif,dijual,dihapus,arsip',
+            'record_journal' => 'nullable|boolean',
+            'asset_account_id' => 'nullable|integer',
+            'funding_account_id' => 'nullable|integer',
             'serial_number' => 'nullable|string|max:100',
             'brand' => 'nullable|string|max:100',
             'supplier_name' => 'nullable|string|max:255',
@@ -107,18 +129,43 @@ class FixedAssetController extends Controller
         ]);
 
         $validated['salvage_value'] = $validated['salvage_value'] ?? 0;
-        $fixedAsset->update($validated);
+        $journalRule = ! $fixedAsset->acquisition_journal_id && $this->acquisitionRules($request);
+        unset($validated['record_journal'], $validated['asset_account_id'], $validated['funding_account_id']);
+
+        try {
+            $msg = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request, $fixedAsset, $journalRule) {
+                $fixedAsset->update($validated);
+                $fixedAsset->refresh();
+                \App\Services\AssetAccounting::sync($fixedAsset);
+                if ($journalRule) {
+                    $j = \App\Services\AssetAccounting::post($fixedAsset, (int) $request->asset_account_id, (int) $request->funding_account_id, auth()->id());
+                    return ' Jurnal perolehan ' . $j->ref_number . ' dibuat.';
+                }
+                return '';
+            });
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
 
         return redirect()->route('client.fixed_assets.index')
-            ->with('success', 'Aset tetap berhasil diperbarui.');
+            ->with('success', 'Aset tetap berhasil diperbarui.' . $msg);
     }
 
     public function destroy(FixedAsset $fixedAsset)
     {
         $this->authorizeCompany($fixedAsset);
-        $fixedAsset->delete();
+        if ((float) $fixedAsset->accumulated_depreciation > 0) {
+            return redirect()->route('client.fixed_assets.index')
+                ->with('error', 'Aset ini sudah disusutkan. Batalkan penyusutannya dulu (menu Jalankan Penyusutan > Riwayat), baru hapus asetnya.');
+        }
+        \Illuminate\Support\Facades\DB::transaction(function () use ($fixedAsset) {
+            if ($fixedAsset->acquisition_journal_id && ($j = \App\Models\Journal::with('details')->find($fixedAsset->acquisition_journal_id))) {
+                \App\Services\InvoicePaymentService::reverseJournal($j, 'Pembatalan perolehan aset ' . $fixedAsset->code, auth()->id());
+            }
+            $fixedAsset->delete();
+        });
         return redirect()->route('client.fixed_assets.index')
-            ->with('success', 'Aset tetap berhasil dihapus.');
+            ->with('success', 'Aset tetap berhasil dihapus' . ($fixedAsset->acquisition_journal_id ? ' (jurnal perolehan dibalik).' : '.'));
     }
 
     /** Aset yang masih punya sisa nilai untuk disusutkan, lengkap dengan status kelayakan pada bulan terpilih. */
@@ -148,6 +195,24 @@ class FixedAssetController extends Controller
             });
     }
 
+    private function acquisitionAccounts(int $companyId): array
+    {
+        return [\App\Services\AssetAccounting::assetAccounts($companyId), \App\Services\AssetAccounting::fundingAccounts($companyId)];
+    }
+
+    /** True bila form meminta jurnal perolehan dibuat; memastikan akun terisi. */
+    private function acquisitionRules(Request $request): bool
+    {
+        if (! $request->boolean('record_journal')) {
+            return false;
+        }
+        if (! $request->filled('asset_account_id') || ! $request->filled('funding_account_id')) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['asset_account_id' => 'Pilih Akun Aset dan Sumber Dana untuk jurnal perolehan.']);
+        }
+
+        return true;
+    }
+
     private function depreciationAccounts(int $companyId): array
     {
         $all = \App\Models\Account::where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get()->reject(fn ($a) => $a->is_header);
@@ -168,7 +233,13 @@ class FixedAssetController extends Controller
         [$expenseAccounts, $accumAccounts] = $this->depreciationAccounts($companyId);
         $date = date('Y-m-t', strtotime($month . '-01'));
 
-        return view('client.fixed_assets.depreciation', compact('rows', 'month', 'date', 'expenseAccounts', 'accumAccounts'));
+        $history = \App\Models\DepreciationEntry::with(['journal', 'asset'])->whereNull('voided_at')->orderByDesc('id')->get()
+            ->groupBy('journal_id')->map(fn ($g) => (object) [
+                'journal' => $g->first()->journal, 'period' => $g->first()->period, 'total' => $g->sum('amount'),
+                'assets' => $g->map(fn ($e) => optional($e->asset)->name)->filter()->implode(', '),
+            ])->values();
+
+        return view('client.fixed_assets.depreciation', compact('rows', 'month', 'date', 'expenseAccounts', 'accumAccounts', 'history'));
     }
 
     public function runDepreciation(Request $request)
@@ -196,6 +267,7 @@ class FixedAssetController extends Controller
             \Illuminate\Support\Facades\DB::beginTransaction();
 
             $perAccount = [];
+            $entries = [];
             $count = 0;
             $total = 0.0;
             foreach ($request->assets as $id) {
@@ -224,6 +296,7 @@ class FixedAssetController extends Controller
                 $total += $row->amount;
                 $count++;
 
+                $entries[] = ['asset' => $asset->id, 'amount' => round((float) $row->amount, 2), 'prev' => $asset->last_depreciation_date];
                 $asset->accumulated_depreciation = round((float) $asset->accumulated_depreciation + $row->amount, 2);
                 $asset->last_depreciation_date = $date;
                 $asset->depreciation_expense_account_id = $expId; // diingat untuk penyusutan berikutnya
@@ -251,6 +324,10 @@ class FixedAssetController extends Controller
                     'description' => 'Akumulasi Penyusutan Aset', 'debit' => 0, 'credit' => $row['amount']]);
             }
             \App\Services\JournalGuard::assertBalanced($journal);
+            foreach ($entries as $e) {
+                \App\Models\DepreciationEntry::create(['company_id' => $companyId, 'fixed_asset_id' => $e['asset'], 'journal_id' => $journal->id,
+                    'period' => $month, 'amount' => $e['amount'], 'prev_last_date' => $e['prev']]);
+            }
 
             \Illuminate\Support\Facades\DB::commit();
         } catch (\Exception $e) {
@@ -260,6 +337,45 @@ class FixedAssetController extends Controller
 
         return redirect()->route('client.fixed_assets.index')
             ->with('success', $count . ' aset disusutkan untuk ' . date('F Y', strtotime($month . '-01')) . ' sebesar Rp ' . number_format($total, 2, ',', '.') . ' (jurnal ' . $journal->ref_number . ').');
+    }
+
+    /** Batalkan satu proses penyusutan: jurnal balik, akumulasi aset dikembalikan. */
+    public function cancelDepreciation(int $journal)
+    {
+        $companyId = auth()->user()->company_id;
+        $entries = \App\Models\DepreciationEntry::where('company_id', $companyId)->where('journal_id', $journal)->whereNull('voided_at')->get();
+        if ($entries->isEmpty()) {
+            return back()->with('error', 'Penyusutan ini sudah dibatalkan atau tidak ditemukan.');
+        }
+
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($entries, $journal, $companyId) {
+                foreach ($entries as $e) {
+                    $later = \App\Models\DepreciationEntry::where('fixed_asset_id', $e->fixed_asset_id)->whereNull('voided_at')->where('period', '>', $e->period)->exists();
+                    if ($later) {
+                        throw new \DomainException('Ada penyusutan bulan yang lebih baru untuk aset yang sama. Batalkan yang terbaru lebih dulu.');
+                    }
+                }
+                $orig = \App\Models\Journal::with('details')->findOrFail($journal);
+                \App\Services\InvoicePaymentService::reverseJournal($orig, 'Pembatalan ' . $orig->ref_number, auth()->id());
+
+                foreach ($entries as $e) {
+                    $asset = FixedAsset::find($e->fixed_asset_id);
+                    if ($asset) {
+                        $asset->accumulated_depreciation = max(0, round((float) $asset->accumulated_depreciation - (float) $e->amount, 2));
+                        $remaining = \App\Models\DepreciationEntry::with('journal')->where('fixed_asset_id', $asset->id)->whereNull('voided_at')
+                            ->where('id', '!=', $e->id)->where('journal_id', '!=', $journal)->orderByDesc('period')->first();
+                        $asset->last_depreciation_date = $remaining?->journal?->transaction_date?->format('Y-m-d') ?? $e->prev_last_date;
+                        $asset->save();
+                    }
+                    $e->update(['voided_at' => now()]);
+                }
+            });
+        } catch (\DomainException $ex) {
+            return back()->with('error', $ex->getMessage());
+        }
+
+        return back()->with('success', 'Penyusutan dibatalkan: jurnal balik dibuat dan akumulasi penyusutan aset dikembalikan.');
     }
 
     // ========== KATEGORI ASET ==========

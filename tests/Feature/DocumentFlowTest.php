@@ -1156,4 +1156,71 @@ class DocumentFlowTest extends TestCase
         $this->assertBooksBalanced();
         $this->post('/client/consistency/rebuild-purchase/' . $inv->id)->assertSessionHas('error'); // sudah punya jurnal
     }
+
+    public function test_fixed_asset_acquisition_journal_and_cancel_depreciation(): void
+    {
+        $cid = $this->user->company_id;
+        $assetAcc = \App\Services\AssetAccounting::assetAccounts($cid)->first();
+        $this->assertNotNull($assetAcc);
+        $accNew = Account::create(['company_id' => $cid, 'code' => '1-2010', 'name' => 'Akumulasi Penyusutan Peralatan', 'type' => 'asset', 'normal_balance' => 'credit']);
+        $expNew = Account::create(['company_id' => $cid, 'code' => '6-2010', 'name' => 'Beban Penyusutan Peralatan', 'type' => 'expense', 'normal_balance' => 'debit']);
+
+        $base = ['code' => 'FA-1', 'name' => 'Laptop', 'acquisition_date' => '2026-04-10', 'acquisition_cost' => 3000000, 'useful_life_months' => 12,
+            'salvage_value' => 0, 'depreciation_method' => 'straight_line', 'condition' => 'baik'];
+
+        // jurnal perolehan: Debit akun aset, Kredit kas
+        $cashBefore = (float) $this->cash->fresh()->balance;
+        $this->post('/client/fixed-assets', $base + ['record_journal' => 1, 'asset_account_id' => $assetAcc->id, 'funding_account_id' => $this->cash->id])->assertSessionHas('success');
+        $asset = \App\Models\FixedAsset::firstOrFail();
+        $this->assertNotNull($asset->acquisition_journal_id);
+        $this->assertEquals(3000000, (float) $assetAcc->fresh()->balance);
+        $this->assertEquals($cashBefore - 3000000, (float) $this->cash->fresh()->balance);
+        $this->assertBooksBalanced();
+
+        // mengubah harga ikut memperbarui jurnal; jurnal otomatis tidak bisa dihapus dari Jurnal Umum
+        $this->put('/client/fixed-assets/' . $asset->id, array_merge($base, ['status' => 'aktif', 'acquisition_cost' => 3600000]))->assertSessionHasNoErrors();
+        $this->assertEquals(3600000, (float) $assetAcc->fresh()->balance);
+        $this->delete('/client/journals/' . $asset->acquisition_journal_id)->assertSessionHas('error');
+
+        // tanpa centang jurnal (aset dari saldo awal) tidak membuat jurnal
+        $n = \App\Models\Journal::count();
+        $this->post('/client/fixed-assets', array_merge($base, ['code' => 'FA-2', 'name' => 'Meja']))->assertSessionHas('success');
+        $this->assertSame($n, \App\Models\Journal::count());
+        // centang tetapi akun kosong ditolak
+        $this->post('/client/fixed-assets', array_merge($base, ['code' => 'FA-3', 'record_journal' => 1]))->assertSessionHasErrors('asset_account_id');
+
+        // penyusutan April & Mei, lalu batalkan berurutan
+        $run = fn ($m, $d) => $this->post('/client/fixed-assets/run-depreciation', ['month' => $m, 'date' => $d, 'assets' => [$asset->id],
+            'exp' => [$asset->id => $expNew->id], 'acc' => [$asset->id => $accNew->id]]);
+        $run('2026-04', '2026-04-30')->assertSessionHas('success');
+        $run('2026-05', '2026-05-31')->assertSessionHas('success');
+        $this->assertEquals(600000, (float) $asset->fresh()->accumulated_depreciation);
+        $apr = \App\Models\DepreciationEntry::where('period', '2026-04')->firstOrFail();
+        $may = \App\Models\DepreciationEntry::where('period', '2026-05')->firstOrFail();
+        $this->get('/client/fixed-assets/depreciation?month=2026-06')->assertOk()->assertSee('Riwayat Penyusutan');
+
+        $this->post('/client/fixed-assets/depreciation/' . $apr->journal_id . '/cancel')->assertSessionHas('error'); // Mei harus dibatalkan dulu
+        $this->post('/client/fixed-assets/depreciation/' . $may->journal_id . '/cancel')->assertSessionHas('success');
+        $this->assertEquals(300000, (float) $asset->fresh()->accumulated_depreciation);
+        $this->assertEquals(300000, (float) $expNew->fresh()->balance);
+        $this->assertSame('2026-04-30', substr((string) $asset->fresh()->last_depreciation_date, 0, 10));
+        $this->post('/client/fixed-assets/depreciation/' . $apr->journal_id . '/cancel')->assertSessionHas('success');
+        $this->assertEquals(0, (float) $asset->fresh()->accumulated_depreciation);
+        $this->assertEquals(0, (float) $expNew->fresh()->balance);
+        $this->assertNull($asset->fresh()->last_depreciation_date);
+        $this->assertBooksBalanced();
+        $this->post('/client/fixed-assets/depreciation/' . $may->journal_id . '/cancel')->assertSessionHas('error'); // sudah dibatalkan
+
+        // bisa disusutkan ulang setelah dibatalkan; aset yang sudah disusutkan tidak bisa dihapus
+        $run('2026-04', '2026-04-30')->assertSessionHas('success');
+        $this->delete('/client/fixed-assets/' . $asset->id)->assertSessionHas('error');
+        \App\Models\DepreciationEntry::where('period', '2026-04')->whereNull('voided_at')->get()
+            ->each(fn ($e) => $this->post('/client/fixed-assets/depreciation/' . $e->journal_id . '/cancel')->assertSessionHas('success'));
+
+        // hapus aset: jurnal perolehan dibalik, aset kembali nol
+        $this->delete('/client/fixed-assets/' . $asset->id)->assertSessionHas('success');
+        $this->assertEquals(0, (float) $assetAcc->fresh()->balance);
+        $this->assertEquals($cashBefore, (float) $this->cash->fresh()->balance);
+        $this->assertBooksBalanced();
+    }
 }

@@ -291,6 +291,12 @@ class JournalController extends Controller
                 return $label;
             }
         }
+        if (\Illuminate\Support\Facades\DB::table('fixed_assets')->where('acquisition_journal_id', $journal->id)->exists()) {
+            return 'Perolehan Aset Tetap';
+        }
+        if (\Illuminate\Support\Facades\DB::table('depreciation_entries')->where('journal_id', $journal->id)->whereNull('voided_at')->exists()) {
+            return 'Penyusutan Aset Tetap';
+        }
         if (\Illuminate\Support\Facades\DB::table('invoice_payments')->where('journal_id', $journal->id)->whereNull('voided_at')->exists()) {
             return 'Pembayaran/Penerimaan faktur';
         }
