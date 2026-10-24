@@ -18,7 +18,44 @@ class InvoicePaymentService
 {
     private static function nextRef(int $companyId, string $prefix, string $date): string
     {
-        return DocumentNumber::next(Journal::class, 'ref_number', $prefix, $companyId, $date);
+        $ref = DocumentNumber::next(Journal::class, 'ref_number', $prefix, $companyId, $date);
+        // Nomor pembayaran (termasuk yang dibatalkan) tidak boleh dipakai ulang.
+        if (in_array($prefix, ['RC-', 'SP-'], true)) {
+            $pay = DocumentNumber::next(InvoicePayment::class, 'payment_number', $prefix, $companyId, $date);
+            if (strcmp($pay, $ref) > 0) {
+                $ref = $pay;
+            }
+        }
+
+        return $ref;
+    }
+
+    /**
+     * Jurnal balik (standar akuntansi): jurnal asli tetap ada, lalu dibuat jurnal pembalik bertanggal hari pembatalan
+     * dengan debit/kredit ditukar, sehingga saldo akun kembali seperti sebelum transaksi.
+     */
+    private static function reverseJournal(Journal $orig, string $description, int $userId): Journal
+    {
+        $orig->loadMissing('details');
+        $rev = Journal::create([
+            'company_id' => $orig->company_id,
+            'ref_number' => self::nextRef((int) $orig->company_id, 'VOID-', now()->format('Y-m-d')),
+            'type' => $orig->type,
+            'transaction_date' => now()->format('Y-m-d'),
+            'description' => $description,
+            'status' => 'posted',
+            'created_by' => $userId,
+        ]);
+        foreach ($orig->details as $d) {
+            JournalDetail::create([
+                'journal_id' => $rev->id, 'account_id' => $d->account_id, 'project_job_id' => $d->project_job_id,
+                'debit' => $d->credit, 'credit' => $d->debit,
+                'description' => 'Balik: ' . $d->description,
+            ]);
+        }
+        JournalGuard::assertBalanced($rev);
+
+        return $rev;
     }
 
     /** Terapkan perubahan jumlah dibayar secara inkremental (aman terhadap retur yang sudah mengurangi sisa tagihan). */
@@ -211,23 +248,7 @@ class InvoicePaymentService
 
             $orig = $payment->journal_id ? Journal::with('details')->find($payment->journal_id) : null;
             if ($orig) {
-                $rev = Journal::create([
-                    'company_id' => $payment->company_id,
-                    'ref_number' => self::nextRef((int) $payment->company_id, 'VOID-', now()->format('Y-m-d')),
-                    'type' => $orig->type,
-                    'transaction_date' => now()->format('Y-m-d'),
-                    'description' => 'Pembatalan ' . $orig->ref_number,
-                    'status' => 'posted',
-                    'created_by' => $userId,
-                ]);
-                foreach ($orig->details as $d) {
-                    JournalDetail::create([
-                        'journal_id' => $rev->id, 'account_id' => $d->account_id,
-                        'debit' => $d->credit, 'credit' => $d->debit,
-                        'description' => 'Balik: ' . $d->description,
-                    ]);
-                }
-                JournalGuard::assertBalanced($rev);
+                self::reverseJournal($orig, 'Pembatalan ' . $orig->ref_number, $userId);
             }
 
             foreach ($group as $p) {
@@ -258,25 +279,7 @@ class InvoicePaymentService
         DB::transaction(function () use ($inv, $kind, $userId) {
             $orig = $inv->journal()->with('details')->first();
             if ($orig) {
-                $rev = Journal::create([
-                    'company_id' => $inv->company_id,
-                    'ref_number' => self::nextRef((int) $inv->company_id, 'VOID-', now()->format('Y-m-d')),
-                    'type' => $orig->type,
-                    'transaction_date' => now()->format('Y-m-d'),
-                    'description' => 'Pembatalan faktur ' . $inv->invoice_number,
-                    'status' => 'posted',
-                    'created_by' => $userId,
-                ]);
-                foreach ($orig->details as $d) {
-                    JournalDetail::create([
-                        'journal_id' => $rev->id,
-                        'account_id' => $d->account_id,
-                        'project_job_id' => $d->project_job_id,
-                        'debit' => $d->credit,
-                        'credit' => $d->debit,
-                        'description' => 'Balik: ' . $d->description,
-                    ]);
-                }
+                self::reverseJournal($orig, 'Pembatalan faktur ' . $inv->invoice_number, $userId);
             }
             $inv->status = 'void';
             $inv->amount_due = 0;

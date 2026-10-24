@@ -108,6 +108,7 @@
                 $I('Jurnal Umum', 'client.journals.index', 'client.journals.*'),
                 $H('3. Penelusuran'),
                 $I('Histori Akun', 'client.accounts.history'),
+                $I('Cek Konsistensi Data', 'client.consistency'),
             ]],
         ]],
         ['label' => 'Laporan & Alat', 'items' => [

@@ -64,6 +64,13 @@ class DocumentFlowTest extends TestCase
         $this->actingAs($this->user);
     }
 
+    private function assertNetZeroPerAccount(int $journalA, int $journalB): void
+    {
+        $net = \App\Models\JournalDetail::whereIn('journal_id', [$journalA, $journalB])->get()
+            ->groupBy('account_id')->map(fn ($g) => round($g->sum('debit') - $g->sum('credit'), 2));
+        $this->assertTrue($net->every(fn ($v) => $v == 0), 'Jurnal asli + jurnal balik harus bersih nol per akun');
+    }
+
     private function createPurchaseAndReceive(float $qty = 10): PurchaseOrder
     {
         $this->post('/client/purchases/orders', ['supplier_id' => $this->supplier->id, 'po_number' => 'PO-T-1', 'order_date' => date('Y-m-d'),
@@ -163,10 +170,12 @@ class DocumentFlowTest extends TestCase
         $this->assertSame('void', $inv->fresh()->status);
         $this->assertSame('open', $so->fresh()->status);
 
+        // jurnal balik: debit/kredit tertukar sehingga saldo akun kembali nol
         $orig = $inv->journal->details;
         $rev = \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->firstOrFail()->details;
         $this->assertEqualsWithDelta($orig->sum('debit'), $rev->sum('credit'), 0.01);
         $this->assertEqualsWithDelta($orig->sum('credit'), $rev->sum('debit'), 0.01);
+        $this->assertNetZeroPerAccount($inv->journal_id, \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->first()->id);
     }
 
     public function test_show_pages_render(): void
@@ -447,6 +456,16 @@ class DocumentFlowTest extends TestCase
         $this->assertEquals(45000, (float) $b->fresh()->amount_due);
         $this->post('/client/invoice-payments/' . $rc->id . '/void')->assertSessionHas('error'); // tidak bisa dua kali
         $this->assertBooksBalanced();
+        // penerimaan yang dibatalkan: jurnal asli + jurnal balik, saldo bersih nol; nomor tidak dipakai ulang
+        $this->assertSame(1, \App\Models\Journal::where('ref_number', 'like', 'RC-%')->count());
+        $this->assertSame(1, \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->count());
+        $this->assertNetZeroPerAccount($rc->journal_id, \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->first()->id);
+        $this->post('/client/sales/receipts', ['party_id' => $this->customer->id, 'account_id' => $this->cash->id, 'payment_date' => $today,
+            'alloc' => [$a->id => 1000]])->assertSessionHas('success');
+        $this->assertNotSame($rc->payment_number, \App\Models\InvoicePayment::orderByDesc('id')->first()->payment_number);
+        // jurnal otomatis milik faktur tidak boleh dihapus langsung dari Jurnal Umum
+        $this->delete('/client/journals/' . $a->fresh()->journal_id)->assertSessionHas('error');
+        $this->assertNotNull(\App\Models\Journal::find($a->fresh()->journal_id));
 
         // retur lalu bayar sisanya: retur tidak boleh "hidup lagi"
         $this->post('/client/sales/returns', ['customer_id' => $this->customer->id, 'sales_invoice_id' => $b->id, 'return_number' => 'SR-9',
@@ -1102,5 +1121,28 @@ class DocumentFlowTest extends TestCase
             $this->get($base . $this->cash->id . '?range=all')->assertOk()->assertSee('REF-AGU')->assertSee('REF-OKT');
             $this->get($base . $this->cash->id . '?from=2030-01-01&to=2030-01-31')->assertOk()->assertSee('Tidak ada mutasi pada periode ini');
         }
+    }
+
+    public function test_consistency_check_flags_orphans_and_passes_after_proper_cancellation(): void
+    {
+        $po = $this->createPurchaseAndReceive(10);
+        $today = date('Y-m-d');
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-1',
+            'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertSessionMissing('error');
+        $inv = PurchaseInvoice::firstOrFail();
+        $this->post('/client/purchases/payments', ['party_id' => $this->supplier->id, 'account_id' => $this->cash->id, 'payment_date' => $today,
+            'alloc' => [$inv->id => 50000]])->assertSessionHas('success');
+        $this->get('/client/consistency')->assertOk()->assertSee('Semua konsisten');
+
+        // bayar lalu batalkan: tetap konsisten, saldo hutang kembali ke tagihan semula
+        $pay = \App\Models\InvoicePayment::firstOrFail();
+        $this->post('/client/invoice-payments/' . $pay->id . '/void')->assertSessionHas('success');
+        $this->get('/client/consistency')->assertOk()->assertSee('Semua konsisten');
+        $this->assertBooksBalanced();
+
+        // jurnal faktur hilang (mis. dihapus manual) => terdeteksi
+        \App\Models\JournalDetail::where('journal_id', $inv->journal_id)->delete();
+        \App\Models\Journal::where('id', $inv->journal_id)->delete();
+        $this->get('/client/consistency')->assertOk()->assertSee('tanpa jurnal')->assertSee($inv->invoice_number);
     }
 }

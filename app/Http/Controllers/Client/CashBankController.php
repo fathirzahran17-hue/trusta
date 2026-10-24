@@ -124,7 +124,16 @@ class CashBankController extends Controller
             $msg = ($spend ? 'Pengeluaran Uang (Spend Money)' : 'Penerimaan Uang (Receive Money)') . ' berhasil dicatat' . (count($lines) > 1 ? ' dengan ' . count($lines) . ' akun lawan.' : '.');
 
             DB::commit();
-            return redirect()->route('client.cash-bank.show', $account->id)->with('success', $msg);
+
+            // Pertahankan filter periode yang sedang dilihat (tidak kembali ke "Bulan ini")
+            $keep = array_filter($request->only(['range', 'from', 'to']), fn ($v) => $v !== null && $v !== '');
+            $period = \App\Support\LedgerPeriod::resolve(new Request($keep));
+            $d = $request->input('transaction_date');
+            if ($d && (($period['from'] && $d < $period['from']) || ($period['to'] && $d > $period['to']))) {
+                $msg .= ' Tanggalnya (' . \Carbon\Carbon::parse($d)->format('d/m/Y') . ') di luar periode yang sedang ditampilkan; pilih "Semua" atau ubah tanggal untuk melihatnya.';
+            }
+
+            return redirect()->route('client.cash-bank.show', ['account' => $account->id] + $keep)->with('success', $msg);
 
         } catch (\Exception $e) {
             DB::rollback();
