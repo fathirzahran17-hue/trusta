@@ -1203,5 +1203,5 @@ html.dark .st-paid { color: #4ade80; } html.dark .st-partial { color: #fbbf24; }
 .lf-info b { color: var(--text); }
 
 .cb-sticky { position: sticky; top: -20px; z-index: 30; margin: 0 -24px; padding: 8px 24px 12px; background: var(--bg-page); }
-.cb-sticky > .cb-card { margin-bottom: 0 !important; box-shadow: 0 6px 18px rgba(2, 6, 23, .18); max-height: 62vh; overflow-y: auto; }
+.cb-sticky > .cb-card { margin-bottom: 0 !important; box-shadow: 0 6px 18px rgba(2, 6, 23, .18); max-height: 50vh; overflow-y: auto; }
 @media (max-width: 768px) { .cb-sticky { position: static; margin: 0; padding: 0 0 12px; } .cb-sticky > .cb-card { max-height: none; } }

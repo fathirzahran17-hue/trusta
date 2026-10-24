@@ -163,10 +163,11 @@ class DocumentFlowTest extends TestCase
         $this->assertSame('void', $inv->fresh()->status);
         $this->assertSame('open', $so->fresh()->status);
 
-        $orig = $inv->journal->details;
-        $rev = \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->firstOrFail()->details;
-        $this->assertEqualsWithDelta($orig->sum('debit'), $rev->sum('credit'), 0.01);
-        $this->assertEqualsWithDelta($orig->sum('credit'), $rev->sum('debit'), 0.01);
+        // faktur yang dibatalkan tidak tercatat di GL sama sekali (tanpa jurnal asli maupun jurnal balik)
+        $this->assertNull($inv->fresh()->journal_id);
+        $this->assertSame(0, \App\Models\Journal::where('description', 'like', '%' . $inv->invoice_number . '%')->count());
+        $this->assertSame(0, \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->count());
+        $this->assertBooksBalanced();
     }
 
     public function test_show_pages_render(): void
@@ -447,6 +448,16 @@ class DocumentFlowTest extends TestCase
         $this->assertEquals(45000, (float) $b->fresh()->amount_due);
         $this->post('/client/invoice-payments/' . $rc->id . '/void')->assertSessionHas('error'); // tidak bisa dua kali
         $this->assertBooksBalanced();
+        // jurnal penerimaan yang dibatalkan hilang dari GL, tanpa jurnal balik; nomor tidak dipakai ulang
+        $this->assertSame(0, \App\Models\Journal::where('ref_number', 'like', 'RC-%')->count());
+        $this->assertSame(0, \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->count());
+        $this->assertNull($rc->fresh()->journal_id);
+        $this->post('/client/sales/receipts', ['party_id' => $this->customer->id, 'account_id' => $this->cash->id, 'payment_date' => $today,
+            'alloc' => [$a->id => 1000]])->assertSessionHas('success');
+        $this->assertNotSame($rc->payment_number, \App\Models\InvoicePayment::orderByDesc('id')->first()->payment_number);
+        // jurnal otomatis milik faktur tidak boleh dihapus langsung dari Jurnal Umum
+        $this->delete('/client/journals/' . $a->fresh()->journal_id)->assertSessionHas('error');
+        $this->assertNotNull(\App\Models\Journal::find($a->fresh()->journal_id));
 
         // retur lalu bayar sisanya: retur tidak boleh "hidup lagi"
         $this->post('/client/sales/returns', ['customer_id' => $this->customer->id, 'sales_invoice_id' => $b->id, 'return_number' => 'SR-9',

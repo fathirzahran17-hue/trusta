@@ -16,12 +16,28 @@ class LedgerPeriod
     /** @return array{from:?string,to:?string,preset:string} */
     public static function resolve(Request $request): array
     {
+        // Pilihan terakhir diingat selama sesi, agar tidak kembali ke "Bulan ini" setiap membuka halaman / selesai input.
+        $explicit = $request->filled('from') || $request->filled('to') || $request->filled('range');
+        $session = $request->hasSession() ? $request->session() : null;
+        if (!$explicit && $session && is_array($saved = $session->get('ledger_period'))) {
+            $request = new Request($saved);
+        }
+        $result = self::compute($request);
+        if ($explicit && $session) {
+            $session->put('ledger_period', array_filter($request->only(['range', 'from', 'to']), fn ($v) => $v !== null && $v !== ''));
+        }
+
+        return $result;
+    }
+
+    private static function compute(Request $request): array
+    {
         $today = Carbon::today();
-        $preset = (string) $request->query('range', '');
+        $preset = (string) $request->input('range', '');
 
         if ($request->filled('from') || $request->filled('to')) {
-            $from = self::date($request->query('from'));
-            $to = self::date($request->query('to'));
+            $from = self::date($request->input('from'));
+            $to = self::date($request->input('to'));
             if ($from && $to && $from > $to) { [$from, $to] = [$to, $from]; }
             return ['from' => $from, 'to' => $to, 'preset' => 'custom'];
         }
