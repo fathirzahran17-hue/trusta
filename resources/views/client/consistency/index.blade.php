@@ -21,7 +21,14 @@
                     @foreach($rows as $r)
                         <tr>
                             <td class="wrap">{{ $r['text'] }}@if($r['hint'])<div style="font-size:.7rem; color: var(--text-dim); margin-top:2px;">{{ $r['hint'] }}</div>@endif</td>
-                            <td class="r">@if($r['url'])<a class="lnk" href="{{ $r['url'] }}">Buka</a>@endif</td>
+                            <td class="r" style="white-space:nowrap;">
+                                @if($r['fix'])
+                                    <form method="POST" action="{{ $r['fix']['url'] }}" style="display:inline" onsubmit="return confirm('Buat ulang jurnal faktur ini sekarang?')">@csrf
+                                        <button type="submit" class="btn-primary" style="font-size:.72rem; padding:4px 10px;">{{ $r['fix']['label'] }}</button>
+                                    </form>
+                                @endif
+                                @if($r['url'])<a class="lnk" href="{{ $r['url'] }}" style="margin-left:10px;">Buka</a>@endif
+                            </td>
                         </tr>
                     @endforeach
                     </tbody>

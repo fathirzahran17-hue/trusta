@@ -19,8 +19,8 @@ class ConsistencyController extends Controller
     {
         $cid = (int) auth()->user()->company_id;
         $issues = [];
-        $add = function (string $group, string $text, ?string $url = null, ?string $hint = null) use (&$issues) {
-            $issues[$group][] = ['text' => $text, 'url' => $url, 'hint' => $hint];
+        $add = function (string $group, string $text, ?string $url = null, ?string $hint = null, ?array $fix = null) use (&$issues) {
+            $issues[$group][] = ['text' => $text, 'url' => $url, 'hint' => $hint, 'fix' => $fix];
         };
 
         // 1. Jurnal tidak seimbang
@@ -45,7 +45,8 @@ class ConsistencyController extends Controller
                 // 2. Faktur aktif tanpa jurnal
                 if ($active && (! $inv->journal_id || ! $journalIds->has($inv->journal_id))) {
                     $add("$label tanpa jurnal", "{$inv->invoice_number}: jurnal faktur tidak ditemukan di Buku Besar (hutang/piutang & pendapatan/biaya tidak tercatat).", $url,
-                        'Buka faktur ini; bila memang tidak jadi, batalkan pembayarannya lebih dulu.');
+                        'Jurnal akan dibuat ulang dari isi faktur (tanggal, akun biaya/persediaan, pajak, hutang) bila tombol di kanan ditekan.',
+                        $kind === 'purchase' ? ['url' => route('client.consistency.rebuild-purchase', $inv->id), 'label' => 'Buat ulang jurnal'] : null);
                 }
 
                 // 3. Dibayar vs total pembayaran aktif
@@ -87,5 +88,17 @@ class ConsistencyController extends Controller
         }
 
         return view('client.consistency.index', compact('issues'));
+    }
+
+    public function rebuildPurchase(PurchaseInvoice $purchase_invoice)
+    {
+        abort_if((int) $purchase_invoice->company_id !== (int) auth()->user()->company_id, 403);
+        try {
+            $msg = \App\Services\InvoiceJournalRebuilder::purchase($purchase_invoice, auth()->id());
+        } catch (\DomainException $e) {
+            return redirect()->route('client.consistency')->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('client.consistency')->with('success', $msg);
     }
 }

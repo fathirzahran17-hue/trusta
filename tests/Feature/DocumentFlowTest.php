@@ -1143,6 +1143,17 @@ class DocumentFlowTest extends TestCase
         // jurnal faktur hilang (mis. dihapus manual) => terdeteksi
         \App\Models\JournalDetail::where('journal_id', $inv->journal_id)->delete();
         \App\Models\Journal::where('id', $inv->journal_id)->delete();
-        $this->get('/client/consistency')->assertOk()->assertSee('tanpa jurnal')->assertSee($inv->invoice_number);
+        $this->get('/client/consistency')->assertOk()->assertSee('tanpa jurnal')->assertSee($inv->invoice_number)->assertSee('Buat ulang jurnal');
+
+        // buat ulang jurnal dari isi faktur: seimbang, hutang = total faktur, pemeriksaan kembali bersih
+        $this->post('/client/consistency/rebuild-purchase/' . $inv->id)->assertSessionHas('success');
+        $j = $inv->fresh()->journal;
+        $this->assertNotNull($j);
+        $this->assertEqualsWithDelta(100000, (float) $j->details->sum('credit'), 0.01);
+        $this->assertEqualsWithDelta(100000, (float) $j->details->sum('debit'), 0.01);
+        $this->assertSame($inv->invoice_number, $j->ref_number);
+        $this->get('/client/consistency')->assertOk()->assertSee('Semua konsisten');
+        $this->assertBooksBalanced();
+        $this->post('/client/consistency/rebuild-purchase/' . $inv->id)->assertSessionHas('error'); // sudah punya jurnal
     }
 }
