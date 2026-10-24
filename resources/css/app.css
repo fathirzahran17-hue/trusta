@@ -1205,3 +1205,20 @@ html.dark .st-paid { color: #4ade80; } html.dark .st-partial { color: #fbbf24; }
 .cb-sticky { position: sticky; top: -20px; z-index: 30; margin: 0 -24px; padding: 8px 24px 12px; background: var(--bg-page); }
 .cb-sticky > .cb-card { margin-bottom: 0 !important; box-shadow: 0 6px 18px rgba(2, 6, 23, .18); max-height: 50vh; overflow-y: auto; }
 @media (max-width: 768px) { .cb-sticky { position: static; margin: 0; padding: 0 0 12px; } .cb-sticky > .cb-card { max-height: none; } }
+
+/* Efek hover lewat CSS (bukan JS yang menulis ulang atribut style, yang membuat penyesuaian tema tidak lagi cocok) */
+.acct-card:hover { border-color: rgba(20,184,166,.45) !important; }
+.ico-act { color: var(--text-dim); transition: color .15s; }
+.ico-act.ico-view:hover { color: var(--accent); }
+.ico-act.ico-edit:hover { color: var(--text-strong); }
+.ico-act.ico-del:hover { color: #ef4444; }
+
+/* Cadangan: bila atribut style ditulis ulang browser/JS ("rgba(30, 41, 59, 0.5)" berspasi), tema terang tetap berlaku */
+html:not(.dark) .page-content [style*="background: rgba(30, 41, 59, 0.5"],
+html:not(.dark) .page-content [style*="background: rgba(30, 41, 59, 0.6"] { background: var(--surface) !important; }
+html:not(.dark) .page-content [style*="background: rgba(30, 41, 59, 0.3"],
+html:not(.dark) .page-content [style*="background: rgba(30, 41, 59, 0.4"],
+html:not(.dark) .page-content [style*="background: rgba(15, 23, 42"] { background: var(--surface-2) !important; }
+
+/* Daftar pilihan TomSelect selalu di atas kartu form yang membeku */
+.ts-dropdown { z-index: 9999 !important; }
