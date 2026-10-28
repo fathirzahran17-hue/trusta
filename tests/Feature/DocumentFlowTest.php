@@ -1223,4 +1223,73 @@ class DocumentFlowTest extends TestCase
         $this->assertEquals($cashBefore, (float) $this->cash->fresh()->balance);
         $this->assertBooksBalanced();
     }
+
+    public function test_down_payments_can_be_applied_to_invoices_and_cancelled(): void
+    {
+        $cid = $this->user->company_id;
+        $today = date('Y-m-d');
+        $po = $this->createPurchaseAndReceive(10);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-DP',
+            'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertSessionMissing('error');
+        $inv = PurchaseInvoice::firstOrFail();
+
+        $this->post('/client/purchases/down-payments', ['payment_number' => 'DP-P-T1', 'supplier_id' => $this->supplier->id, 'payment_date' => $today,
+            'amount' => 30000, 'account_id' => $this->cash->id])->assertSessionHas('success');
+        $dp = \App\Models\DownPayment::where('type', 'purchase')->firstOrFail();
+        $advance = \App\Services\AccountResolver::purchaseAdvance($cid);
+        $ap = \App\Services\AccountResolver::payable($cid);
+        $this->assertEquals(30000, (float) $advance->fresh()->balance);
+
+        // pakai uang muka sebagian untuk faktur
+        $this->post('/client/purchase-invoices/' . $inv->id . '/down-payments', ['down_payment_id' => $dp->id, 'amount' => '20.000,00', 'applied_date' => $today])->assertSessionHas('success');
+        $this->assertEquals(80000, (float) $inv->fresh()->amount_due);
+        $this->assertEquals(20000, (float) $inv->fresh()->amount_paid);
+        $this->assertSame('partial', $inv->fresh()->status);
+        $this->assertEquals(10000, (float) $advance->fresh()->balance);
+        $this->assertEquals(80000, (float) $ap->fresh()->balance); // hutang 100.000 - uang muka dipakai 20.000
+        $this->assertEquals(10000, $dp->fresh()->remaining);
+        $this->assertBooksBalanced();
+        $this->get('/client/purchase-invoices/' . $inv->id)->assertOk()->assertSee('Uang Muka Terpakai');
+        $this->get('/client/purchases/down-payments')->assertOk()->assertSee('10.000,00');
+        $this->get('/client/consistency')->assertOk()->assertDontSee('jumlah dibayar tidak cocok');
+
+        // melebihi sisa uang muka / sisa tagihan ditolak; jurnal otomatis tidak bisa dihapus
+        $this->post('/client/purchase-invoices/' . $inv->id . '/down-payments', ['down_payment_id' => $dp->id, 'amount' => 15000, 'applied_date' => $today])->assertSessionHas('error');
+        $app = \App\Models\DownPaymentApplication::firstOrFail();
+        $this->delete('/client/journals/' . $app->journal_id)->assertSessionHas('error');
+
+        // batalkan pemakaian: kembali seperti semula
+        $this->post('/client/down-payment-applications/' . $app->id . '/void')->assertSessionHas('success');
+        $this->assertEquals(100000, (float) $inv->fresh()->amount_due);
+        $this->assertSame('unpaid', $inv->fresh()->status);
+        $this->assertEquals(30000, (float) $advance->fresh()->balance);
+        $this->assertEquals(30000, $dp->fresh()->remaining);
+        $this->post('/client/down-payment-applications/' . $app->id . '/void')->assertSessionHas('error');
+        $this->assertBooksBalanced();
+
+        // uang muka penuh melunasi faktur
+        $this->post('/client/purchases/down-payments', ['payment_number' => 'DP-P-T2', 'supplier_id' => $this->supplier->id, 'payment_date' => $today,
+            'amount' => 80000, 'account_id' => $this->cash->id])->assertSessionHas('success');
+        $dp2 = \App\Models\DownPayment::where('payment_number', 'DP-P-T2')->firstOrFail();
+        $this->post('/client/purchase-invoices/' . $inv->id . '/down-payments', ['down_payment_id' => $dp->id, 'amount' => 30000, 'applied_date' => $today])->assertSessionHas('success');
+        $this->post('/client/purchase-invoices/' . $inv->id . '/down-payments', ['down_payment_id' => $dp2->id, 'amount' => 70000, 'applied_date' => $today])->assertSessionHas('success');
+        $this->assertSame('paid', $inv->fresh()->status);
+        $this->assertEquals(0, (float) $inv->fresh()->amount_due);
+        $this->assertEquals(10000, $dp2->fresh()->remaining);
+        $this->post("/client/purchase-invoices/{$inv->id}/void")->assertSessionHas('error'); // sudah ada pembayaran
+        $this->assertBooksBalanced();
+
+        // penjualan
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [2], 'prices' => [15000], 'discounts' => [0]])->assertSessionMissing('error');
+        $sinv = SalesInvoice::firstOrFail();
+        $this->post('/client/sales/down-payments', ['payment_number' => 'DP-S-T1', 'customer_id' => $this->customer->id, 'payment_date' => $today,
+            'amount' => 10000, 'account_id' => $this->cash->id])->assertSessionHas('success');
+        $sdp = \App\Models\DownPayment::where('type', 'sales')->firstOrFail();
+        $this->post('/client/sales-invoices/' . $sinv->id . '/down-payments', ['down_payment_id' => $sdp->id, 'amount' => 10000, 'applied_date' => $today])->assertSessionHas('success');
+        $this->assertEquals(20000, (float) $sinv->fresh()->amount_due);
+        $this->assertEquals(0, (float) \App\Services\AccountResolver::salesAdvance($cid)->fresh()->balance);
+        $this->assertBooksBalanced();
+        $this->get('/client/sales/down-payments')->assertOk();
+    }
 }

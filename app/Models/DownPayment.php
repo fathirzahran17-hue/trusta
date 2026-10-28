@@ -63,4 +63,21 @@ class DownPayment extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function applications()
+    {
+        return $this->hasMany(DownPaymentApplication::class)->whereNull('voided_at');
+    }
+
+    /** Uang muka yang sudah dipakai melunasi faktur. */
+    public function getAppliedAmountAttribute(): float
+    {
+        return round((float) $this->applications()->sum('amount'), 2);
+    }
+
+    /** Sisa uang muka yang belum dipakai. */
+    public function getRemainingAttribute(): float
+    {
+        return max(0, round((float) $this->amount - $this->applied_amount, 2));
+    }
 }

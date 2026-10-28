@@ -50,7 +50,8 @@ class ConsistencyController extends Controller
                 }
 
                 // 3. Dibayar vs total pembayaran aktif
-                $paid = (float) InvoicePayment::where('company_id', $cid)->where($fk, $inv->id)->whereNull('voided_at')->sum('amount');
+                $paid = (float) InvoicePayment::where('company_id', $cid)->where($fk, $inv->id)->whereNull('voided_at')->sum('amount')
+                    + (float) \App\Models\DownPaymentApplication::where('company_id', $cid)->where($fk, $inv->id)->whereNull('voided_at')->sum('amount');
                 if ($active && abs($paid - (float) $inv->amount_paid) > 0.01) {
                     $add("$label: jumlah dibayar tidak cocok", "{$inv->invoice_number}: tercatat dibayar Rp " . number_format($inv->amount_paid, 2, ',', '.') . ', total pembayaran aktif Rp ' . number_format($paid, 2, ',', '.'), $url);
                 }

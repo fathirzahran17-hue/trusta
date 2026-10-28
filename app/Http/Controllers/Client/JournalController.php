@@ -297,6 +297,9 @@ class JournalController extends Controller
         if (\Illuminate\Support\Facades\DB::table('depreciation_entries')->where('journal_id', $journal->id)->whereNull('voided_at')->exists()) {
             return 'Penyusutan Aset Tetap';
         }
+        if (\Illuminate\Support\Facades\DB::table('down_payment_applications')->where('journal_id', $journal->id)->whereNull('voided_at')->exists()) {
+            return 'Pemakaian Uang Muka';
+        }
         if (\Illuminate\Support\Facades\DB::table('invoice_payments')->where('journal_id', $journal->id)->whereNull('voided_at')->exists()) {
             return 'Pembayaran/Penerimaan faktur';
         }

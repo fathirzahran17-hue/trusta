@@ -86,6 +86,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::get('accounts/history/{account?}', [\App\Http\Controllers\Client\AccountController::class, 'history'])->name('accounts.history');
     Route::resource('accounts', \App\Http\Controllers\Client\AccountController::class);
     Route::get('consistency', [\App\Http\Controllers\Client\ConsistencyController::class, 'index'])->name('consistency');
+    Route::post('sales-invoices/{sales_invoice}/down-payments', [\App\Http\Controllers\Client\DownPaymentApplicationController::class, 'applySales'])->name('sales-invoices.down-payments.apply');
+    Route::post('purchase-invoices/{purchase_invoice}/down-payments', [\App\Http\Controllers\Client\DownPaymentApplicationController::class, 'applyPurchase'])->name('purchase-invoices.down-payments.apply');
+    Route::post('down-payment-applications/{application}/void', [\App\Http\Controllers\Client\DownPaymentApplicationController::class, 'void'])->whereNumber('application')->name('down-payment-applications.void');
     Route::post('consistency/rebuild-purchase/{purchase_invoice}', [\App\Http\Controllers\Client\ConsistencyController::class, 'rebuildPurchase'])->whereNumber('purchase_invoice')->name('consistency.rebuild-purchase');
     Route::resource('journals', \App\Http\Controllers\Client\JournalController::class);
     Route::resource('project-jobs', \App\Http\Controllers\Client\ProjectJobController::class);

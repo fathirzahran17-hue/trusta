@@ -59,7 +59,7 @@ class InvoicePaymentService
     }
 
     /** Terapkan perubahan jumlah dibayar secara inkremental (aman terhadap retur yang sudah mengurangi sisa tagihan). */
-    private static function applyPaid($invoice, float $delta): void
+    public static function applyPaid($invoice, float $delta): void
     {
         $paid = max(0, round((float) $invoice->amount_paid + $delta, 2));
         $due = max(0, round((float) $invoice->amount_due - $delta, 2));
