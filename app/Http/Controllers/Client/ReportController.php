@@ -50,12 +50,12 @@ class ReportController extends Controller
 
         switch ($request->input('export')) {
             case 'excel':
-                $ss = ReportXlsx::build($doc, $company, $user->name);
-                return response()->streamDownload(function () use ($ss) {
-                    (new Xlsx($ss))->save('php://output');
-                }, $file . '.xlsx', [
-                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                ]);
+                try {
+                    return \App\Helpers\XlsxExporter::download(ReportXlsx::build($doc, $company, $user->name), $file . '.xlsx');
+                } catch (\Throwable $e) {
+                    report($e);
+                    return back()->with('error', 'Unduhan Excel gagal: ' . $e->getMessage() . ' — coba tombol CSV, atau kirim pesan ini ke admin.');
+                }
 
             case 'csv':
                 $headers = array_column($doc['columns'], 'label');
