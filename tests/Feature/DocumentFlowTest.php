@@ -1626,4 +1626,32 @@ class DocumentFlowTest extends TestCase
         $this->assertBooksBalanced();
         $this->get('/client/fixed-assets/tax-categories')->assertRedirect();
     }
+
+    public function test_bank_reconciliation_requires_matching_statement_and_can_be_undone(): void
+    {
+        $today = date('Y-m-d');
+        $exp = Account::where('company_id', $this->user->company_id)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header);
+        $rev = Account::where('company_id', $this->user->company_id)->where('type', 'revenue')->get()->first(fn ($a) => !$a->is_header);
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', ['transaction_type' => 'receive', 'transaction_date' => $today, 'description' => 'masuk', 'contra_account_id' => [$rev->id], 'amounts' => [500000]])->assertSessionHas('success');
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', ['transaction_type' => 'spend', 'transaction_date' => $today, 'description' => 'keluar', 'contra_account_id' => [$exp->id], 'amounts' => [200000]])->assertSessionHas('success');
+        $lines = \App\Models\JournalDetail::where('account_id', $this->cash->id)->orderBy('id')->get();
+        $opening = (float) $this->cash->fresh()->opening_balance;
+
+        $this->get('/client/cash-bank/reconciliation?account_id=' . $this->cash->id . '&date=' . $today)->assertOk();
+        $this->get('/client/cash-bank/reconciliation?account_id=' . $this->cash->id . '&date=' . $today)->assertSee('masuk')->assertSee('keluar');
+        // rekening koran baru memuat penerimaan saja -> saldo opening + 500.000; mencentang keduanya tidak cocok
+        $this->post('/client/cash-bank/reconciliation', ['account_id' => $this->cash->id, 'date' => $today, 'statement_balance' => $opening + 500000, 'lines' => $lines->pluck('id')->all()])->assertSessionHas('error');
+        $this->post('/client/cash-bank/reconciliation', ['account_id' => $this->cash->id, 'date' => $today, 'statement_balance' => $opening + 500000, 'lines' => [$lines[0]->id]])->assertSessionHas('success');
+        $rec = \App\Models\BankReconciliation::firstOrFail();
+        $this->assertSame($rec->id, (int) $lines[0]->fresh()->bank_reconciliation_id);
+        // yang belum cocok tetap muncul di rekonsiliasi berikutnya
+        $this->get('/client/cash-bank/reconciliation?account_id=' . $this->cash->id . '&date=' . $today)->assertSee('keluar')->assertDontSee('>masuk<', false);
+        $this->post('/client/cash-bank/reconciliation', ['account_id' => $this->cash->id, 'date' => $today, 'statement_balance' => $opening + 300000, 'lines' => [$lines[1]->id]])->assertSessionHas('success');
+        // batal hanya yang terbaru
+        $this->post('/client/cash-bank/reconciliation/' . $rec->id . '/void')->assertSessionHas('error');
+        $latest = \App\Models\BankReconciliation::latest('id')->first();
+        $this->post('/client/cash-bank/reconciliation/' . $latest->id . '/void')->assertSessionHas('success');
+        $this->assertNull($lines[1]->fresh()->bank_reconciliation_id);
+        $this->get('/client/cash-bank/statements')->assertRedirect();
+    }
 }

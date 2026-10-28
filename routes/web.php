@@ -117,7 +117,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::post('cash-bank/transfers', [\App\Http\Controllers\Client\CashBankController::class, 'storeTransfers'])->name('cash-bank.transfers.store');
     Route::get('cash-bank/statements', [\App\Http\Controllers\Client\CashBankController::class, 'statements'])->name('cash-bank.statements');
 
-    Route::get('cash-bank/reconciliation', [\App\Http\Controllers\Client\CashBankController::class, 'reconciliation'])->name('cash-bank.reconciliation');
+    Route::get('cash-bank/reconciliation', [\App\Http\Controllers\Client\BankReconciliationController::class, 'index'])->name('cash-bank.reconciliation');
+    Route::post('cash-bank/reconciliation', [\App\Http\Controllers\Client\BankReconciliationController::class, 'store'])->name('cash-bank.reconciliation.store');
+    Route::post('cash-bank/reconciliation/{reconciliation}/void', [\App\Http\Controllers\Client\BankReconciliationController::class, 'void'])->whereNumber('reconciliation')->name('cash-bank.reconciliation.void');
     Route::get('cash-bank/{account}', [\App\Http\Controllers\Client\CashBankController::class, 'show'])->name('cash-bank.show');
     Route::post('cash-bank/{account}/transaction', [\App\Http\Controllers\Client\CashBankController::class, 'storeTransaction'])->name('cash-bank.transaction');
     
