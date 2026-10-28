@@ -1503,4 +1503,33 @@ class DocumentFlowTest extends TestCase
         $this->assertSame(1, PurchaseInvoice::count());
         $this->assertBooksBalanced();
     }
+
+    public function test_payment_can_be_cancelled_from_its_journal_page_and_invoice_reopens(): void
+    {
+        $today = date('Y-m-d');
+        $this->createPurchaseAndReceive(10);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [2], 'prices' => [50000], 'discounts' => [0]])->assertRedirect();
+        $inv = SalesInvoice::firstOrFail();
+        $this->post("/client/sales-invoices/{$inv->id}/payments", ['account_id' => $this->cash->id, 'amount' => 100000, 'payment_date' => $today])->assertSessionHas('success');
+        $this->assertSame('paid', $inv->fresh()->status);
+        $pay = \App\Models\InvoicePayment::firstOrFail();
+
+        $this->get('/client/journals/' . $pay->journal_id)->assertOk()
+            ->assertSee('Batalkan Pembayaran')->assertSee($pay->payment_number)->assertDontSee('Void Jurnal');
+
+        $this->from('/client/journals/' . $pay->journal_id)->post('/client/invoice-payments/' . $pay->id . '/void')
+            ->assertRedirect('/client/journals/' . $pay->journal_id)->assertSessionHas('success');
+        $this->assertSame('unpaid', $inv->fresh()->status);
+        $this->assertEquals(100000, (float) $inv->fresh()->amount_due);
+        $this->assertNotNull(\App\Models\InvoicePayment::find($pay->id)->voided_at); // tidak dihapus
+        $this->get('/client/sales/receipts')->assertSee($pay->payment_number)->assertSee('Dibatalkan');
+
+        // jurnal asli & jurnal baliknya tetap terkunci sebagai jejak
+        $this->get('/client/journals/' . $pay->journal_id)->assertSee('sudah dibatalkan')->assertDontSee('Void Jurnal');
+        $this->delete('/client/journals/' . $pay->journal_id)->assertSessionHas('error');
+        $rev = \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->firstOrFail();
+        $this->delete('/client/journals/' . $rev->id)->assertSessionHas('error');
+        $this->assertBooksBalanced();
+    }
 }
