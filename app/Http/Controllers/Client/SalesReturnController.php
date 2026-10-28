@@ -113,6 +113,7 @@ class SalesReturnController extends Controller
             ]);
 
             $totalHpp = 0;
+            $hppByInv = [];
             foreach ($items as $item) {
                 $product = Product::find($item['product_id']);
                 SalesReturnItem::create(array_merge($item, ['sales_return_id' => $salesReturn->id]));
@@ -121,6 +122,8 @@ class SalesReturnController extends Controller
                 if ($product && $product->type === 'goods') {
                     $cost = (float) $product->buy_price;
                     $totalHpp += $cost * $item['quantity'];
+                    $ia = optional(\App\Services\AccountResolver::inventoryFor($product, (int) $companyId))->id;
+                    $hppByInv[$ia] = ($hppByInv[$ia] ?? 0) + $cost * $item['quantity'];
                     \App\Models\InventoryMovement::create([
                         'company_id' => $companyId, 'product_id' => $product->id, 'date' => $request->return_date, 'type' => 'in',
                         'quantity' => $item['quantity'], 'unit_cost' => $cost, 'remaining_qty' => $item['quantity'],
@@ -164,11 +167,12 @@ class SalesReturnController extends Controller
             // Dr Persediaan / Cr HPP untuk barang yang kembali
             if ($totalHpp > 0) {
                 $hpp = \App\Services\AccountResolver::cogs($companyId);
-                $inv = \App\Services\AccountResolver::inventory($companyId);
-                if (!$hpp || !$inv) throw new \Exception('Akun HPP / Persediaan belum disiapkan di Bagan Akun.');
-                JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $inv->id, 'debit' => $totalHpp, 'credit' => 0,
-                    'description' => 'Stok Retur ' . $salesReturn->return_number]);
-                JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $hpp->id, 'debit' => 0, 'credit' => $totalHpp,
+                if (!$hpp || array_key_exists('', $hppByInv)) throw new \Exception('Akun HPP / Persediaan belum disiapkan di Bagan Akun.');
+                foreach ($hppByInv as $ia => $amt) {
+                    JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $ia, 'debit' => round($amt, 2), 'credit' => 0,
+                        'description' => 'Stok Retur ' . $salesReturn->return_number]);
+                }
+                JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $hpp->id, 'debit' => 0, 'credit' => array_sum(array_map(fn ($v) => round($v, 2), $hppByInv)),
                     'description' => 'Koreksi HPP ' . $salesReturn->return_number]);
             }
             \App\Services\JournalGuard::assertBalanced($journal);

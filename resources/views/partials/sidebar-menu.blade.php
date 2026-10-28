@@ -9,6 +9,7 @@
         'book'  => 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
         'chart' => 'M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z',
         'calc'  => 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
+        'factory' => 'M3 21h18M5 21V10l5 3V10l5 3V5h4v16M9 17h1m4 0h1',
         'lock'  => 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
         'cog'   => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
     ];
@@ -19,6 +20,10 @@
     $S = fn($n, $l, $r, $p = null) => ['l' => $l, 'r' => $r, 'p' => (array) ($p ?? $r), 'x' => [], 'n' => $n];
 
     $isStaff = auth()->user()->role === 'client_staff';
+    // Menu menyesuaikan bidang usaha (Preferensi > Bidang Usaha): Jasa tanpa stok, Manufaktur dengan Produksi.
+    $bizType = \App\Support\BusinessType::current();
+    $hasStock = \App\Support\BusinessType::hasStock($bizType);
+    $steps = function (array $items) { $n = 0; return array_values(array_map(function ($c) use (&$n) { if (isset($c['n'])) { $c['n'] = ++$n; } return $c; }, array_filter($items))); };
 
     // Urutan mengikuti siklus akuntansi:
     // data awal -> transaksi harian (jual, beli, kas, persediaan, aset) -> jurnal & buku besar -> laporan -> tutup buku -> pengaturan.
@@ -37,38 +42,38 @@
             ]))],
         ]],
         ['label' => '2. Transaksi', 'items' => [
-            ['title' => 'Penjualan', 'icon' => 'sales', 'children' => [
+            ['title' => 'Penjualan', 'icon' => 'sales', 'children' => $steps([
                 $I('Ringkasan Penjualan', 'client.sales.hub'),
                 $H('Alur Penjualan'),
                 $S(1, 'Pelanggan', 'client.customers.index', ['client.customers.index','client.customers.create','client.customers.show','client.customers.edit']),
                 $S(2, 'Pesanan Penjualan', 'client.sales.orders', 'client.sales.orders*'),
-                $S(3, 'Pengiriman Barang', 'client.sales.deliveries', 'client.sales.deliveries*'),
+                $hasStock ? $S(3, 'Pengiriman Barang', 'client.sales.deliveries', 'client.sales.deliveries*') : null,
                 $S(4, 'Faktur Penjualan', 'client.sales-invoices.index', ['client.sales-invoices.*', 'client.sales.settlement']),
                 $S(5, 'Penerimaan Pembayaran', 'client.sales.receipts'),
                 $H('Lainnya'),
                 $I('Uang Muka Penjualan', 'client.sales.down_payments'),
                 $I('Retur Penjualan', 'client.sales.returns', 'client.sales.returns*'),
                 $I('Kategori Pelanggan', 'client.customers.categories'),
-            ]],
-            ['title' => 'Pembelian', 'icon' => 'buy', 'children' => [
+            ])],
+            ['title' => 'Pembelian', 'icon' => 'buy', 'children' => $steps([
                 $I('Ringkasan Pembelian', 'client.purchases.hub'),
                 $H('Alur Pembelian'),
                 $S(1, 'Pemasok', 'client.suppliers.index', ['client.suppliers.index','client.suppliers.create','client.suppliers.show','client.suppliers.edit']),
                 $S(2, 'Pesanan Pembelian', 'client.purchases.orders', 'client.purchases.orders*'),
-                $S(3, 'Penerimaan Barang', 'client.purchases.receipts', 'client.purchases.receipts*'),
+                $hasStock ? $S(3, 'Penerimaan Barang', 'client.purchases.receipts', 'client.purchases.receipts*') : null,
                 $S(4, 'Faktur Pembelian', 'client.purchase-invoices.index', ['client.purchase-invoices.*', 'client.purchases.settlement']),
                 $S(5, 'Pembayaran Pemasok', 'client.purchases.payments'),
                 $H('Lainnya'),
                 $I('Uang Muka Pembelian', 'client.purchases.down_payments'),
                 $I('Retur Pembelian', 'client.purchases.returns', 'client.purchases.returns*'),
                 $I('Kategori Pemasok', 'client.suppliers.categories'),
-            ]],
+            ])],
             ['title' => 'Kas & Bank', 'icon' => 'cash', 'children' => [
                 $I('Kas & Bank (Terima/Keluarkan)', 'client.cash-bank.index', ['client.cash-bank.index', 'client.cash-bank.show', 'client.cash-bank.receipts', 'client.cash-bank.payments']),
                 $I('Transfer Antar Rekening', 'client.cash-bank.transfers'),
                 $I('Rekonsiliasi Bank', 'client.cash-bank.reconciliation'),
             ]],
-            ['title' => 'Persediaan', 'icon' => 'box', 'children' => [
+            $hasStock ? ['title' => 'Persediaan', 'icon' => 'box', 'children' => [
                 $H('Produk & Jasa'),
                 $I('Semua Produk & Jasa', 'client.inventory.all'),
                 $I('Barang (bersetok)', 'client.inventory.index', ['client.inventory.index', 'client.inventory.show', 'client.inventory.edit', 'client.inventory.create'], [], 'goods'),
@@ -83,7 +88,14 @@
                 $I('Satuan', 'client.inventory.units'),
                 $I('Kategori Barang', 'client.inventory.categories', 'client.inventory.categories*'),
                 $I('Merek', 'client.inventory.brands'),
+            ]] : ['title' => 'Daftar Jasa', 'icon' => 'box', 'children' => [
+                $I('Jasa', 'client.inventory.services', ['client.inventory.services', 'client.inventory.services.create', 'client.inventory.show', 'client.inventory.edit', 'client.inventory.all'], [], 'service'),
+                $I('Kategori', 'client.inventory.categories', 'client.inventory.categories*'),
             ]],
+            \App\Support\BusinessType::hasProduction($bizType) ? ['title' => 'Produksi', 'icon' => 'factory', 'children' => [
+                $S(1, 'Resep Produk (BOM)', 'client.production.boms', 'client.production.boms*'),
+                $S(2, 'Perintah Produksi', 'client.production.orders', 'client.production.orders*'),
+            ]] : null,
             ['title' => 'Aset Tetap', 'icon' => 'asset', 'children' => [
                 $S(1, 'Daftar Aset Tetap', 'client.fixed_assets.index', ['client.fixed_assets.index', 'client.fixed_assets.create', 'client.fixed_assets.edit']),
                 $S(2, 'Penyusutan', 'client.fixed_assets.depreciation'),
@@ -117,6 +129,7 @@
         $sections[] = ['label' => 'Pengaturan', 'items' => [
             ['title' => 'Perusahaan', 'icon' => 'cog', 'children' => [
                 $I('Preferensi', 'client.settings.preferences'),
+                $I('Langganan', 'client.billing', 'client.billing*'),
                 $I('Manajemen Staf', 'client.users.index', 'client.users.*'),
                 $I('Log Aktivitas', 'client.activity_logs.index', 'client.activity_logs.*'),
             ]],
@@ -139,7 +152,7 @@
 
 @foreach($sections as $sec)
     <div class="nav-section-label">{{ $sec['label'] }}</div>
-    @foreach($sec['items'] as $entry)
+    @foreach(array_filter($sec['items']) as $entry)
         @if(isset($entry['single']))
             @php $it = $entry['single']; @endphp
             <a href="{{ route($it['r']) }}" class="nav-item {{ $isActive($it) ? 'active' : '' }}">

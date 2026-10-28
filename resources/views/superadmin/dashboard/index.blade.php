@@ -1,89 +1,75 @@
 <x-app-layout>
-    @section('title', 'Super Admin Dashboard')
-    @section('subtitle', 'Overview platform TRUSTA')
+    @section('title', 'Dashboard Platform')
+    @section('subtitle', 'Ringkasan klien, langganan, dan pendapatan TRUSTA')
 
-    <!-- Stats Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <!-- Stat Card 1 -->
-        <div class="bg-gray-800/40 border border-gray-700/50 p-6 rounded-2xl">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-12 h-12 rounded-xl bg-trusta-teal/10 flex items-center justify-center text-trusta-teal">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                </div>
-                <span class="text-xs font-semibold text-trusta-teal bg-trusta-teal/10 px-2.5 py-1 rounded-full">+12%</span>
-            </div>
-            <h3 class="text-3xl font-poppins font-bold text-white mb-1">{{ number_format($totalCompanies) }}</h3>
-            <p class="text-sm text-gray-400">Total Perusahaan (Client)</p>
-        </div>
+    @php $rp = fn ($v) => 'Rp ' . number_format((float) $v, 0, ',', '.'); @endphp
 
-        <!-- Stat Card 2 -->
-        <div class="bg-gray-800/40 border border-gray-700/50 p-6 rounded-2xl">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-12 h-12 rounded-xl bg-trusta-gold/10 flex items-center justify-center text-trusta-gold">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-            </div>
-            <h3 class="text-3xl font-poppins font-bold text-white mb-1">Rp {{ number_format($totalRevenue, 2, ',', '.') }}</h3>
-            <p class="text-sm text-gray-400">Pendapatan Subscription</p>
-        </div>
-
-        <!-- Stat Card 3 -->
-        <div class="bg-gray-800/40 border border-gray-700/50 p-6 rounded-2xl">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                </div>
-            </div>
-            <h3 class="text-3xl font-poppins font-bold text-white mb-1">{{ number_format($totalUsers) }}</h3>
-            <p class="text-sm text-gray-400">Total Pengguna Terdaftar</p>
-        </div>
-
-        <!-- Stat Card 4 -->
-        <div class="bg-gray-800/40 border border-gray-700/50 p-6 rounded-2xl">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                </div>
-            </div>
-            <h3 class="text-3xl font-poppins font-bold text-white mb-1">{{ number_format($expiredSubscriptions) }}</h3>
-            <p class="text-sm text-gray-400">Langganan Kedaluwarsa</p>
-        </div>
+    <div class="rpt-summary">
+        <div class="rpt-stat"><div class="l">Total Klien</div><div class="v">{{ number_format($stats['companies']) }}</div><div style="font-size:.7rem;color:var(--text-dim)">+{{ $stats['new_month'] }} bulan ini · {{ $stats['users'] }} pengguna</div></div>
+        <div class="rpt-stat good"><div class="l">Langganan Berbayar</div><div class="v">{{ $stats['paid'] }}</div><div style="font-size:.7rem;color:var(--text-dim)">{{ $stats['trial'] }} trial · {{ $stats['inactive'] }} tidak aktif</div></div>
+        <div class="rpt-stat"><div class="l">Pendapatan Bulanan (MRR)</div><div class="v">{{ $rp($stats['mrr']) }}</div><div style="font-size:.7rem;color:var(--text-dim)">dari langganan berbayar berjalan</div></div>
+        <div class="rpt-stat"><div class="l">Diterima Bulan Ini</div><div class="v">{{ $rp($stats['revenue_month']) }}</div><div style="font-size:.7rem;color:var(--text-dim)">pembayaran disetujui + aktivasi manual</div></div>
+        <a href="{{ route('superadmin.payments.index') }}" class="rpt-stat {{ $stats['pending'] ? 'bad' : '' }}" style="text-decoration:none"><div class="l">Pembayaran Menunggu</div><div class="v">{{ $stats['pending'] }}</div><div style="font-size:.7rem;color:var(--text-dim)">klik untuk konfirmasi</div></a>
     </div>
 
-    <!-- Pendaftaran Klien Baru -->
-    <div class="bg-gray-800/40 border border-gray-700/50 rounded-2xl overflow-hidden">
-        <div class="px-6 py-5 border-b border-gray-700/50 flex justify-between items-center bg-gray-800/20">
-            <h3 class="text-lg font-semibold text-white">Klien (Perusahaan) Terbaru</h3>
+    <div class="sa-grid">
+        <div class="pay-card">
+            <div class="pay-card-head"><h3>Pembayaran Menunggu Konfirmasi</h3><a class="pay-mini" href="{{ route('superadmin.payments.index') }}">Semua</a></div>
+            <table class="pay-table"><tbody>
+                @forelse($pendingPayments as $p)
+                    <tr><td class="wrap"><b>{{ optional($p->company)->name }}</b><div style="font-size:.7rem;color:var(--text-dim)">{{ optional($p->plan)->name }} · {{ $p->cycleLabel() }} · {{ $p->created_at->diffForHumans() }}</div></td><td class="r"><b>{{ $rp($p->amount) }}</b></td></tr>
+                @empty
+                    <tr><td class="pay-empty">Tidak ada yang menunggu.</td></tr>
+                @endforelse
+            </tbody></table>
         </div>
-        <div class="overflow-x-auto">
-            @if($recentCompanies->count() > 0)
-                <table class="w-full text-left">
-                    <thead>
-                        <tr class="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-widest border-b border-gray-700/50">
-                            <th class="p-4 font-medium">Nama Perusahaan</th>
-                            <th class="p-4 font-medium">Email</th>
-                            <th class="p-4 font-medium">No. Telepon</th>
-                            <th class="p-4 font-medium">Tanggal Bergabung</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-700/50 text-sm">
-                        @foreach($recentCompanies as $company)
-                        <tr class="hover:bg-gray-800/50 transition-colors">
-                            <td class="p-4 text-white font-medium">{{ $company->name }}</td>
-                            <td class="p-4 text-gray-400">{{ $company->email ?? '-' }}</td>
-                            <td class="p-4 text-gray-400">{{ $company->phone ?? '-' }}</td>
-                            <td class="p-4 text-gray-400">{{ $company->created_at->format('d M Y') }}</td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @else
-                <div class="p-6 text-center text-gray-400">
-                    Belum ada klien yang terdaftar.
-                </div>
-            @endif
-        </div>
-    </div>
-    </div>
 
+        <div class="pay-card">
+            <div class="pay-card-head"><h3>Berakhir dalam 14 Hari</h3><a class="pay-mini" href="{{ route('superadmin.clients.index', ['tab' => 'expiring']) }}">Semua</a></div>
+            <table class="pay-table"><tbody>
+                @forelse($expiring as $s)
+                    @php $left = (int) now()->startOfDay()->diffInDays($s->end_date, false); @endphp
+                    <tr><td class="wrap"><b>{{ optional($s->company)->name }}</b><div style="font-size:.7rem;color:var(--text-dim)">{{ optional($s->plan)->name }} · {{ $s->status === 'trial' ? 'Trial' : 'Berbayar' }}</div></td>
+                        <td class="r">{{ $s->end_date->format('d M Y') }}<div style="font-size:.7rem;color:var(--danger)">{{ $left === 0 ? 'hari ini' : 'sisa ' . $left . ' hari' }}</div></td></tr>
+                @empty
+                    <tr><td class="pay-empty">Tidak ada langganan yang segera berakhir.</td></tr>
+                @endforelse
+            </tbody></table>
+        </div>
+
+        <div class="pay-card">
+            <div class="pay-card-head"><h3>Pendaftar Terbaru</h3><a class="pay-mini" href="{{ route('superadmin.clients.index') }}">Semua klien</a></div>
+            <table class="pay-table"><tbody>
+                @forelse($recent as $c)
+                    <tr><td class="wrap"><b>{{ $c->name }}</b><div style="font-size:.7rem;color:var(--text-dim)">{{ \App\Support\BusinessType::label($c->business_type) }} · {{ $c->users_count }} pengguna</div></td>
+                        <td class="r">{{ $c->created_at->format('d M Y') }}<div>@if($c->is_premium)<span class="st st-paid">Aktif</span>@else<span class="st st-void" style="text-decoration:none">Tidak aktif</span>@endif</div></td></tr>
+                @empty
+                    <tr><td class="pay-empty">Belum ada klien.</td></tr>
+                @endforelse
+            </tbody></table>
+        </div>
+
+        <div class="pay-card">
+            <div class="pay-card-head"><h3>Komposisi Klien</h3></div>
+            <div style="padding: 14px 18px; display:grid; gap:14px">
+                <div>
+                    <div style="font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color: var(--text-dim); margin-bottom:8px">Bidang Usaha</div>
+                    @php $tot = max(1, $byType->sum()); @endphp
+                    @foreach(\App\Support\BusinessType::TYPES as $k => $t)
+                        @php $n = (int) ($byType[$k] ?? 0); @endphp
+                        <div style="display:flex; justify-content:space-between; font-size:.8rem; color: var(--text)"><span>{{ $t['label'] }}</span><b>{{ $n }}</b></div>
+                        <div class="sa-bar" style="margin:3px 0 8px"><i style="width: {{ round($n / $tot * 100) }}%"></i></div>
+                    @endforeach
+                </div>
+                <div>
+                    <div style="font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color: var(--text-dim); margin-bottom:8px">Paket Berjalan</div>
+                    @forelse($byPlan as $name => $n)
+                        <div style="display:flex; justify-content:space-between; font-size:.8rem; color: var(--text); padding:2px 0"><span>{{ $name }}</span><b>{{ $n }}</b></div>
+                    @empty
+                        <div style="font-size:.8rem; color: var(--text-dim)">Belum ada langganan berjalan.</div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    </div>
 </x-app-layout>

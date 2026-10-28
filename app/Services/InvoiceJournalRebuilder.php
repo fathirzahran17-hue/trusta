@@ -47,7 +47,7 @@ class InvoiceJournalRebuilder
                 } else {
                     $prod = Product::find($item->product_id);
                     if ($prod && $prod->type === 'goods') {
-                        $inventory = AccountResolver::inventory($cid);
+                        $inventory = AccountResolver::inventoryFor($prod, $cid);
                         if (! $inventory) {
                             throw new \DomainException('Akun Persediaan belum disiapkan di Chart of Accounts.');
                         }

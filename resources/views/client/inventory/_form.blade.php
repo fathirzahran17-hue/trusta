@@ -107,7 +107,8 @@
 </script>
 @else
 <div class="pay-card">
-    <details {{ $errors->has('expense_account_id') ? 'open' : '' }}>
+    @php $invSel = old('inventory_account_id', $p->inventory_account_id ?? ''); @endphp
+    <details {{ $errors->has('expense_account_id') || $errors->has('inventory_account_id') || $invSel || $inventoryAccounts->count() > 1 ? 'open' : '' }}>
         <summary style="cursor:pointer;padding:13px 18px;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-strong)">Pengaturan akun lanjutan <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--text-dim)">(sudah otomatis)</span></summary>
         <div class="pay-form-grid" style="padding-top:0">
             <div class="pay-field" style="grid-column: span 2">
@@ -115,7 +116,15 @@
                 <select name="expense_account_id" id="expense_account_id" class="searchable-select">
                     @foreach($costAccounts as $a)<option value="{{ $a->id }}" @selected($costSel == $a->id)>{{ $a->code }} - {{ $a->name }}</option>@endforeach
                 </select>
-                <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Dipakai saat barang terjual. Persediaan otomatis memakai akun Persediaan.</div>
+                <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Dipakai saat barang terjual.</div>
+            </div>
+            <div class="pay-field" style="grid-column: span 2">
+                <label for="inventory_account_id">Akun Persediaan</label>
+                <select name="inventory_account_id" id="inventory_account_id">
+                    <option value="">Otomatis ({{ optional($defaultInventory)->name ?? 'Persediaan' }})</option>
+                    @foreach($inventoryAccounts as $a)<option value="{{ $a->id }}" @selected($invSel == $a->id)>{{ $a->code }} - {{ $a->name }}</option>@endforeach
+                </select>
+                <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Manufaktur: pilih <b>Bahan Baku</b> untuk bahan, <b>Barang Jadi</b> untuk hasil produksi.</div>
             </div>
         </div>
     </details>

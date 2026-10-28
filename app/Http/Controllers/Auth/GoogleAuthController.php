@@ -60,7 +60,11 @@ class GoogleAuthController extends Controller
                     'email' => $googleUser->email,
                     'is_active' => true,
                     'is_premium' => false,
+                    'business_type' => \App\Support\BusinessType::DEFAULT,
                 ]);
+                // Bagan akun standar (sebelumnya pendaftar lewat Google tidak mendapat akun sama sekali); bidang usaha bisa diganti di Preferensi
+                \App\Services\CoaSeeder::seed($company->id, $company->business_type);
+        \App\Services\SubscriptionService::startTrialIfEnabled($company); // trial otomatis bila diaktifkan super admin
 
                 $newUser = User::create([
                     'company_id' => $company->id,

@@ -50,6 +50,22 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::post('/clients/{company}/reset-password', [\App\Http\Controllers\SuperAdmin\ClientController::class, 'resetPassword'])->name('clients.reset_password');
     Route::delete('/clients/{company}', [\App\Http\Controllers\SuperAdmin\ClientController::class, 'destroy'])->name('clients.destroy');
 
+    // Paket langganan, konfirmasi pembayaran, pengaturan platform
+    Route::get('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'index'])->name('plans.index');
+    Route::post('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'store'])->name('plans.store');
+    Route::put('/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'update'])->whereNumber('plan')->name('plans.update');
+    Route::delete('/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'destroy'])->whereNumber('plan')->name('plans.destroy');
+    Route::get('/payments', [\App\Http\Controllers\SuperAdmin\PaymentController::class, 'index'])->name('payments.index');
+    Route::post('/payments/{payment}/approve', [\App\Http\Controllers\SuperAdmin\PaymentController::class, 'approve'])->whereNumber('payment')->name('payments.approve');
+    Route::post('/payments/{payment}/reject', [\App\Http\Controllers\SuperAdmin\PaymentController::class, 'reject'])->whereNumber('payment')->name('payments.reject');
+    Route::get('/payments/{payment}/proof', [\App\Http\Controllers\SuperAdmin\PaymentController::class, 'proof'])->whereNumber('payment')->name('payments.proof');
+    Route::get('/settings', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'index'])->name('settings.index');
+    Route::post('/settings', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'update'])->name('settings.update');
+
+    Route::get('/announcements', [\App\Http\Controllers\SuperAdmin\AnnouncementController::class, 'index'])->name('announcements.index');
+    Route::post('/announcements', [\App\Http\Controllers\SuperAdmin\AnnouncementController::class, 'store'])->name('announcements.store');
+    Route::delete('/announcements/{announcement}', [\App\Http\Controllers\SuperAdmin\AnnouncementController::class, 'destroy'])->whereNumber('announcement')->name('announcements.destroy');
+
     // Template Akun Default (CoA)
     Route::get('/default-accounts', [\App\Http\Controllers\SuperAdmin\DefaultAccountController::class, 'index'])->name('default-accounts.index');
     Route::post('/default-accounts', [\App\Http\Controllers\SuperAdmin\DefaultAccountController::class, 'store'])->name('default-accounts.store');
@@ -69,6 +85,10 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::middleware('client_admin')->group(function () {
         Route::get('settings/preferences', [\App\Http\Controllers\Client\PreferenceController::class, 'index'])->name('settings.preferences');
         Route::post('settings/preferences', [\App\Http\Controllers\Client\PreferenceController::class, 'update'])->name('settings.preferences.update');
+        Route::get('billing', [\App\Http\Controllers\Client\BillingController::class, 'index'])->name('billing');
+        Route::post('billing', [\App\Http\Controllers\Client\BillingController::class, 'store'])->name('billing.store');
+        Route::get('billing/payments/{payment}/proof', [\App\Http\Controllers\Client\BillingController::class, 'proof'])->whereNumber('payment')->name('billing.proof');
+        Route::post('settings/business-type', [\App\Http\Controllers\Client\PreferenceController::class, 'updateBusinessType'])->name('settings.business_type');
 
         // Perusahaan
         Route::get('company/activity-logs', [\App\Http\Controllers\Client\ActivityLogController::class, 'index'])->name('activity_logs.index');
@@ -157,6 +177,16 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::post('inventory/transfers', [\App\Http\Controllers\Client\InventoryController::class, 'storeTransfer'])->name('inventory.transfers.store');
     Route::get('inventory/adjustments', [\App\Http\Controllers\Client\InventoryController::class, 'adjustments'])->name('inventory.adjustments');
     Route::post('inventory/adjustments', [\App\Http\Controllers\Client\InventoryController::class, 'storeAdjustment'])->name('inventory.adjustments.store');
+    // Produksi / perakitan (manufaktur)
+    Route::get('production/boms', [\App\Http\Controllers\Client\ProductionController::class, 'boms'])->name('production.boms');
+    Route::post('production/boms', [\App\Http\Controllers\Client\ProductionController::class, 'storeBom'])->name('production.boms.store');
+    Route::get('production/boms/{bom}/edit', [\App\Http\Controllers\Client\ProductionController::class, 'editBom'])->whereNumber('bom')->name('production.boms.edit');
+    Route::put('production/boms/{bom}', [\App\Http\Controllers\Client\ProductionController::class, 'updateBom'])->whereNumber('bom')->name('production.boms.update');
+    Route::delete('production/boms/{bom}', [\App\Http\Controllers\Client\ProductionController::class, 'destroyBom'])->whereNumber('bom')->name('production.boms.destroy');
+    Route::get('production/orders', [\App\Http\Controllers\Client\ProductionController::class, 'orders'])->name('production.orders');
+    Route::post('production/orders', [\App\Http\Controllers\Client\ProductionController::class, 'storeOrder'])->name('production.orders.store');
+    Route::get('production/orders/{order}', [\App\Http\Controllers\Client\ProductionController::class, 'showOrder'])->whereNumber('order')->name('production.orders.show');
+    Route::post('production/orders/{order}/cancel', [\App\Http\Controllers\Client\ProductionController::class, 'cancelOrder'])->whereNumber('order')->name('production.orders.cancel');
     Route::get('inventory/stock-opname', [\App\Http\Controllers\Client\InventoryController::class, 'stockOpname'])->name('inventory.stock_opname');
     Route::post('inventory/stock-opname', [\App\Http\Controllers\Client\InventoryController::class, 'storeStockOpname'])->name('inventory.stock_opname.store');
     Route::post('inventory/movements/{movement}/cancel', [\App\Http\Controllers\Client\InventoryController::class, 'cancelMovement'])->whereNumber('movement')->name('inventory.movements.cancel');
@@ -266,6 +296,8 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
 // PROFILE ROUTES (Global)
 // ==========================================
 Route::middleware('auth')->group(function () {
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

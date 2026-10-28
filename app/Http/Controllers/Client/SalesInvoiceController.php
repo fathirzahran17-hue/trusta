@@ -235,6 +235,7 @@ class SalesInvoiceController extends Controller
 
             // 5. Create Invoice Items
             $totalCogs = 0;
+            $cogsByInv = [];
             foreach ($items as $item) {
                 $invoice->items()->create($item);
 
@@ -276,6 +277,8 @@ class SalesInvoiceController extends Controller
                     }
 
                     $totalCogs += $itemCogs;
+                    $invAccId = optional(\App\Services\AccountResolver::inventoryFor($prod, (int) auth()->user()->company_id))->id;
+                    $cogsByInv[$invAccId] = ($cogsByInv[$invAccId] ?? 0) + $itemCogs;
 
                     // Faktur langsung (tanpa Pesanan/Pengiriman): barang keluar saat faktur dibuat.
                     // Baris dari Pesanan atau Pengiriman: stok dikurangi oleh Pengiriman (jangan dua kali).
@@ -295,26 +298,26 @@ class SalesInvoiceController extends Controller
             // 6. Jurnal HPP (Jika ada barang dagang)
             if ($totalCogs > 0) {
                 $hppAccount = \App\Services\AccountResolver::cogs(auth()->user()->company_id);
-                $inventoryAccount = \App\Services\AccountResolver::inventory(auth()->user()->company_id);
-                
-                if ($hppAccount && $inventoryAccount) {
+                if ($hppAccount && !array_key_exists('', $cogsByInv)) {
                     // Debit HPP
                     \App\Models\JournalDetail::create([
                         'journal_id' => $journal->id,
                         'account_id' => $hppAccount->id,
-                        'debit' => $totalCogs,
+                        'debit' => array_sum(array_map(fn ($v) => round($v, 2), $cogsByInv)),
                         'credit' => 0,
                         'description' => 'HPP Penjualan ' . $invoiceNumber,
                     ]);
 
-                    // Credit Persediaan
-                    \App\Models\JournalDetail::create([
-                        'journal_id' => $journal->id,
-                        'account_id' => $inventoryAccount->id,
-                        'debit' => 0,
-                        'credit' => $totalCogs,
-                        'description' => 'Pengeluaran Persediaan ' . $invoiceNumber,
-                    ]);
+                    // Kredit Persediaan (per akun persediaan barang, mis. Barang Jadi / Barang Dagang)
+                    foreach ($cogsByInv as $invAccId => $amt) {
+                        \App\Models\JournalDetail::create([
+                            'journal_id' => $journal->id,
+                            'account_id' => $invAccId,
+                            'debit' => 0,
+                            'credit' => round($amt, 2),
+                            'description' => 'Pengeluaran Persediaan ' . $invoiceNumber,
+                        ]);
+                    }
                 }
             }
 

@@ -13,6 +13,24 @@ class PreferenceController extends Controller
         return view('client.preferences.index', compact('company'));
     }
 
+    /** Ganti bidang usaha: menu menyesuaikan dan akun standar bidang itu yang belum ada ditambahkan. */
+    public function updateBusinessType(Request $request)
+    {
+        $data = $request->validate(['business_type' => 'required|in:' . implode(',', array_keys(\App\Support\BusinessType::TYPES))]);
+        $company = auth()->user()->company;
+        $old = \App\Support\BusinessType::label($company->business_type);
+        $company->business_type = $data['business_type'];
+        $company->save();
+        $added = \App\Services\CoaSeeder::addMissing((int) $company->id, $company->business_type);
+        \App\Models\ActivityLog::create([
+            'company_id' => $company->id, 'user_id' => auth()->id(), 'action' => 'update', 'model_type' => get_class($company), 'model_id' => $company->id,
+            'description' => 'Bidang usaha diubah dari ' . $old . ' ke ' . \App\Support\BusinessType::label($company->business_type) . " ({$added} akun standar ditambahkan)", 'ip_address' => $request->ip(),
+        ]);
+
+        return redirect()->route('client.settings.preferences', ['tab' => 'bidang'])->with('success', 'Bidang usaha: ' . \App\Support\BusinessType::label($company->business_type) . '.'
+            . ($added ? " {$added} akun standar yang belum ada ditambahkan ke Akun Perkiraan." : ''));
+    }
+
     public function update(Request $request)
     {
         $company = auth()->user()->company;

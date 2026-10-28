@@ -1,328 +1,123 @@
 <x-app-layout>
-    @section('title', 'Kelola Klien & Langganan')
-    @section('subtitle', 'Manajemen perusahaan, pengguna, dan status langganan (SaaS)')
+    @section('title', 'Klien')
+    @section('subtitle', 'Perusahaan terdaftar, status langganan, dan tindakan admin')
 
-    <div x-data="clientManager()" class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
-        <div class="px-6 py-5 border-b border-gray-800 flex justify-between items-center bg-gray-800/30">
-            <h3 class="text-lg font-semibold text-white">Daftar Perusahaan Terdaftar</h3>
-            <span class="bg-trusta-teal/10 text-trusta-teal text-xs font-bold px-3 py-1.5 rounded-lg border border-trusta-teal/20">
-                Total: {{ $clients->count() }} Klien
-            </span>
+    @php
+        $stateLabel = ['active' => ['Aktif', 'st-paid'], 'trial' => ['Trial', 'st-partial'], 'inactive' => ['Tidak aktif', 'st-void']];
+        $rp = fn ($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
+    @endphp
+
+    <div x-data="clientAdmin()">
+        <div class="pay-tabs">
+            @foreach(['all' => 'Semua', 'active' => 'Aktif', 'trial' => 'Trial', 'expiring' => 'Berakhir ≤ 14 hari', 'inactive' => 'Tidak aktif'] as $k => $l)
+                <a href="{{ route('superadmin.clients.index', array_filter(['tab' => $k, 'q' => $q])) }}" class="pay-tab {{ $tab === $k ? 'on' : '' }}">{{ $l }} <span class="n">{{ $counts[$k] }}</span></a>
+            @endforeach
+            <span style="flex:1"></span>
+            <form method="GET" action="{{ route('superadmin.clients.index') }}" style="display:flex; gap:6px">
+                <input type="hidden" name="tab" value="{{ $tab }}">
+                <input type="search" name="q" value="{{ $q }}" placeholder="Cari nama / email…" style="padding:6px 10px; font-size:.8rem; min-width:220px">
+            </form>
         </div>
-        
-        <div class="overflow-x-auto">
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-widest border-b border-gray-800">
-                        <th class="p-5 font-medium">Perusahaan</th>
-                        <th class="p-5 font-medium text-center">Jml Pengguna</th>
-                        <th class="p-5 font-medium">Paket Aktif (Plan)</th>
-                        <th class="p-5 font-medium text-center">Status</th>
-                        <th class="p-5 font-medium text-center">Premium</th>
-                        <th class="p-5 font-medium text-center">Masa Berlaku</th>
-                        <th class="p-5 font-medium text-center">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-800 text-sm">
-                    @forelse($clients as $client)
-                        @php
-                            $activeSub = $client->subscriptions->first();
-                            $statusColor = 'gray';
-                            
-                            if($activeSub) {
-                                if($activeSub->status == 'active') $statusColor = 'emerald';
-                                elseif($activeSub->status == 'trial') $statusColor = 'blue';
-                                elseif($activeSub->status == 'expired') $statusColor = 'red';
-                            }
-                        @endphp
-                        <tr class="hover:bg-gray-800/50 transition-colors">
-                            <td class="p-5">
-                                <div class="font-bold text-white text-base">{{ $client->name }}</div>
-                                <div class="text-xs text-gray-500 mt-1">
-                                    {{ $client->email ?: (optional($client->users->sortBy('id')->first())->email ?: 'Tanpa Email') }} | {{ $client->phone ?? 'Tanpa Telepon' }}
-                                </div>
-                                <div class="text-xs text-gray-600 mt-1">Terdaftar: {{ $client->created_at->format('d M Y') }}</div>
+
+        <div class="pay-card">
+            <div class="pay-scroll">
+                <table class="pay-table">
+                    <thead><tr><th>Perusahaan</th><th>Bidang</th><th class="c">Pengguna</th><th>Paket</th><th>Berlaku s/d</th><th>Status</th><th class="c">Aksi</th></tr></thead>
+                    <tbody>
+                    @forelse($clients as $c)
+                        @php [$sl, $sc] = $stateLabel[$c->state]; @endphp
+                        <tr>
+                            <td class="wrap">
+                                <b style="color: var(--text-strong)">{{ $c->name }}</b>
+                                @if(isset($pendingByCompany[$c->id]))<a href="{{ route('superadmin.payments.index') }}" class="st st-late" style="margin-left:6px; text-decoration:none">Pembayaran menunggu</a>@endif
+                                <div style="font-size:.72rem; color: var(--text-dim)">{{ optional($c->owner)->name }} · {{ $c->email ?: optional($c->owner)->email ?: '-' }} · daftar {{ $c->created_at->format('d M Y') }}</div>
                             </td>
-                            <td class="p-5 text-center">
-                                <span class="inline-flex items-center justify-center bg-gray-800 border border-gray-700 text-gray-300 rounded-full w-8 h-8 font-bold text-xs">
-                                    {{ $client->users->count() }}
-                                </span>
+                            <td>{{ \App\Support\BusinessType::label($c->business_type) }}</td>
+                            <td class="c">{{ $c->users_count }}</td>
+                            <td>{{ optional(optional($c->cur)->plan)->name ?? '-' }}</td>
+                            <td>
+                                @if($c->cur)
+                                    {{ $c->cur->end_date->format('d M Y') }}
+                                    <div style="font-size:.7rem; color: {{ $c->days_left !== null && $c->days_left <= 14 ? 'var(--danger)' : 'var(--text-dim)' }}">{{ $c->days_left >= 0 ? 'sisa ' . $c->days_left . ' hari' : 'lewat ' . abs($c->days_left) . ' hari' }}</div>
+                                @else - @endif
                             </td>
-                            <td class="p-5">
-                                @if($activeSub && $activeSub->plan)
-                                    <div class="font-bold text-gray-300">{{ $activeSub->plan->name }}</div>
-                                    <div class="text-xs text-gray-500 mt-1">Rp {{ number_format($activeSub->plan->price, 2, ',', '.') }} / bln</div>
-                                @else
-                                    <span class="text-gray-500 italic">Belum ada paket</span>
-                                @endif
-                            </td>
-                            <td class="p-5 text-center">
-                                @if($activeSub)
-                                    <span class="px-3 py-1 bg-{{$statusColor}}-900/30 text-{{$statusColor}}-400 border border-{{$statusColor}}-800/50 rounded-lg text-xs font-bold uppercase tracking-wider">
-                                        {{ $activeSub->status }}
-                                    </span>
-                                @else
-                                    <span class="px-3 py-1 bg-gray-800 text-gray-500 rounded-lg text-xs font-bold uppercase">None</span>
-                                @endif
-                            </td>
-                            <td class="p-5 text-center">
-                                @if($client->is_premium)
-                                    <span class="text-trusta-teal text-xs font-bold border border-trusta-teal/30 bg-trusta-teal/10 px-2 py-1 rounded">PREMIUM</span>
-                                @else
-                                    <span class="text-gray-500 text-xs font-bold border border-gray-600 bg-gray-800 px-2 py-1 rounded">FREE / BASIC</span>
-                                @endif
-                            </td>
-                            <td class="p-5 text-center">
-                                @if($activeSub)
-                                    <div class="text-gray-300 font-medium">{{ \Carbon\Carbon::parse($activeSub->end_date)->format('d M Y') }}</div>
-                                    @if($activeSub->end_date < now() && $activeSub->status != 'expired')
-                                        <div class="text-xs text-red-500 mt-1 font-bold">Harusnya Expired!</div>
-                                    @endif
-                                @else
-                                    <span class="text-gray-500">-</span>
-                                @endif
-                            </td>
-                            <td class="p-5 text-center">
-                                <div class="flex items-center justify-center space-x-2">
-                                    @if($client->is_premium && $activeSub)
-                                        <form action="{{ route('superadmin.clients.revoke_premium', $client->id) }}" method="POST">
-                                            @csrf
-                                            <button type="submit" class="inline-flex items-center px-3 py-1.5 bg-red-900/30 text-red-400 border-red-800 hover:bg-red-900/50 rounded-lg text-xs font-medium transition-colors border">
-                                                Cabut Premium
-                                            </button>
-                                        </form>
-                                    @else
-                                        <button type="button" @click="openGrantModal({{ $client->id }}, '{{ $client->name }}')" class="inline-flex items-center px-3 py-1.5 bg-trusta-teal/20 text-trusta-teal border-trusta-teal/50 hover:bg-trusta-teal/30 rounded-lg text-xs font-medium transition-colors border">
-                                            Beri Premium
-                                        </button>
-                                    @endif
-                                    @if($activeSub)
-                                        <button @click="openModal({{ $client->id }}, '{{ $client->name }}', '{{ $activeSub->status }}', '{{ \Carbon\Carbon::parse($activeSub->end_date)->format('Y-m-d') }}')" class="inline-flex items-center px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-xs font-medium transition-colors border border-gray-600" title="Ubah Status Langganan">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                        </button>
-                                    @endif
-                                    <button type="button" @click="openResetPasswordModal({{ $client->id }}, '{{ $client->name }}')" class="inline-flex items-center px-3 py-1.5 bg-yellow-900/30 text-yellow-400 hover:bg-yellow-900/50 rounded-lg text-xs font-medium transition-colors border border-yellow-800" title="Reset Password">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                                    </button>
-                                    <button type="button" @click="openDeleteModal({{ $client->id }}, '{{ $client->name }}')" class="inline-flex items-center px-3 py-1.5 bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded-lg text-xs font-medium transition-colors border border-red-800" title="Hapus Perusahaan">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    </button>
-                                </div>
-                            </td>
+                            <td><span class="st {{ $sc }}" style="text-decoration:none">{{ $sl }}</span></td>
+                            <td class="c"><button type="button" class="pay-mini prim" @click="manage(@js(['id' => $c->id, 'name' => $c->name, 'premium' => (bool) $c->is_premium, 'hasSub' => (bool) $c->subscriptions->first(), 'status' => optional($c->subscriptions->first())->status, 'end' => optional(optional($c->subscriptions->first())->end_date)->format('Y-m-d'), 'plan' => optional($c->cur)->plan_id, 'owner' => optional($c->owner)->email]))">Kelola</button></td>
                         </tr>
                     @empty
-                        <tr>
-                            <td colspan="6" class="p-8 text-center text-gray-500">
-                                <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                Belum ada perusahaan yang terdaftar.
-                            </td>
-                        </tr>
+                        <tr><td colspan="7" class="pay-empty">Tidak ada klien di sini.</td></tr>
                     @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Edit Status Modal -->
-        <div x-show="isModalOpen" style="display: none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" x-transition>
-            <div @click.away="isModalOpen = false" class="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-xl font-bold text-white font-poppins">Ubah Status Langganan</h3>
-                    <button @click="isModalOpen = false" class="text-gray-400 hover:text-white">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-                
-                <form :action="`/superadmin/clients/${selectedCompanyId}/subscription`" method="POST">
-                    @csrf
-                    @method('PUT')
-                    
-                    <div class="mb-4 text-sm text-gray-400">
-                        Klien: <span class="font-bold text-white" x-text="selectedCompanyName"></span>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Status Langganan</label>
-                        <select name="status" x-model="selectedStatus" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg focus:ring-trusta-teal focus:border-trusta-teal text-sm">
-                            <option value="trial">Trial (Percobaan)</option>
-                            <option value="active">Active (Aktif)</option>
-                            <option value="expired">Expired (Kedaluwarsa)</option>
-                            <option value="cancelled">Cancelled (Dibatalkan)</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Masa Berlaku (End Date)</label>
-                        <input type="date" name="end_date" x-model="selectedEndDate" required class="w-full bg-gray-800 border-gray-700 text-white rounded-lg focus:ring-trusta-teal focus:border-trusta-teal text-sm">
-                    </div>
-
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" @click="isModalOpen = false" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors border border-gray-700">Batal</button>
-                        <button type="submit" class="px-4 py-2 bg-trusta-teal hover:bg-teal-400 text-gray-900 font-bold rounded-lg text-sm transition-colors shadow-lg shadow-teal-900/50">Simpan Perubahan</button>
-                    </div>
-                </form>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <!-- Grant Premium Modal -->
-        <div x-show="isGrantModalOpen" style="display: none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" x-transition>
-            <div @click.away="isGrantModalOpen = false" class="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-xl font-bold text-white font-poppins">Beri Akses Premium</h3>
-                    <button @click="isGrantModalOpen = false" class="text-gray-400 hover:text-white">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
+        {{-- Panel kelola klien --}}
+        <div class="sa-modal" x-show="c" x-cloak @keydown.escape.window="c = null">
+            <div class="sa-modal-bg" @click="c = null"></div>
+            <div class="sa-modal-box pay-card" style="margin:0">
+                <div class="pay-card-head"><h3 x-text="c && c.name"></h3><button type="button" class="pay-mini" @click="c = null">Tutup</button></div>
+                <div class="sa-modal-tabs pay-tabs" style="padding: 12px 18px 0; margin:0">
+                    <button type="button" class="pay-tab" :class="t === 'grant' && 'on'" @click="t = 'grant'">Aktifkan / Perpanjang</button>
+                    <button type="button" class="pay-tab" :class="t === 'edit' && 'on'" @click="t = 'edit'" x-show="c && c.hasSub">Ubah Langganan</button>
+                    <button type="button" class="pay-tab" :class="t === 'pw' && 'on'" @click="t = 'pw'">Reset Password</button>
+                    <button type="button" class="pay-tab" :class="t === 'del' && 'on'" @click="t = 'del'">Hapus</button>
                 </div>
-                
-                <form :action="`/superadmin/clients/${selectedCompanyId}/grant-premium`" method="POST">
+
+                <form method="POST" :action="'{{ url('superadmin/clients') }}/' + (c && c.id) + '/grant-premium'" x-show="t === 'grant'">
                     @csrf
-                    
-                    <div class="mb-4 text-sm text-gray-400">
-                        Klien: <span class="font-bold text-white" x-text="selectedCompanyName"></span>
+                    <div class="pay-form-grid">
+                        <div class="pay-field" style="grid-column: span 2"><label>Paket</label>
+                            <select name="plan_id" required>@foreach($plans as $p)<option value="{{ $p->id }}" :selected="c && c.plan == {{ $p->id }}">{{ $p->name }} — {{ $rp($p->price) }}/bln</option>@endforeach</select></div>
+                        <div class="pay-field"><label>Jenis</label><select name="status"><option value="active">Berbayar</option><option value="trial">Trial</option></select></div>
+                        <div class="pay-field"><label>Lama (bulan)</label><input type="number" name="months" min="1" max="36" value="1" required></div>
+                        <div class="pay-field"><label>Jumlah Dibayar (Rp)</label><input type="text" name="amount_paid" class="money-in" placeholder="0,00"></div>
+                        <div class="pay-field" style="grid-column: span 2"><label>Catatan</label><input type="text" name="notes" maxlength="255" placeholder="mis. bayar tunai / promo"></div>
                     </div>
+                    <div class="pay-foot"><span class="pay-total">Bila masih ada langganan berbayar berjalan, periode baru disambung setelahnya.</span><button type="submit" class="btn-primary">Aktifkan</button></div>
+                </form>
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Pilih Paket</label>
-                        <select name="plan_id" x-model="selectedPlanId" required class="w-full bg-gray-800 border-gray-700 text-white rounded-lg focus:ring-trusta-teal focus:border-trusta-teal text-sm">
-                            <option value="">-- Pilih Paket --</option>
-                            @foreach($plans as $plan)
-                                <option value="{{ $plan->id }}">{{ $plan->name }} (Rp {{ number_format($plan->price, 2, ',', '.') }} / bln)</option>
-                            @endforeach
-                        </select>
+                <form method="POST" :action="'{{ url('superadmin/clients') }}/' + (c && c.id) + '/subscription'" x-show="t === 'edit'">
+                    @csrf @method('PUT')
+                    <div class="pay-form-grid">
+                        <div class="pay-field"><label>Status</label>
+                            <select name="status" x-model="edit.status"><option value="active">Aktif</option><option value="trial">Trial</option><option value="expired">Berakhir</option><option value="cancelled">Dibatalkan</option></select></div>
+                        <div class="pay-field"><label>Berlaku sampai</label><input type="date" name="end_date" x-model="edit.end" required></div>
                     </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Status Langganan</label>
-                        <select name="status" x-model="selectedStatus" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg focus:ring-trusta-teal focus:border-trusta-teal text-sm">
-                            <option value="active">Active (Aktif)</option>
-                            <option value="trial">Trial (Percobaan)</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Batas Waktu (End Date)</label>
-                        <input type="date" name="end_date" x-model="selectedEndDate" required class="w-full bg-gray-800 border-gray-700 text-white rounded-lg focus:ring-trusta-teal focus:border-trusta-teal text-sm">
-                    </div>
-
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" @click="isGrantModalOpen = false" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors border border-gray-700">Batal</button>
-                        <button type="submit" class="px-4 py-2 bg-trusta-teal hover:bg-teal-400 text-gray-900 font-bold rounded-lg text-sm transition-colors shadow-lg shadow-teal-900/50">Beri Premium</button>
+                    <div class="pay-foot"><span class="pay-total">Mengubah langganan terakhir klien ini.</span><button type="submit" class="btn-primary">Simpan</button></div>
+                    <div style="padding: 0 18px 16px" x-show="c && c.premium">
+                        <button type="submit" form="revokeForm" class="pay-mini dng" onclick="return confirm('Hentikan langganan sekarang? Klien menjadi mode baca.')">Hentikan langganan sekarang</button>
                     </div>
                 </form>
-            </div>
-        </div>
+                <form id="revokeForm" method="POST" :action="'{{ url('superadmin/clients') }}/' + (c && c.id) + '/revoke-premium'">@csrf</form>
 
-        <!-- Reset Password Modal -->
-        <div x-show="isResetPasswordModalOpen" style="display: none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" x-transition>
-            <div @click.away="isResetPasswordModalOpen = false" class="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-xl font-bold text-white font-poppins">Reset Password Klien</h3>
-                    <button @click="isResetPasswordModalOpen = false" class="text-gray-400 hover:text-white">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-                
-                <form :action="`/superadmin/clients/${selectedCompanyId}/reset-password`" method="POST">
+                <form method="POST" :action="'{{ url('superadmin/clients') }}/' + (c && c.id) + '/reset-password'" x-show="t === 'pw'">
                     @csrf
-                    
-                    <div class="mb-4 text-sm text-gray-400">
-                        Klien: <span class="font-bold text-white" x-text="selectedCompanyName"></span>
-                        <br>
-                        <span class="text-xs text-yellow-500 mt-1 block">Tindakan ini akan mereset password untuk akun utama perusahaan ini secara sepihak.</span>
+                    <div class="pay-form-grid">
+                        <div class="pay-field" style="grid-column: span 2"><label>Akun utama</label><div style="padding-top:6px; color: var(--text-strong)" x-text="c && c.owner"></div></div>
+                        <div class="pay-field" style="grid-column: span 2"><label>Password Baru (min. 8)</label><input type="text" name="new_password" minlength="8" required autocomplete="off"></div>
                     </div>
-
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Password Baru <span class="text-red-400">*</span></label>
-                        <input type="text" name="new_password" required minlength="8" placeholder="Minimal 8 karakter..." class="w-full bg-gray-800 border-gray-700 text-white rounded-lg focus:ring-trusta-teal focus:border-trusta-teal text-sm">
-                    </div>
-
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" @click="isResetPasswordModalOpen = false" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors border border-gray-700">Batal</button>
-                        <button type="submit" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded-lg text-sm transition-colors shadow-lg">Reset Password</button>
-                    </div>
+                    <div class="pay-foot"><span class="pay-total">Sampaikan password baru ke pemilik akun secara pribadi.</span><button type="submit" class="btn-primary">Reset Password</button></div>
                 </form>
-            </div>
-        </div>
 
-        <!-- Delete Confirmation Modal -->
-        <div x-show="isDeleteModalOpen" style="display: none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" x-transition>
-            <div @click.away="isDeleteModalOpen = false" class="bg-gray-900 border border-red-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-xl font-bold text-red-400 font-poppins">⚠️ Hapus Perusahaan</h3>
-                    <button @click="isDeleteModalOpen = false" class="text-gray-400 hover:text-white">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-                
-                <form :action="`/superadmin/clients/${selectedCompanyId}`" method="POST">
-                    @csrf
-                    @method('DELETE')
-                    
-                    <div class="mb-4 p-4 bg-red-950/50 border border-red-800/50 rounded-xl">
-                        <p class="text-sm text-red-300 font-medium mb-2">Anda akan menghapus perusahaan:</p>
-                        <p class="text-lg font-bold text-white" x-text="selectedCompanyName"></p>
-                        <p class="text-xs text-red-400 mt-3 leading-relaxed">
-                            ⚠️ <strong>PERINGATAN:</strong> Semua data terkait perusahaan ini akan dihapus secara permanen, termasuk:
-                            akun pengguna, akun perkiraan (CoA), jurnal, faktur penjualan, faktur pembelian, produk, pelanggan, supplier, dan langganan.
-                        </p>
-                        <p class="text-xs text-red-500 mt-2 font-bold">Tindakan ini TIDAK BISA dibatalkan!</p>
+                <form method="POST" :action="'{{ url('superadmin/clients') }}/' + (c && c.id)" x-show="t === 'del'" @submit="if (confirmName !== (c && c.name)) { $event.preventDefault(); alert('Ketik nama perusahaan persis untuk konfirmasi.'); }">
+                    @csrf @method('DELETE')
+                    <div style="padding: 16px 18px; font-size:.82rem; color: var(--text)">
+                        <p style="margin:0 0 10px; color: var(--danger); font-weight:700">Semua data perusahaan ini (transaksi, akun, pengguna) dihapus permanen.</p>
+                        <label class="pay-field"><span style="font-size:.7rem; color: var(--text-dim)">Ketik nama perusahaan untuk konfirmasi</span><input type="text" x-model="confirmName" autocomplete="off"></label>
                     </div>
-
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" @click="isDeleteModalOpen = false" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors border border-gray-700">Batal</button>
-                        <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-sm transition-colors shadow-lg">Ya, Hapus Permanen</button>
-                    </div>
+                    <div class="pay-foot"><span></span><button type="submit" class="btn-primary" style="background: var(--danger); border-color: var(--danger)">Hapus Permanen</button></div>
                 </form>
             </div>
         </div>
     </div>
 
     <script>
-        function clientManager() {
+        function clientAdmin() {
             return {
-                isModalOpen: false,
-                isGrantModalOpen: false,
-                isResetPasswordModalOpen: false,
-                isDeleteModalOpen: false,
-                selectedCompanyId: null,
-                selectedCompanyName: '',
-                selectedStatus: '',
-                selectedEndDate: '',
-                selectedPlanId: '',
-
-                openModal(id, name, status, endDate) {
-                    this.selectedCompanyId = id;
-                    this.selectedCompanyName = name;
-                    this.selectedStatus = status;
-                    this.selectedEndDate = endDate;
-                    this.isModalOpen = true;
-                },
-
-                openGrantModal(id, name) {
-                    this.selectedCompanyId = id;
-                    this.selectedCompanyName = name;
-                    this.selectedStatus = 'active';
-                    
-                    // Default to 1 year from now
-                    let date = new Date();
-                    date.setFullYear(date.getFullYear() + 1);
-                    this.selectedEndDate = date.toISOString().split('T')[0];
-                    
-                    this.selectedPlanId = '';
-                    this.isGrantModalOpen = true;
-                },
-
-                openResetPasswordModal(id, name) {
-                    this.selectedCompanyId = id;
-                    this.selectedCompanyName = name;
-                    this.isResetPasswordModalOpen = true;
-                },
-
-                openDeleteModal(id, name) {
-                    this.selectedCompanyId = id;
-                    this.selectedCompanyName = name;
-                    this.isDeleteModalOpen = true;
-                }
-            }
+                c: null, t: 'grant', edit: { status: 'active', end: '' }, confirmName: '',
+                manage(c) { this.c = c; this.t = 'grant'; this.edit = { status: c.status || 'active', end: c.end || '' }; this.confirmName = ''; },
+            };
         }
     </script>
 </x-app-layout>

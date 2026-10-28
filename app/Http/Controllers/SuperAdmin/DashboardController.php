@@ -3,38 +3,45 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-
 use App\Models\Company;
-use App\Models\User;
 use App\Models\Subscription;
+use App\Models\SubscriptionPayment;
+use App\Models\User;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        $totalCompanies = Company::count();
-        $totalUsers = User::count();
-        
-        // Subscription revenue (assuming all successful)
-        // Since we don't have a payments table yet, we can sum subscription prices (if any) or just leave it as an example.
-        // For MVP, we can sum from the plan relation on active subscriptions.
-        $totalRevenue = 0;
-        $activeSubs = Subscription::with('plan')->where('status', 'active')->get();
-        foreach($activeSubs as $sub) {
-            $totalRevenue += $sub->plan->price ?? 0;
-        }
+        $today = now()->toDateString();
+        $monthStart = now()->startOfMonth();
 
-        $expiredSubscriptions = Subscription::where('status', 'expired')->orWhere('end_date', '<', now())->count();
-        
-        $recentCompanies = Company::orderBy('created_at', 'desc')->take(5)->get();
+        $live = Subscription::with(['plan', 'company'])->whereIn('status', ['active', 'trial'])->where('end_date', '>=', $today)->get();
+        $paid = $live->where('status', 'active');
+        // MRR: nilai bulanan langganan berbayar yang sedang berjalan (jumlah dibayar / lama bulan)
+        $mrr = $paid->sum(function ($s) {
+            $months = max(1, (int) round($s->start_date->diffInDays($s->end_date) / 30.4));
+            return (float) $s->amount_paid > 0 ? (float) $s->amount_paid / $months : (float) optional($s->plan)->price;
+        });
 
-        return view('superadmin.dashboard.index', compact(
-            'totalCompanies', 
-            'totalUsers', 
-            'totalRevenue', 
-            'expiredSubscriptions', 
-            'recentCompanies'
-        ));
+        $stats = [
+            'companies' => Company::count(),
+            'new_month' => Company::where('created_at', '>=', $monthStart)->count(),
+            'users' => User::whereNotNull('company_id')->count(),
+            'paid' => $paid->unique('company_id')->count(),
+            'trial' => $live->where('status', 'trial')->unique('company_id')->count(),
+            'inactive' => Company::where('is_premium', false)->count(),
+            'mrr' => round($mrr, 2),
+            'revenue_month' => (float) SubscriptionPayment::where('status', 'approved')->where('reviewed_at', '>=', $monthStart)->sum('amount')
+                + (float) Subscription::whereNull('payment_id')->where('status', 'active')->where('created_at', '>=', $monthStart)->sum('amount_paid'),
+            'pending' => SubscriptionPayment::where('status', 'pending')->count(),
+        ];
+
+        $expiring = $live->filter(fn ($s) => $s->end_date->lte(now()->addDays(14)))->sortBy('end_date')->unique('company_id')->take(8)->values();
+        $pendingPayments = SubscriptionPayment::with(['company', 'plan'])->where('status', 'pending')->orderBy('id')->take(6)->get();
+        $recent = Company::withCount('users')->orderByDesc('created_at')->take(8)->get();
+        $byType = Company::selectRaw("COALESCE(business_type, 'dagang_jasa') t, COUNT(*) n")->groupBy('t')->pluck('n', 't');
+        $byPlan = $live->groupBy(fn ($s) => optional($s->plan)->name ?? '-')->map->count()->sortDesc();
+
+        return view('superadmin.dashboard.index', compact('stats', 'expiring', 'pendingPayments', 'recent', 'byType', 'byPlan'));
     }
 }

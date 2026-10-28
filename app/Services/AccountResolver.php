@@ -80,12 +80,30 @@ class AccountResolver
 
     public static function cogs(int $companyId): ?Account
     {
-        return self::find($companyId, 'cost_of_sales', ['HPP%Barang Dagang%', 'HPP%', 'Harga Pokok%']);
+        return self::find($companyId, 'cost_of_sales', ['HPP%Barang Dagang%', 'HPP%Barang Jadi%', 'HPP%', 'Harga Pokok%']);
     }
 
     public static function inventory(int $companyId): ?Account
     {
-        return self::find($companyId, 'asset', ['Persediaan Barang Dagang%', 'Persediaan%']);
+        return self::find($companyId, 'asset', ['Persediaan Barang Dagang%', 'Persediaan Barang Jadi%', 'Persediaan%']);
+    }
+
+    /** Akun persediaan sebuah barang: akun khusus di master barang (mis. Bahan Baku), bila kosong akun persediaan umum. */
+    public static function inventoryFor(?\App\Models\Product $product, int $companyId): ?Account
+    {
+        if ($product && $product->inventory_account_id
+            && ($a = Account::where('company_id', $companyId)->where('is_active', true)->find($product->inventory_account_id))) {
+            return $a;
+        }
+
+        return self::inventory($companyId);
+    }
+
+    /** Semua akun persediaan (aset bernama "Persediaan ...", bukan induk) — untuk pilihan di master barang. */
+    public static function inventoryAccounts(int $companyId)
+    {
+        return Account::where('company_id', $companyId)->where('type', 'asset')->where('is_active', true)->where('name', 'like', 'Persediaan%')
+            ->orderBy('code')->get()->reject(fn ($a) => $a->is_header)->values();
     }
 
     /** Akun Pajak Keluaran (PPN jual) — dari pengaturan pajak, kalau kosong cari berdasarkan nama. */
