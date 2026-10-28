@@ -1336,4 +1336,22 @@ class DocumentFlowTest extends TestCase
         $this->post('/client/company/month-end', ['action' => 'unlock'])->assertSessionHas('success');
         $this->assertNull($this->user->company->fresh()->closing_date);
     }
+
+    public function test_consistency_flags_duplicate_retained_earnings_only_when_used(): void
+    {
+        $cid = $this->user->company_id;
+        $primary = \App\Services\AccountResolver::retainedEarnings($cid);
+        $other = Account::where('company_id', $cid)->where('type', 'equity')->where('id', '!=', $primary->id)
+            ->where(fn ($q) => $q->where('name', 'like', '%laba ditahan%')->orWhere('name', 'like', '%retained earning%'))->firstOrFail();
+        $this->get('/client/consistency')->assertOk()->assertDontSee('Akun Laba Ditahan ganda');
+        $other->forceFill(['opening_balance' => 5000])->save();
+        $this->get('/client/consistency')->assertOk()->assertSee('Akun Laba Ditahan ganda');
+    }
+
+    public function test_service_edit_page_renders_with_services_menu_active(): void
+    {
+        $svc = \App\Models\Product::withoutGlobalScopes()->create(['company_id' => $this->user->company_id, 'name' => 'Jasa Uji', 'sku' => 'JSV-1', 'type' => 'service', 'unit' => 'Jam']);
+        $html = $this->get('/client/inventory/' . $svc->id . '/edit')->assertOk()->getContent();
+        $this->assertStringContainsString('Jasa (tanpa stok)', $html);
+    }
 }

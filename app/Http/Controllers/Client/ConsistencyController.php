@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Client;
 use App\Http\Controllers\Controller;
 use App\Models\InvoicePayment;
 use App\Models\Journal;
+use App\Models\JournalDetail;
 use App\Models\PurchaseInvoice;
 use App\Models\SalesInvoice;
 use Illuminate\Support\Facades\DB;
@@ -92,6 +93,18 @@ class ConsistencyController extends Controller
         foreach (\App\Models\FixedAsset::where('company_id', $cid)->whereNull('acquisition_journal_id')->where('acquisition_cost', '>', 0)->get() as $a) {
             $add('Aset tetap tanpa jurnal perolehan', "{$a->code} - {$a->name}: Rp " . number_format($a->acquisition_cost, 2, ',', '.') . ' belum punya jurnal perolehan.',
                 route('client.fixed_assets.edit', $a->id), 'Abaikan bila asetnya sudah termasuk Saldo Awal. Bila belum, buka Edit lalu centang "Catat jurnal perolehan".');
+        }
+
+        // 8. Akun Laba Ditahan ganda yang ikut terpakai (bawaan 3-0001 Retained Earnings & 3-0004 Laba Ditahan): laporan hanya memakai satu akun
+        $primary = \App\Services\AccountResolver::retainedEarnings($cid);
+        $re = \App\Models\Account::where('company_id', $cid)->where('type', 'equity')->where(function ($q) {
+            $q->where('name', 'like', '%laba ditahan%')->orWhere('name', 'like', '%retained earning%');
+        })->get();
+        $extras = $re->filter(fn ($a) => $primary && $a->id !== $primary->id
+            && (abs((float) $a->opening_balance) > 0.004 || JournalDetail::where('account_id', $a->id)->exists()));
+        foreach ($extras as $a) {
+            $add('Akun Laba Ditahan ganda', "{$a->code} {$a->name} berisi saldo/mutasi, padahal laporan memakai {$primary->code} {$primary->name} sebagai Laba Ditahan.",
+                route('client.accounts.show', $a->id), 'Pindahkan saldo/jurnalnya ke akun yang dipakai laporan (jurnal pemindahan), lalu akun ini boleh dihapus/dinonaktifkan.');
         }
 
         return view('client.consistency.index', compact('issues'));

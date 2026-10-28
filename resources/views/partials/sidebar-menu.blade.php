@@ -13,7 +13,7 @@
     ];
 
     // item: [label, route, [active patterns], [excluded patterns]]
-    $I = fn($l, $r, $p = null, $x = []) => ['l' => $l, 'r' => $r, 'p' => (array) ($p ?? $r), 'x' => $x];
+    $I = fn($l, $r, $p = null, $x = [], $t = null) => ['l' => $l, 'r' => $r, 'p' => (array) ($p ?? $r), 'x' => $x, 't' => $t];
     $H = fn($t) => ['head' => $t];
     $S = fn($n, $l, $r, $p = null) => ['l' => $l, 'r' => $r, 'p' => (array) ($p ?? $r), 'x' => [], 'n' => $n];
 
@@ -65,8 +65,8 @@
             ['title' => 'Produk & Jasa', 'icon' => 'box', 'children' => [
                 $I('Semua Produk & Jasa', 'client.inventory.all'),
                 $H('Per Jenis'),
-                $I('Barang (bersetok)', 'client.inventory.index', ['client.inventory.index', 'client.inventory.show', 'client.inventory.create']),
-                $I('Jasa (tanpa stok)', 'client.inventory.services', ['client.inventory.services', 'client.inventory.services.create']),
+                $I('Barang (bersetok)', 'client.inventory.index', ['client.inventory.index', 'client.inventory.show', 'client.inventory.edit', 'client.inventory.create'], [], 'goods'),
+                $I('Jasa (tanpa stok)', 'client.inventory.services', ['client.inventory.services', 'client.inventory.services.create', 'client.inventory.show', 'client.inventory.edit'], [], 'service'),
             ]],
             ['title' => 'Persediaan', 'icon' => 'box', 'children' => [
                 $H('1. Data Master'),
@@ -138,7 +138,14 @@
         ]];
     }
 
-    $isActive = fn($it) => request()->routeIs(...$it['p']) && ! ($it['x'] && request()->routeIs(...$it['x']));
+    // Halaman detail/edit produk dipakai bersama oleh Barang dan Jasa: sorot menu sesuai jenis produknya.
+    $routeProduct = request()->route('product');
+    $routeProductType = $routeProduct instanceof \App\Models\Product ? ($routeProduct->type === 'service' ? 'service' : 'goods') : null;
+    $isActive = function ($it) use ($routeProductType) {
+        if (! request()->routeIs(...$it['p']) || ($it['x'] && request()->routeIs(...$it['x']))) return false;
+        if (! empty($it['t']) && request()->routeIs('client.inventory.show', 'client.inventory.edit')) return $routeProductType === $it['t'];
+        return true;
+    };
     $hasActive = function ($children) use ($isActive) {
         foreach ($children as $c) { if (isset($c['r']) && $isActive($c)) return true; }
         return false;
