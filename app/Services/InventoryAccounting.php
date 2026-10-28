@@ -130,7 +130,7 @@ class InventoryAccounting
     }
 
     /** Nilai pokok barang yang keluar (FIFO bila dipakai perusahaan, selain itu harga rata-rata). */
-    private static function consumeCost(int $companyId, Product $product, float $qty): float
+    public static function consumeCost(int $companyId, Product $product, float $qty): float
     {
         $method = optional(\App\Models\Company::find($companyId))->inventory_costing_method ?? 'average';
         if ($method !== 'fifo') {

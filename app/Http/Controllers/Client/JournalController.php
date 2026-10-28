@@ -332,6 +332,10 @@ class JournalController extends Controller
                 ['url' => route('client.invoice-payments.void', $r->id), 'label' => 'Batalkan Pembayaran',
                  'confirm' => 'Batalkan pembayaran ' . $r->payment_number . '? Catatannya TIDAK dihapus (ditandai Dibatalkan), dibuat jurnal balik bertanggal hari ini, dan faktur yang dilunasinya terbuka kembali (Belum Lunas).']);
         }
+        if ($po = $DB::table('production_orders')->where('journal_id', $journal->id)->first()) {
+            return $mk('Perintah Produksi' . ($po->voided_at ? ' (sudah dibatalkan)' : ''), $po->number, route('client.production.orders.show', $po->id), $po->voided_at ? null : ['url' => route('client.production.orders.cancel', $po->id), 'label' => 'Batalkan Produksi',
+                'confirm' => 'Batalkan produksi ' . $po->number . '? Barang jadi ditarik, bahan kembali ke stok, dan dibuat jurnal balik bertanggal hari ini.']);
+        }
         if ($m = $DB::table('inventory_movements')->where('journal_id', $journal->id)->first()) {
             $kinds = ['adjustment' => ['Penyesuaian Persediaan', 'client.inventory.adjustments'], 'opname' => ['Stok Opname', 'client.inventory.stock_opname'], 'request' => ['Pemakaian Barang', 'client.inventory.requests']];
             [$label, $route] = $kinds[$m->reference_type] ?? ['Mutasi Persediaan', 'client.inventory.adjustments'];
