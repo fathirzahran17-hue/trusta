@@ -76,14 +76,33 @@ class LedgerPeriod
         return $request->hasSession() ? (bool) $request->session()->get('ledger_show_void', false) : false;
     }
 
-    /** Id jurnal yang dibatalkan beserta jurnal baliknya yang bertanggal sama (saling meniadakan). */
+    /**
+     * Id jurnal yang dibatalkan beserta jurnal baliknya (saling meniadakan), untuk disembunyikan dari riwayat & saldo berjalan.
+     * Ditautkan lewat reverses_journal_id; jurnal balik lama yang belum tertaut dicocokkan dari keterangannya ("Pembatalan ...").
+     */
     public static function cancelledPairIds(int $companyId): array
     {
-        $pairs = \Illuminate\Support\Facades\DB::table('journals as r')->join('journals as o', 'o.id', '=', 'r.reverses_journal_id')
-            ->where('r.company_id', $companyId)->whereColumn('o.transaction_date', 'r.transaction_date')
-            ->select('r.id as rid', 'o.id as oid')->get();
+        $DB = \Illuminate\Support\Facades\DB::class;
+        $ids = [];
+        foreach ($DB::table('journals')->where('company_id', $companyId)->whereNotNull('reverses_journal_id')->get(['id', 'reverses_journal_id']) as $r) {
+            $ids[] = (int) $r->id; $ids[] = (int) $r->reverses_journal_id;
+        }
+        // cadangan untuk jurnal balik lama yang belum ditautkan
+        foreach ($DB::table('journals')->where('company_id', $companyId)->whereNull('reverses_journal_id')->where('ref_number', 'like', 'VOID-%')->get(['id', 'description']) as $r) {
+            $desc = (string) $r->description;
+            $orig = null;
+            if (preg_match('/^Pembatalan faktur (.+)$/', $desc, $m)) {
+                $orig = $DB::table('sales_invoices')->where('company_id', $companyId)->where('invoice_number', $m[1])->value('journal_id')
+                    ?: $DB::table('purchase_invoices')->where('company_id', $companyId)->where('invoice_number', $m[1])->value('journal_id');
+            } elseif (preg_match('/^Pembatalan perolehan aset (.+)$/', $desc, $m)) {
+                $orig = $DB::table('fixed_assets')->where('company_id', $companyId)->where('code', $m[1])->value('acquisition_journal_id');
+            } elseif (preg_match('/^Pembatalan (.+)$/', $desc, $m)) {
+                $orig = $DB::table('journals')->where('company_id', $companyId)->where('ref_number', $m[1])->where('id', '<', $r->id)->orderByDesc('id')->value('id');
+            }
+            if ($orig) { $ids[] = (int) $r->id; $ids[] = (int) $orig; }
+        }
 
-        return $pairs->pluck('rid')->merge($pairs->pluck('oid'))->unique()->values()->all();
+        return array_values(array_unique($ids));
     }
 
     private static function base(Account $account)
@@ -95,12 +114,16 @@ class LedgerPeriod
     }
 
     /** Saldo awal periode (mengikuti saldo normal akun). */
-    public static function openingBefore(Account $account, ?string $from): float
+    public static function openingBefore(Account $account, ?string $from, bool $includeVoided = true): float
     {
         $opening = (float) $account->opening_balance;
         if (!$from) return $opening;
 
-        $row = self::base($account)->where('journals.transaction_date', '<', $from)
+        $q = self::base($account);
+        if (! $includeVoided && ($hide = self::cancelledPairIds((int) $account->company_id))) {
+            $q->whereNotIn('journals.id', $hide);
+        }
+        $row = $q->where('journals.transaction_date', '<', $from)
             ->selectRaw('COALESCE(SUM(journal_details.debit),0) as d, COALESCE(SUM(journal_details.credit),0) as c')
             ->first();
         $d = (float) ($row->d ?? 0);
