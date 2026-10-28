@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DefaultAccount extends Model
 {
     protected $fillable = [
-        'parent_id', 'code', 'name', 'type', 'normal_balance', 'is_system', 'sort_order',
+        'parent_id', 'code', 'name', 'type', 'normal_balance', 'is_system', 'sort_order', 'industries',
     ];
 
     protected $casts = [

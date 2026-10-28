@@ -12,7 +12,7 @@ class Product extends Model
     protected $fillable = [
         'company_id', 'category_id', 'sku', 'name', 'type', 'is_taxable', 'unit',
         'sell_price', 'buy_price', 'revenue_account_id', 'expense_account_id',
-        'is_active',
+        'is_active', 'inventory_account_id',
     ];
 
     protected $casts = [
@@ -40,6 +40,11 @@ class Product extends Model
     public function expenseAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'expense_account_id');
+    }
+
+    public function inventoryAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'inventory_account_id');
     }
 
     public function inventoryMovements()

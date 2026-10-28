@@ -57,7 +57,7 @@ class DocumentFlowTest extends TestCase
         $this->supplier = Supplier::create(['company_id' => $company->id, 'name' => 'Pemasok', 'default_term_days' => 30, 'is_active' => true]);
         $this->warehouse = Warehouse::create(['company_id' => $company->id, 'code' => 'WH1', 'name' => 'Gudang', 'is_active' => true]);
         $rev = Account::where('company_id', $company->id)->where('type', 'revenue')->where('name', 'Pendapatan Penjualan')->first();
-        $exp = Account::where('company_id', $company->id)->where('type', 'expense')->where('name', 'like', 'Biaya Transportasi%')->first();
+        $exp = Account::where('company_id', $company->id)->where('type', 'expense')->where('name', 'like', 'Beban Transportasi%')->first();
         $this->product = Product::create(['company_id' => $company->id, 'name' => 'Barang', 'type' => 'goods', 'unit' => 'pcs',
             'sell_price' => 15000, 'buy_price' => 10000, 'is_active' => true, 'revenue_account_id' => $rev->id, 'expense_account_id' => $exp->id]);
 
@@ -370,10 +370,10 @@ class DocumentFlowTest extends TestCase
         $asset = \App\Models\FixedAsset::create(['company_id' => $cid, 'code' => 'FA-1', 'name' => 'Laptop', 'acquisition_date' => '2026-04-24',
             'acquisition_cost' => 12000000, 'useful_life_months' => 48, 'salvage_value' => 0, 'depreciation_method' => 'straight_line',
             'status' => 'aktif']);
-        $exp = Account::where('company_id', $cid)->where('name', 'like', 'Biaya Penyusutan%')->first();
+        $exp = Account::where('company_id', $cid)->where('name', 'like', 'Beban Penyusutan%')->first();
         $mk = fn ($code, $name, $type, $nb) => Account::create(['company_id' => $cid, 'code' => $code, 'name' => $name, 'type' => $type, 'normal_balance' => $nb]);
         $accNew = $mk('1-2010', 'Akumulasi Penyusutan Peralatan Kantor', 'asset', 'credit');
-        $expNew = $mk('6-2010', 'Beban Penyusutan Peralatan Kantor', 'expense', 'debit');
+        $expNew = $mk('6-2810', 'Beban Penyusutan Peralatan Kantor', 'expense', 'debit');
 
         $this->get('/client/fixed-assets/depreciation?month=2026-04')->assertOk()->assertSee('Akumulasi Penyusutan Peralatan Kantor')->assertSee('250.000,00');
         // bulan sebelum perolehan tidak bisa disusutkan; akun tidak valid ditolak
@@ -891,7 +891,7 @@ class DocumentFlowTest extends TestCase
     public function test_settlement_can_be_split_to_deduction_accounts_for_sales_and_purchases(): void
     {
         $cid = $this->user->company_id;
-        $prepaid = Account::where('company_id', $cid)->where('name', 'Pajak Dibayar Dimuka')->firstOrFail();
+        $prepaid = Account::where('company_id', $cid)->where('name', 'PPh 23 Dibayar Dimuka')->firstOrFail();
         $pph23 = Account::where('company_id', $cid)->where('name', 'Hutang PPh 23')->firstOrFail();
         $pph25 = Account::where('company_id', $cid)->where('name', 'Hutang PPh 25')->firstOrFail();
         $this->assertTrue((bool) $prepaid->is_settlement_deduction);
@@ -996,7 +996,7 @@ class DocumentFlowTest extends TestCase
         $this->get('/client/sales/receipts')->assertOk()->assertSee('2.000.000,13')->assertDontSee('Rp 2.000.000<');
 
         // angka berformat Indonesia dari form dipahami server
-        $prepaid = Account::where('company_id', $this->user->company_id)->where('name', 'Pajak Dibayar Dimuka')->firstOrFail();
+        $prepaid = Account::where('company_id', $this->user->company_id)->where('name', 'PPh 23 Dibayar Dimuka')->firstOrFail();
         $this->post("/client/sales-invoices/{$inv->id}/payments", ['account_id' => $this->cash->id, 'amount' => '2.000.000,13', 'payment_date' => date('Y-m-d'),
             'deductions' => [['account_id' => $prepaid->id, 'amount' => '40.000,00']]])->assertSessionHasNoErrors();
         $inv->refresh();
@@ -1022,7 +1022,7 @@ class DocumentFlowTest extends TestCase
         $rev = $acc('Pendapatan Penjualan');
         $exp = Account::where('company_id', $cid)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header);
         $prive = $acc('Prive Pemilik');
-        $cur = $acc('Current Year Earnings');
+        $cur = $acc('Laba Tahun Berjalan');
         $ret = $acc('Laba Ditahan');
         $this->assertSame('debit', $prive->normal_balance);
 
@@ -1050,7 +1050,7 @@ class DocumentFlowTest extends TestCase
         $doc = $b->balanceSheet(new \Illuminate\Http\Request(['as_of_date' => $year . '-12-31']));
         $text = json_encode($doc['rows']);
         $this->assertStringContainsString('Laba Ditahan', $text);
-        $this->assertStringContainsString('Current Year Earnings', $text);
+        $this->assertStringContainsString('Laba Tahun Berjalan', $text);
         $this->assertSame('good', $doc['notes_tone']);
         $this->assertEquals(1200, $doc['summary'][2]['value']);
         // tahun fiskal berikutnya: semua laba lama jadi Laba Ditahan, laba berjalan kosong
@@ -1163,7 +1163,7 @@ class DocumentFlowTest extends TestCase
         $assetAcc = \App\Services\AssetAccounting::assetAccounts($cid)->first();
         $this->assertNotNull($assetAcc);
         $accNew = Account::create(['company_id' => $cid, 'code' => '1-2010', 'name' => 'Akumulasi Penyusutan Peralatan', 'type' => 'asset', 'normal_balance' => 'credit']);
-        $expNew = Account::create(['company_id' => $cid, 'code' => '6-2010', 'name' => 'Beban Penyusutan Peralatan', 'type' => 'expense', 'normal_balance' => 'debit']);
+        $expNew = Account::create(['company_id' => $cid, 'code' => '6-2810', 'name' => 'Beban Penyusutan Peralatan', 'type' => 'expense', 'normal_balance' => 'debit']);
 
         $base = ['code' => 'FA-1', 'name' => 'Laptop', 'acquisition_date' => '2026-04-10', 'acquisition_cost' => 3000000, 'useful_life_months' => 12,
             'salvage_value' => 0, 'depreciation_method' => 'straight_line', 'condition' => 'baik'];
@@ -1341,8 +1341,8 @@ class DocumentFlowTest extends TestCase
     {
         $cid = $this->user->company_id;
         $primary = \App\Services\AccountResolver::retainedEarnings($cid);
-        $other = Account::where('company_id', $cid)->where('type', 'equity')->where('id', '!=', $primary->id)
-            ->where(fn ($q) => $q->where('name', 'like', '%laba ditahan%')->orWhere('name', 'like', '%retained earning%'))->firstOrFail();
+        // CoA baru hanya punya satu Laba Ditahan; perusahaan lama bisa punya 'Retained Earnings' juga
+        $other = Account::withoutGlobalScopes()->create(['company_id' => $cid, 'code' => '3-2901', 'name' => 'Retained Earnings', 'type' => 'equity', 'normal_balance' => 'credit']);
         $this->get('/client/consistency')->assertOk()->assertDontSee('Akun Laba Ditahan ganda');
         $other->forceFill(['opening_balance' => 5000])->save();
         $this->get('/client/consistency')->assertOk()->assertSee('Akun Laba Ditahan ganda');

@@ -37,6 +37,7 @@ class RegisteredUserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'business_type' => ['nullable', 'in:' . implode(',', array_keys(\App\Support\BusinessType::TYPES))],
         ]);
 
         $company = Company::create([
@@ -44,6 +45,7 @@ class RegisteredUserController extends Controller
             'email' => $request->email,
             'is_premium' => false,
             'is_active' => true,
+            'business_type' => \App\Support\BusinessType::normalize($request->business_type),
         ]);
 
         $user = User::create([
@@ -55,8 +57,8 @@ class RegisteredUserController extends Controller
             'is_active' => true,
         ]);
 
-        // Seed Default MYOB Hierarchical COA (based on COA BAHANA.pdf)
-        \App\Services\CoaSeeder::seed($company->id);
+        // Bagan akun standar sesuai bidang usaha
+        \App\Services\CoaSeeder::seed($company->id, $company->business_type);
 
         event(new Registered($user));
 

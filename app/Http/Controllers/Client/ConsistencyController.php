@@ -108,11 +108,13 @@ class ConsistencyController extends Controller
         }
 
         // 9. Nilai Persediaan di Buku Besar vs nilai stok (stok x harga pokok rata-rata)
-        if ($invAcc = \App\Services\AccountResolver::inventory($cid)) {
+        $invAccs = \App\Services\AccountResolver::inventoryAccounts($cid);
+        if ($invAcc = $invAccs->first()) {
             $row = DB::table('journal_details')->join('journals', 'journals.id', '=', 'journal_details.journal_id')
-                ->where('journals.company_id', $cid)->where('journals.status', 'posted')->where('journal_details.account_id', $invAcc->id)
+                ->where('journals.company_id', $cid)->where('journals.status', 'posted')->whereIn('journal_details.account_id', $invAccs->pluck('id'))
                 ->selectRaw('COALESCE(SUM(debit),0) d, COALESCE(SUM(credit),0) c')->first();
-            $book = round((float) $invAcc->opening_balance + (float) $row->d - (float) $row->c, 2);
+            $book = round((float) $invAccs->sum('opening_balance') + (float) $row->d - (float) $row->c, 2);
+            if ($invAccs->count() > 1) { $invAcc = (object) ['code' => '', 'name' => 'Persediaan (' . $invAccs->count() . ' akun)']; }
             $stock = round(\App\Models\Product::where('company_id', $cid)->where('type', 'goods')->get()->sum(fn ($p) => (float) $p->stock * (float) $p->buy_price), 2);
             if (abs($book - $stock) > 1) {
                 $add('Nilai persediaan tidak sama dengan stok', "Saldo akun {$invAcc->code} {$invAcc->name} Rp " . number_format($book, 2, ',', '.') . ', sedangkan nilai stok barang (stok × harga pokok) Rp ' . number_format($stock, 2, ',', '.') . ' (selisih Rp ' . number_format($book - $stock, 2, ',', '.') . ').',

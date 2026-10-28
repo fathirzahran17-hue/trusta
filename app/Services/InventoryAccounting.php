@@ -57,7 +57,7 @@ class InventoryAccounting
         if (! self::contraAccounts($companyId)->contains('id', $contraAccountId)) {
             throw new \DomainException('Pilih akun lawan (beban/selisih persediaan) yang valid.');
         }
-        $inv = AccountResolver::inventory($companyId);
+        $inv = AccountResolver::inventoryFor($product, $companyId);
         if (! $inv) {
             throw new \DomainException('Akun Persediaan belum ada di Bagan Akun.');
         }

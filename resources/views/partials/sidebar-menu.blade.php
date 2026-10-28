@@ -19,6 +19,10 @@
     $S = fn($n, $l, $r, $p = null) => ['l' => $l, 'r' => $r, 'p' => (array) ($p ?? $r), 'x' => [], 'n' => $n];
 
     $isStaff = auth()->user()->role === 'client_staff';
+    // Menu menyesuaikan bidang usaha (Preferensi > Bidang Usaha): Jasa tanpa stok, Manufaktur dengan Produksi.
+    $bizType = \App\Support\BusinessType::current();
+    $hasStock = \App\Support\BusinessType::hasStock($bizType);
+    $steps = function (array $items) { $n = 0; return array_values(array_map(function ($c) use (&$n) { if (isset($c['n'])) { $c['n'] = ++$n; } return $c; }, array_filter($items))); };
 
     // Urutan mengikuti siklus akuntansi:
     // data awal -> transaksi harian (jual, beli, kas, persediaan, aset) -> jurnal & buku besar -> laporan -> tutup buku -> pengaturan.
@@ -37,38 +41,38 @@
             ]))],
         ]],
         ['label' => '2. Transaksi', 'items' => [
-            ['title' => 'Penjualan', 'icon' => 'sales', 'children' => [
+            ['title' => 'Penjualan', 'icon' => 'sales', 'children' => $steps([
                 $I('Ringkasan Penjualan', 'client.sales.hub'),
                 $H('Alur Penjualan'),
                 $S(1, 'Pelanggan', 'client.customers.index', ['client.customers.index','client.customers.create','client.customers.show','client.customers.edit']),
                 $S(2, 'Pesanan Penjualan', 'client.sales.orders', 'client.sales.orders*'),
-                $S(3, 'Pengiriman Barang', 'client.sales.deliveries', 'client.sales.deliveries*'),
+                $hasStock ? $S(3, 'Pengiriman Barang', 'client.sales.deliveries', 'client.sales.deliveries*') : null,
                 $S(4, 'Faktur Penjualan', 'client.sales-invoices.index', ['client.sales-invoices.*', 'client.sales.settlement']),
                 $S(5, 'Penerimaan Pembayaran', 'client.sales.receipts'),
                 $H('Lainnya'),
                 $I('Uang Muka Penjualan', 'client.sales.down_payments'),
                 $I('Retur Penjualan', 'client.sales.returns', 'client.sales.returns*'),
                 $I('Kategori Pelanggan', 'client.customers.categories'),
-            ]],
-            ['title' => 'Pembelian', 'icon' => 'buy', 'children' => [
+            ])],
+            ['title' => 'Pembelian', 'icon' => 'buy', 'children' => $steps([
                 $I('Ringkasan Pembelian', 'client.purchases.hub'),
                 $H('Alur Pembelian'),
                 $S(1, 'Pemasok', 'client.suppliers.index', ['client.suppliers.index','client.suppliers.create','client.suppliers.show','client.suppliers.edit']),
                 $S(2, 'Pesanan Pembelian', 'client.purchases.orders', 'client.purchases.orders*'),
-                $S(3, 'Penerimaan Barang', 'client.purchases.receipts', 'client.purchases.receipts*'),
+                $hasStock ? $S(3, 'Penerimaan Barang', 'client.purchases.receipts', 'client.purchases.receipts*') : null,
                 $S(4, 'Faktur Pembelian', 'client.purchase-invoices.index', ['client.purchase-invoices.*', 'client.purchases.settlement']),
                 $S(5, 'Pembayaran Pemasok', 'client.purchases.payments'),
                 $H('Lainnya'),
                 $I('Uang Muka Pembelian', 'client.purchases.down_payments'),
                 $I('Retur Pembelian', 'client.purchases.returns', 'client.purchases.returns*'),
                 $I('Kategori Pemasok', 'client.suppliers.categories'),
-            ]],
+            ])],
             ['title' => 'Kas & Bank', 'icon' => 'cash', 'children' => [
                 $I('Kas & Bank (Terima/Keluarkan)', 'client.cash-bank.index', ['client.cash-bank.index', 'client.cash-bank.show', 'client.cash-bank.receipts', 'client.cash-bank.payments']),
                 $I('Transfer Antar Rekening', 'client.cash-bank.transfers'),
                 $I('Rekonsiliasi Bank', 'client.cash-bank.reconciliation'),
             ]],
-            ['title' => 'Persediaan', 'icon' => 'box', 'children' => [
+            $hasStock ? ['title' => 'Persediaan', 'icon' => 'box', 'children' => [
                 $H('Produk & Jasa'),
                 $I('Semua Produk & Jasa', 'client.inventory.all'),
                 $I('Barang (bersetok)', 'client.inventory.index', ['client.inventory.index', 'client.inventory.show', 'client.inventory.edit', 'client.inventory.create'], [], 'goods'),
@@ -83,6 +87,9 @@
                 $I('Satuan', 'client.inventory.units'),
                 $I('Kategori Barang', 'client.inventory.categories', 'client.inventory.categories*'),
                 $I('Merek', 'client.inventory.brands'),
+            ]] : ['title' => 'Daftar Jasa', 'icon' => 'box', 'children' => [
+                $I('Jasa', 'client.inventory.services', ['client.inventory.services', 'client.inventory.services.create', 'client.inventory.show', 'client.inventory.edit', 'client.inventory.all'], [], 'service'),
+                $I('Kategori', 'client.inventory.categories', 'client.inventory.categories*'),
             ]],
             ['title' => 'Aset Tetap', 'icon' => 'asset', 'children' => [
                 $S(1, 'Daftar Aset Tetap', 'client.fixed_assets.index', ['client.fixed_assets.index', 'client.fixed_assets.create', 'client.fixed_assets.edit']),

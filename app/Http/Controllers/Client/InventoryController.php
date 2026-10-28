@@ -78,6 +78,8 @@ class InventoryController extends Controller
             'defaultRevenueId' => optional($defaultRevenue)->id,
             'defaultCostId' => $kind === 'goods' ? optional(AccountResolver::cogs($cid))->id : null,
             'nextSku' => $this->nextSku($kind),
+            'inventoryAccounts' => AccountResolver::inventoryAccounts((int) $cid),
+            'defaultInventory' => AccountResolver::inventory((int) $cid),
         ];
     }
 
@@ -118,6 +120,7 @@ class InventoryController extends Controller
             'buy_price' => 'nullable|numeric|min:0',
             'revenue_account_id' => ['nullable', $accountRule()],
             'expense_account_id' => ['nullable', $accountRule()],
+            'inventory_account_id' => ['nullable', $accountRule()],
             'is_subcontract' => 'nullable',
         ], ['sku.unique' => 'Kode ini sudah dipakai produk lain.']);
 
@@ -146,6 +149,7 @@ class InventoryController extends Controller
             $data['unit'] = ($v['unit'] ?? null) ?: 'pcs';
             $data['buy_price'] = $v['buy_price'] ?? 0;
             $data['expense_account_id'] = $v['expense_account_id'] ?? optional(AccountResolver::cogs($cid))->id;
+            $data['inventory_account_id'] = $v['inventory_account_id'] ?? null;
         }
 
         return $data;

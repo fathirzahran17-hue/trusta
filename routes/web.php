@@ -69,6 +69,7 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::middleware('client_admin')->group(function () {
         Route::get('settings/preferences', [\App\Http\Controllers\Client\PreferenceController::class, 'index'])->name('settings.preferences');
         Route::post('settings/preferences', [\App\Http\Controllers\Client\PreferenceController::class, 'update'])->name('settings.preferences.update');
+        Route::post('settings/business-type', [\App\Http\Controllers\Client\PreferenceController::class, 'updateBusinessType'])->name('settings.business_type');
 
         // Perusahaan
         Route::get('company/activity-logs', [\App\Http\Controllers\Client\ActivityLogController::class, 'index'])->name('activity_logs.index');

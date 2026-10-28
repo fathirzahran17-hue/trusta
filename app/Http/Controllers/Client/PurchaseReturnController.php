@@ -160,6 +160,7 @@ class PurchaseReturnController extends Controller
                 if (!$product) {
                     $accId = $item['account_id']; // baris akun langsung: kredit akun biaya/aset yang sama dengan faktur
                 } elseif ($product->type === 'goods') {
+                    $inv = \App\Services\AccountResolver::inventoryFor($product, (int) $companyId);
                     if (!$inv) throw new \Exception('Akun Persediaan belum disiapkan di Bagan Akun.');
                     if ((float) $product->stock < $item['quantity']) {
                         throw new \Exception('Stok ' . $product->name . ' tidak cukup untuk diretur (tersedia ' . (float) $product->stock . ').');

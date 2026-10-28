@@ -12,7 +12,7 @@ class Company extends Model
         'name', 'address', 'phone', 'email', 'npwp',
         'logo_path', 'fiscal_year_start', 'is_active', 'is_premium',
         'default_tax_rate', 'tax_rounding', 'default_sales_term', 'warn_below_cost', 'default_purchase_term',
-        'prevent_over_receive', 'prevent_prior_transactions', 'closing_date', 'notify_approver',
+        'prevent_over_receive', 'prevent_prior_transactions', 'closing_date', 'notify_approver', 'business_type',
         'max_attachment_size', 'allowed_attachment_types', 'custom_customer_attr_1', 'custom_item_attr_1',
         'price_decimal_format', 'default_language', 'inventory_costing_method',
     ];

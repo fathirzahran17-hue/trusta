@@ -207,7 +207,7 @@ class PurchaseInvoiceController extends Controller
                 // Barang dagang -> Persediaan (stok bertambah lewat Penerimaan Barang);
                 // jasa / non-stok -> akun biaya yang dipetakan pada produk.
                 if ($prod->type === 'goods') {
-                    $invAcc = \App\Services\AccountResolver::inventory(auth()->user()->company_id);
+                    $invAcc = \App\Services\AccountResolver::inventoryFor($prod, (int) auth()->user()->company_id);
                     if (!$invAcc) {
                         throw new \Exception('Akun Persediaan belum disiapkan di Master Data COA.');
                     }

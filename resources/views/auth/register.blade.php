@@ -12,6 +12,20 @@
         </div>
 
         <div class="auth-field">
+            <span class="auth-label">Bidang usaha <span style="color:var(--text-faint)">(opsional — bisa diubah nanti)</span></span>
+            <div class="auth-biz">
+                @foreach(\App\Support\BusinessType::TYPES as $key => $bt)
+                    <label class="auth-biz-opt">
+                        <input type="radio" name="business_type" value="{{ $key }}" @checked(old('business_type') === $key)>
+                        <span><b>{{ $bt['label'] }}</b><small>{{ $bt['desc'] }}</small></span>
+                    </label>
+                @endforeach
+            </div>
+            <p class="auth-hint">Menentukan akun (bagan akun) dan menu awal. Bila dilewati, dipakai <b>Dagang &amp; Jasa</b>.</p>
+            <x-input-error :messages="$errors->get('business_type')" class="auth-error" />
+        </div>
+
+        <div class="auth-field">
             <label for="name" class="auth-label">Nama lengkap Anda <span class="req">*</span></label>
             <input id="name" type="text" name="name" value="{{ old('name') }}" required autocomplete="name">
             <x-input-error :messages="$errors->get('name')" class="auth-error" />

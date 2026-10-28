@@ -178,7 +178,7 @@
     }
 </style>
 
-<div class="pref-container" x-data="{ activeMenu: 'perusahaan', activeTab: 'info' }">
+<div class="pref-container" x-data="{ activeMenu: 'perusahaan', activeTab: '{{ request('tab') === 'bidang' ? 'bidang' : 'info' }}' }">
     <!-- Left Sidebar -->
     <div class="pref-sidebar">
         <div class="pref-sidebar-item" :class="activeMenu === 'perusahaan' ? 'active' : ''" @click="activeMenu = 'perusahaan'">Perusahaan</div>
@@ -202,6 +202,7 @@
                 <div class="pref-inner-tabs">
                     <div class="pref-inner-tab" :class="activeTab === 'info' ? 'active' : ''" @click="activeTab = 'info'">Info Perusahaan</div>
                     <div class="pref-inner-tab" :class="activeTab === 'alamat' ? 'active' : ''" @click="activeTab = 'alamat'">Alamat</div>
+                    <div class="pref-inner-tab" :class="activeTab === 'bidang' ? 'active' : ''" @click="activeTab = 'bidang'">Bidang Usaha</div>
                 </div>
 
                 <!-- Form Area -->
@@ -266,6 +267,27 @@
                     
                     <div style="margin-top: 20px; display: flex; justify-content: flex-end; max-width: 580px;">
                         <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Alamat</button>
+                    </div>
+                </form>
+
+                <form action="{{ route('client.settings.business_type') }}" method="POST" class="pref-form-area" x-show="activeTab === 'bidang'" style="display: none;"
+                      onsubmit="return confirm('Ubah bidang usaha? Menu menyesuaikan dan akun standar bidang ini yang belum ada akan ditambahkan. Akun & transaksi yang sudah ada tidak diubah.')">
+                    @csrf
+                    @php $curBt = \App\Support\BusinessType::normalize($company->business_type); @endphp
+                    <p style="font-size:.82rem; color: var(--text-muted); max-width: 640px; margin: 0 0 14px;">
+                        Bidang usaha menentukan menu yang tampil (mis. Jasa tidak memakai menu persediaan, Manufaktur mendapat menu Produksi)
+                        dan akun standar yang disiapkan. Saat ini: <b style="color: var(--text-strong)">{{ \App\Support\BusinessType::label($curBt) }}</b>.
+                    </p>
+                    <div class="auth-biz" style="max-width: 640px;">
+                        @foreach(\App\Support\BusinessType::TYPES as $key => $bt)
+                            <label class="auth-biz-opt">
+                                <input type="radio" name="business_type" value="{{ $key }}" @checked($curBt === $key)>
+                                <span><b>{{ $bt['label'] }}</b><small>{{ $bt['desc'] }}</small></span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <div style="margin-top: 20px; display: flex; justify-content: flex-end; max-width: 640px;">
+                        <button type="submit" class="btn-primary">Simpan Bidang Usaha</button>
                     </div>
                 </form>
             </div>
