@@ -22,10 +22,15 @@ class CheckPremium
             return $next($request);
         }
 
+        // Langganan yang sudah lewat (lebih dari masa toleransi) otomatis berakhir
+        if ($user && $user->company) {
+            \App\Services\SubscriptionService::expireIfOverdue($user->company);
+        }
+
         // If user is client and company is not premium
         if ($user && $user->company && !$user->company->is_premium) {
-            // Block all actions (POST, PUT, DELETE) except logout
-            if (!$request->isMethod('get') && !$request->is('logout')) {
+            // Block all actions (POST, PUT, DELETE) except logout & halaman Langganan (agar bisa membayar)
+            if (!$request->isMethod('get') && !$request->is('logout') && !$request->routeIs('client.billing*')) {
                 return redirect()->back()->with('error', 'AKSES DITOLAK: Akun Anda belum berstatus Premium.')->with('premium_denied', true);
             }
         }

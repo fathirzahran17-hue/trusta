@@ -59,6 +59,7 @@ class RegisteredUserController extends Controller
 
         // Bagan akun standar sesuai bidang usaha
         \App\Services\CoaSeeder::seed($company->id, $company->business_type);
+        \App\Services\SubscriptionService::startTrialIfEnabled($company); // trial otomatis bila diaktifkan super admin
 
         event(new Registered($user));
 

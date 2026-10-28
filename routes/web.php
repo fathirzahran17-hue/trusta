@@ -50,6 +50,18 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::post('/clients/{company}/reset-password', [\App\Http\Controllers\SuperAdmin\ClientController::class, 'resetPassword'])->name('clients.reset_password');
     Route::delete('/clients/{company}', [\App\Http\Controllers\SuperAdmin\ClientController::class, 'destroy'])->name('clients.destroy');
 
+    // Paket langganan, konfirmasi pembayaran, pengaturan platform
+    Route::get('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'index'])->name('plans.index');
+    Route::post('/plans', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'store'])->name('plans.store');
+    Route::put('/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'update'])->whereNumber('plan')->name('plans.update');
+    Route::delete('/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlanController::class, 'destroy'])->whereNumber('plan')->name('plans.destroy');
+    Route::get('/payments', [\App\Http\Controllers\SuperAdmin\PaymentController::class, 'index'])->name('payments.index');
+    Route::post('/payments/{payment}/approve', [\App\Http\Controllers\SuperAdmin\PaymentController::class, 'approve'])->whereNumber('payment')->name('payments.approve');
+    Route::post('/payments/{payment}/reject', [\App\Http\Controllers\SuperAdmin\PaymentController::class, 'reject'])->whereNumber('payment')->name('payments.reject');
+    Route::get('/payments/{payment}/proof', [\App\Http\Controllers\SuperAdmin\PaymentController::class, 'proof'])->whereNumber('payment')->name('payments.proof');
+    Route::get('/settings', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'index'])->name('settings.index');
+    Route::post('/settings', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'update'])->name('settings.update');
+
     // Template Akun Default (CoA)
     Route::get('/default-accounts', [\App\Http\Controllers\SuperAdmin\DefaultAccountController::class, 'index'])->name('default-accounts.index');
     Route::post('/default-accounts', [\App\Http\Controllers\SuperAdmin\DefaultAccountController::class, 'store'])->name('default-accounts.store');
@@ -69,6 +81,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::middleware('client_admin')->group(function () {
         Route::get('settings/preferences', [\App\Http\Controllers\Client\PreferenceController::class, 'index'])->name('settings.preferences');
         Route::post('settings/preferences', [\App\Http\Controllers\Client\PreferenceController::class, 'update'])->name('settings.preferences.update');
+        Route::get('billing', [\App\Http\Controllers\Client\BillingController::class, 'index'])->name('billing');
+        Route::post('billing', [\App\Http\Controllers\Client\BillingController::class, 'store'])->name('billing.store');
+        Route::get('billing/payments/{payment}/proof', [\App\Http\Controllers\Client\BillingController::class, 'proof'])->whereNumber('payment')->name('billing.proof');
         Route::post('settings/business-type', [\App\Http\Controllers\Client\PreferenceController::class, 'updateBusinessType'])->name('settings.business_type');
 
         // Perusahaan

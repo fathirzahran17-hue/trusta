@@ -9,7 +9,7 @@ class Subscription extends Model
 {
     protected $fillable = [
         'company_id', 'plan_id', 'status', 'start_date',
-        'end_date', 'amount_paid', 'notes',
+        'end_date', 'amount_paid', 'notes', 'billing_cycle', 'payment_id',
     ];
 
     protected $casts = [

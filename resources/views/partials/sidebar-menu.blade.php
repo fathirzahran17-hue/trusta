@@ -129,6 +129,7 @@
         $sections[] = ['label' => 'Pengaturan', 'items' => [
             ['title' => 'Perusahaan', 'icon' => 'cog', 'children' => [
                 $I('Preferensi', 'client.settings.preferences'),
+                $I('Langganan', 'client.billing', 'client.billing*'),
                 $I('Manajemen Staf', 'client.users.index', 'client.users.*'),
                 $I('Log Aktivitas', 'client.activity_logs.index', 'client.activity_logs.*'),
             ]],

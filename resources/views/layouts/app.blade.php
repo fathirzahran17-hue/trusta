@@ -133,19 +133,7 @@
                     <nav class="sidebar-nav">
                         @if(auth()->user()->isSuperAdmin())
                             {{-- ===== Super Admin Navigation ===== --}}
-                            <div class="nav-section-label">Super Admin</div>
-                            <a href="{{ route('superadmin.dashboard') }}" class="nav-item {{ request()->routeIs('superadmin.dashboard') ? 'active' : '' }}">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                                Dashboard
-                            </a>
-                            <a href="{{ route('superadmin.clients.index') }}" class="nav-item {{ request()->routeIs('superadmin.clients.*') ? 'active' : '' }}">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                Kelola Klien
-                            </a>
-                            <a href="{{ route('superadmin.default-accounts.index') }}" class="nav-item {{ request()->routeIs('superadmin.default-accounts.*') ? 'active' : '' }}">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                Template CoA
-                            </a>
+                            @include('partials.superadmin-menu')
                         @else
                             {{-- ===== Client Navigation ===== --}}
                             @include('partials.sidebar-menu')
@@ -335,10 +323,11 @@
                     @if (session('error'))
                         <div class="alert-error">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <p>{{ session('error') }}@if(session('premium_denied')) <a href="https://wa.me/6285111244106" target="_blank" rel="noopener noreferrer" class="inline-flex items-center ml-2 px-3 py-1 bg-red-700 hover:bg-red-600 text-white text-xs font-semibold rounded-md transition-colors">Hubungi Admin</a>@endif</p>
+                            <p>{{ session('error') }}@if(session('premium_denied') && auth()->user() && !auth()->user()->isSuperAdmin()) <a href="{{ route('client.billing') }}" class="inline-flex items-center ml-2 px-3 py-1 bg-red-700 hover:bg-red-600 text-white text-xs font-semibold rounded-md transition-colors">Aktifkan / Perpanjang Langganan</a>@endif</p>
                         </div>
                     @endif
 
+                    @include('partials.subscription-banner')
                     <div class="fade-in">
                         {{ $slot }}
                     </div>
