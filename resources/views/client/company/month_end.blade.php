@@ -24,7 +24,7 @@
                 <div class="text-xl font-bold text-white">{{ date('d F Y', strtotime($company->closing_date)) }}</div>
                 <div class="flex items-center gap-2 mt-2">
                     <span class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></span>
-                    <p class="text-xs text-red-400">Transaksi sebelum tanggal ini tidak dapat diubah.</p>
+                    <p class="text-xs text-red-400">Transaksi pada atau sebelum tanggal ini tidak dapat dibuat, diubah, atau dihapus. Pembayaran faktur lama & pembatalan (jurnal balik) tetap bisa dengan tanggal di periode terbuka.</p>
                 </div>
             @else
                 <div class="text-lg font-semibold text-gray-400">Belum Ada Transaksi Terkunci</div>
@@ -36,7 +36,7 @@
         </div>
 
         <form action="{{ route('client.company.process_month_end') }}" method="POST"
-              onsubmit="return confirm('Yakin ingin mengunci transaksi? Tindakan ini tidak bisa dibatalkan.')">
+              onsubmit="return confirm('Yakin ingin mengunci transaksi? Transaksi pada atau sebelum tanggal itu tidak bisa dibuat/diubah/dihapus sampai kunci dibuka admin.')">
             @csrf
             <div class="mb-5">
                 <label class="block text-sm font-semibold text-gray-300 mb-2">Pilih Tanggal Cut-off</label>
@@ -54,6 +54,14 @@
                 Kunci Transaksi
             </button>
         </form>
+        @if($company->closing_date)
+        <form action="{{ route('client.company.process_month_end') }}" method="POST" class="mt-3"
+              onsubmit="return confirm('Buka kunci periode? Semua tanggal bisa diubah kembali.')">
+            @csrf
+            <input type="hidden" name="action" value="unlock">
+            <button type="submit" class="w-full py-2.5 border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 font-semibold rounded-xl transition-all text-sm">Buka Kunci Periode</button>
+        </form>
+        @endif
     </div>
 
     {{-- RIGHT: Info cards --}}
@@ -105,7 +113,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
                 <p class="text-sm text-amber-300/80">
-                    Proses tutup buku <strong class="text-amber-300">tidak dapat dibatalkan</strong> melalui tampilan biasa. Pastikan semua data sudah benar sebelum mengunci.
+                    Hanya admin yang dapat mengunci/membuka periode, dan setiap perubahan tercatat di Log Aktivitas. Pastikan semua data sudah benar sebelum mengunci.
                 </p>
             </div>
         </div>

@@ -3,18 +3,18 @@
 
 <style>
     .calc-container {
-        background: #0f172a;
+        background: var(--surface-2);
         border-radius: 12px;
         min-height: calc(100vh - 120px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        color: #e2e8f0;
+        box-shadow: var(--shadow-pop);
+        color: var(--text);
         display: flex;
         flex-direction: column;
     }
     
     .calc-header {
         padding: 30px 40px;
-        border-bottom: 1px solid #1e293b;
+        border-bottom: 1px solid var(--border);
         background: url('https://static.pajak.go.id/assets/media/bg/background-kalkulator.jpg') center/cover no-repeat;
         position: relative;
         border-radius: 12px 12px 0 0;
@@ -23,7 +23,7 @@
         content: "";
         position: absolute;
         inset: 0;
-        background: rgba(15, 23, 42, 0.85); /* Overlay */
+        background: color-mix(in srgb, var(--surface) 88%, transparent); /* Overlay mengikuti tema */
         border-radius: 12px 12px 0 0;
     }
     .calc-header-content {
@@ -36,54 +36,54 @@
     .calc-logo {
         width: 60px;
         height: 60px;
-        background: #1e293b;
+        background: var(--surface);
         border: 2px solid #14b8a6;
         border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #14b8a6;
+        color: var(--accent);
     }
     .calc-title h1 {
         font-size: 28px;
         font-weight: 600;
         margin: 0 0 5px 0;
-        color: #f8fafc;
+        color: var(--text-strong);
         letter-spacing: -0.5px;
     }
     .calc-title p {
         margin: 0;
-        color: #94a3b8;
+        color: var(--text-muted);
         font-size: 15px;
     }
     
     .calc-tabs {
         display: flex;
         padding: 0 40px;
-        background: #1e293b;
-        border-bottom: 1px solid #334155;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border-strong);
     }
     .calc-tab {
         padding: 16px 24px;
         font-weight: 600;
-        color: #64748b;
+        color: var(--text-dim);
         cursor: pointer;
         border-bottom: 3px solid transparent;
         transition: all 0.2s;
         font-size: 15px;
     }
     .calc-tab:hover {
-        color: #cbd5e1;
+        color: var(--text);
     }
     .calc-tab.active {
-        color: #14b8a6;
+        color: var(--accent);
         border-bottom-color: #14b8a6;
     }
     
     .calc-body {
         padding: 40px;
         flex: 1;
-        background: #0f172a;
+        background: var(--surface-2);
     }
     
     .calc-form-group {
@@ -94,15 +94,15 @@
     .calc-form-group label {
         font-size: 14px;
         font-weight: 500;
-        color: #94a3b8;
+        color: var(--text-muted);
         margin-bottom: 8px;
     }
     .calc-form-group input, .calc-form-group select {
-        background: #1e293b;
-        border: 1px solid #334155;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
         border-radius: 8px;
         padding: 12px 16px;
-        color: #f8fafc;
+        color: var(--text-strong);
         font-size: 15px;
         outline: none;
         transition: all 0.2s;
@@ -120,7 +120,7 @@
     .input-prefix {
         position: absolute;
         left: 16px;
-        color: #64748b;
+        color: var(--text-dim);
         font-weight: 500;
     }
     .input-group input {
@@ -149,8 +149,8 @@
     }
     
     .result-panel {
-        background: #1e293b;
-        border: 1px solid #334155;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
         border-radius: 12px;
         padding: 30px;
         margin-top: 30px;
@@ -167,7 +167,7 @@
     
     .result-title {
         font-size: 18px;
-        color: #f8fafc;
+        color: var(--text-strong);
         margin-bottom: 20px;
         font-weight: 600;
         display: flex;
@@ -178,17 +178,17 @@
         display: flex;
         justify-content: space-between;
         padding: 12px 0;
-        border-bottom: 1px solid #334155;
+        border-bottom: 1px solid var(--border-strong);
     }
     .result-row:last-child {
         border-bottom: none;
     }
     .result-label {
-        color: #94a3b8;
+        color: var(--text-muted);
     }
     .result-value {
         font-weight: 600;
-        color: #f8fafc;
+        color: var(--text-strong);
         font-family: monospace;
         font-size: 16px;
     }

@@ -371,38 +371,10 @@ class CashBankController extends Controller
 
     public function statements()
     {
-        $companyId = auth()->user()->company_id;
-        
-        $cashAccountIds = Account::where('company_id', $companyId)
-            ->where('type', 'asset')
-            ->where(function($q) {
-                $q->where('name', 'like', '%Kas%')
-                  ->orWhere('name', 'like', '%Bank%')
-                  ->orWhere('name', 'like', '%Cash%');
-            })->pluck('id');
-
-        $transactions = JournalDetail::whereIn('account_id', $cashAccountIds)
-            ->whereHas('journal', function($query) use ($companyId) {
-                $query->where('status', 'posted')
-                      ->where('company_id', $companyId);
-            })
-            ->with(['journal', 'account'])
-            ->join('journals', 'journal_details.journal_id', '=', 'journals.id')
-            ->orderBy('journals.transaction_date', 'desc')
-            ->orderBy('journal_details.id', 'desc')
-            ->select('journal_details.*')
-            ->paginate(25);
-            
-        return view('client.cash_bank.statements', compact('transactions'));
+        return redirect()->route('client.cash-bank.index'); // mutasi per rekening ada di Kelola Kas & Bank
     }
 
 
-    public function reconciliation()
-    {
-        $companyId = auth()->user()->company_id;
-        $accounts = Account::where('company_id', $companyId)->whereIn('type', ['asset'])->where('name', 'like', '%bank%')->orWhere('name', 'like', '%kas%')->where('company_id', $companyId)->orderBy('code')->get();
-        return view('client.cash_bank.reconciliation', compact('accounts'));
-    }
 
     private function generateRefNumber($prefix, $date)
     {

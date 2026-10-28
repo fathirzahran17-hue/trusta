@@ -2,14 +2,10 @@
 
 namespace App\Traits;
 
-use Carbon\Carbon;
-use Illuminate\Validation\ValidationException;
+use App\Support\PeriodLock;
 
 trait EnforcesClosingDate
 {
-    /**
-     * Boot the trait to hook into model events.
-     */
     public static function bootEnforcesClosingDate()
     {
         static::saving(function ($model) {
@@ -17,64 +13,48 @@ trait EnforcesClosingDate
         });
 
         static::deleting(function ($model) {
-            $model->checkClosingDate();
+            $model->checkClosingDate(true);
         });
     }
 
     /**
-     * Check if the model's transaction date is within a closed period.
-     * Throws an exception if it is.
+     * Menolak transaksi di periode Tutup Buku:
+     *  - dokumen baru / dihapus: tanggalnya tidak boleh di periode terkunci;
+     *  - dokumen lama diubah tanggalnya: tanggal lama maupun baru harus terbuka;
+     *  - dokumen lama diubah non-tanggal (status, jumlah terbayar): diizinkan, kecuali model "ketat" (Jurnal) yang tidak boleh diubah sama sekali.
+     * Pembatalan memakai jurnal balik bertanggal hari ini, jadi pembayaran/pembatalan faktur lama tetap bisa di periode terbuka.
      */
-    public function checkClosingDate()
+    public function checkClosingDate(bool $deleting = false): void
     {
-        // Don't check if running in console (e.g. seeding) or if user not logged in
-        if (app()->runningInConsole() || !auth()->check()) {
+        if (!PeriodLock::closingDate()) {
             return;
         }
 
-        $company = auth()->user()->company;
-        if (!$company || !$company->closing_date) {
+        $field = $this->getDateField();
+        $label = class_basename($this);
+
+        if ($deleting || !$this->exists) {
+            PeriodLock::assertOpen($this->{$field} ?? null, $label);
             return;
         }
 
-        $dateField = $this->getDateField();
-        
-        // If the model doesn't have the date field, we can't check
-        if (!isset($this->{$dateField})) {
+        if ($this->isDirty($field)) {
+            PeriodLock::assertOpen($this->getOriginal($field), $label);
+            PeriodLock::assertOpen($this->{$field}, $label);
             return;
         }
 
-        $transactionDate = Carbon::parse($this->{$dateField})->startOfDay();
-        $closingDate = Carbon::parse($company->closing_date)->startOfDay();
-
-        if ($transactionDate->lte($closingDate)) {
-            throw ValidationException::withMessages([
-                $dateField => 'Transaksi tidak dapat disimpan karena tanggal berada dalam periode yang sudah Tutup Buku (Closing Date: ' . $closingDate->format('d M Y') . ').'
-            ]);
-        }
-        
-        // Also check original date if this is an update, to prevent moving a closed transaction to an open period
-        if ($this->exists && $this->isDirty($dateField)) {
-            $originalDate = Carbon::parse($this->getOriginal($dateField))->startOfDay();
-            if ($originalDate->lte($closingDate)) {
-                throw ValidationException::withMessages([
-                    $dateField => 'Tidak dapat memodifikasi transaksi yang berada dalam periode yang sudah Tutup Buku.'
-                ]);
-            }
+        if (property_exists($this, 'closingStrict') ? $this->closingStrict : false) {
+            PeriodLock::assertOpen($this->{$field} ?? null, $label);
         }
     }
 
-    /**
-     * Determine which field represents the transaction date.
-     * Can be overridden by the model using this trait.
-     */
     protected function getDateField(): string
     {
         if (isset($this->closingDateField)) {
             return $this->closingDateField;
         }
 
-        // Default guesses based on common table structures
         $guesses = ['transaction_date', 'date', 'invoice_date', 'receipt_date', 'return_date'];
         foreach ($guesses as $guess) {
             if (\Illuminate\Support\Facades\Schema::hasColumn($this->getTable(), $guess)) {

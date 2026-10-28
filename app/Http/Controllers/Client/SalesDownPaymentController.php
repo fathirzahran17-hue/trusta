@@ -85,7 +85,7 @@ class SalesDownPaymentController extends Controller
             {
                 $journal = Journal::create([
                     'company_id' => $companyId,
-                    'ref_number' => 'JV-DPS-' . time(),
+                    'ref_number' => \App\Services\DocumentNumber::next(Journal::class, 'ref_number', 'JV-DPS-', (int) $companyId, $request->payment_date),
                     'type' => 'general',
                     'transaction_date' => $request->payment_date,
                     'description' => 'Penerimaan Uang Muka Penjualan ' . $downPayment->payment_number,

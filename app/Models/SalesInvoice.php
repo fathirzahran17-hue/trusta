@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesInvoice extends Model
 {
-    use \App\Models\Concerns\BelongsToCompany;
+    use \App\Traits\EnforcesClosingDate, \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
         'company_id', 'invoice_number', 'customer_id', 'quote_id', 'sales_order_id',

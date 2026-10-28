@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CashTransaction extends Model
 {
-    use \App\Models\Concerns\BelongsToCompany;
+    use \App\Traits\EnforcesClosingDate, \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
         'company_id', 'transaction_number', 'type', 'account_id', 'target_account_id',

@@ -15,7 +15,8 @@ class FixedAsset extends Model
         'acquisition_date', 'acquisition_cost', 'useful_life_months', 'salvage_value',
         'depreciation_method', 'location', 'condition', 'status',
         'serial_number', 'brand', 'supplier_name', 'invoice_number', 'notes',
-        'depreciation_expense_account_id', 'accumulated_account_id',
+        'depreciation_expense_account_id', 'accumulated_account_id', 'asset_account_id', 'acquisition_journal_id',
+        'disposal_date', 'disposal_proceeds', 'disposal_journal_id',
     ];
 
     protected $casts = [

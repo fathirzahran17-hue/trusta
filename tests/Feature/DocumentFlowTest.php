@@ -1156,4 +1156,502 @@ class DocumentFlowTest extends TestCase
         $this->assertBooksBalanced();
         $this->post('/client/consistency/rebuild-purchase/' . $inv->id)->assertSessionHas('error'); // sudah punya jurnal
     }
+
+    public function test_fixed_asset_acquisition_journal_and_cancel_depreciation(): void
+    {
+        $cid = $this->user->company_id;
+        $assetAcc = \App\Services\AssetAccounting::assetAccounts($cid)->first();
+        $this->assertNotNull($assetAcc);
+        $accNew = Account::create(['company_id' => $cid, 'code' => '1-2010', 'name' => 'Akumulasi Penyusutan Peralatan', 'type' => 'asset', 'normal_balance' => 'credit']);
+        $expNew = Account::create(['company_id' => $cid, 'code' => '6-2010', 'name' => 'Beban Penyusutan Peralatan', 'type' => 'expense', 'normal_balance' => 'debit']);
+
+        $base = ['code' => 'FA-1', 'name' => 'Laptop', 'acquisition_date' => '2026-04-10', 'acquisition_cost' => 3000000, 'useful_life_months' => 12,
+            'salvage_value' => 0, 'depreciation_method' => 'straight_line', 'condition' => 'baik'];
+
+        // jurnal perolehan: Debit akun aset, Kredit kas
+        $cashBefore = (float) $this->cash->fresh()->balance;
+        $this->post('/client/fixed-assets', $base + ['record_journal' => 1, 'asset_account_id' => $assetAcc->id, 'funding_account_id' => $this->cash->id])->assertSessionHas('success');
+        $asset = \App\Models\FixedAsset::firstOrFail();
+        $this->assertNotNull($asset->acquisition_journal_id);
+        $this->assertEquals(3000000, (float) $assetAcc->fresh()->balance);
+        $this->assertEquals($cashBefore - 3000000, (float) $this->cash->fresh()->balance);
+        $this->assertBooksBalanced();
+
+        // mengubah harga ikut memperbarui jurnal; jurnal otomatis tidak bisa dihapus dari Jurnal Umum
+        $this->put('/client/fixed-assets/' . $asset->id, array_merge($base, ['status' => 'aktif', 'acquisition_cost' => 3600000]))->assertSessionHasNoErrors();
+        $this->assertEquals(3600000, (float) $assetAcc->fresh()->balance);
+        $this->delete('/client/journals/' . $asset->acquisition_journal_id)->assertSessionHas('error');
+
+        // tanpa centang jurnal (aset dari saldo awal) tidak membuat jurnal
+        $n = \App\Models\Journal::count();
+        $this->post('/client/fixed-assets', array_merge($base, ['code' => 'FA-2', 'name' => 'Meja']))->assertSessionHas('success');
+        $this->assertSame($n, \App\Models\Journal::count());
+        // centang tetapi akun kosong ditolak
+        $this->post('/client/fixed-assets', array_merge($base, ['code' => 'FA-3', 'record_journal' => 1]))->assertSessionHasErrors('asset_account_id');
+
+        // penyusutan April & Mei, lalu batalkan berurutan
+        $run = fn ($m, $d) => $this->post('/client/fixed-assets/run-depreciation', ['month' => $m, 'date' => $d, 'assets' => [$asset->id],
+            'exp' => [$asset->id => $expNew->id], 'acc' => [$asset->id => $accNew->id]]);
+        $run('2026-04', '2026-04-30')->assertSessionHas('success');
+        $run('2026-05', '2026-05-31')->assertSessionHas('success');
+        $this->assertEquals(600000, (float) $asset->fresh()->accumulated_depreciation);
+        $apr = \App\Models\DepreciationEntry::where('period', '2026-04')->firstOrFail();
+        $may = \App\Models\DepreciationEntry::where('period', '2026-05')->firstOrFail();
+        $this->get('/client/fixed-assets/depreciation?month=2026-06')->assertOk()->assertSee('Riwayat Penyusutan');
+
+        $this->post('/client/fixed-assets/depreciation/' . $apr->journal_id . '/cancel')->assertSessionHas('error'); // Mei harus dibatalkan dulu
+        $this->post('/client/fixed-assets/depreciation/' . $may->journal_id . '/cancel')->assertSessionHas('success');
+        $this->assertEquals(300000, (float) $asset->fresh()->accumulated_depreciation);
+        $this->assertEquals(300000, (float) $expNew->fresh()->balance);
+        $this->assertSame('2026-04-30', substr((string) $asset->fresh()->last_depreciation_date, 0, 10));
+        $this->post('/client/fixed-assets/depreciation/' . $apr->journal_id . '/cancel')->assertSessionHas('success');
+        $this->assertEquals(0, (float) $asset->fresh()->accumulated_depreciation);
+        $this->assertEquals(0, (float) $expNew->fresh()->balance);
+        $this->assertNull($asset->fresh()->last_depreciation_date);
+        $this->assertBooksBalanced();
+        $this->post('/client/fixed-assets/depreciation/' . $may->journal_id . '/cancel')->assertSessionHas('error'); // sudah dibatalkan
+
+        // bisa disusutkan ulang setelah dibatalkan; aset yang sudah disusutkan tidak bisa dihapus
+        $run('2026-04', '2026-04-30')->assertSessionHas('success');
+        $this->delete('/client/fixed-assets/' . $asset->id)->assertSessionHas('error');
+        \App\Models\DepreciationEntry::where('period', '2026-04')->whereNull('voided_at')->get()
+            ->each(fn ($e) => $this->post('/client/fixed-assets/depreciation/' . $e->journal_id . '/cancel')->assertSessionHas('success'));
+
+        // hapus aset: jurnal perolehan dibalik, aset kembali nol
+        $this->delete('/client/fixed-assets/' . $asset->id)->assertSessionHas('success');
+        $this->assertEquals(0, (float) $assetAcc->fresh()->balance);
+        $this->assertEquals($cashBefore, (float) $this->cash->fresh()->balance);
+        $this->assertBooksBalanced();
+    }
+
+    public function test_down_payments_can_be_applied_to_invoices_and_cancelled(): void
+    {
+        $cid = $this->user->company_id;
+        $today = date('Y-m-d');
+        $po = $this->createPurchaseAndReceive(10);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-DP',
+            'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertSessionMissing('error');
+        $inv = PurchaseInvoice::firstOrFail();
+
+        $this->post('/client/purchases/down-payments', ['payment_number' => 'DP-P-T1', 'supplier_id' => $this->supplier->id, 'payment_date' => $today,
+            'amount' => 30000, 'account_id' => $this->cash->id])->assertSessionHas('success');
+        $dp = \App\Models\DownPayment::where('type', 'purchase')->firstOrFail();
+        $advance = \App\Services\AccountResolver::purchaseAdvance($cid);
+        $ap = \App\Services\AccountResolver::payable($cid);
+        $this->assertEquals(30000, (float) $advance->fresh()->balance);
+
+        // pakai uang muka sebagian untuk faktur
+        $this->post('/client/purchase-invoices/' . $inv->id . '/down-payments', ['down_payment_id' => $dp->id, 'amount' => '20.000,00', 'applied_date' => $today])->assertSessionHas('success');
+        $this->assertEquals(80000, (float) $inv->fresh()->amount_due);
+        $this->assertEquals(20000, (float) $inv->fresh()->amount_paid);
+        $this->assertSame('partial', $inv->fresh()->status);
+        $this->assertEquals(10000, (float) $advance->fresh()->balance);
+        $this->assertEquals(80000, (float) $ap->fresh()->balance); // hutang 100.000 - uang muka dipakai 20.000
+        $this->assertEquals(10000, $dp->fresh()->remaining);
+        $this->assertBooksBalanced();
+        $this->get('/client/purchase-invoices/' . $inv->id)->assertOk()->assertSee('Uang Muka Terpakai');
+        $this->get('/client/purchases/down-payments')->assertOk()->assertSee('10.000,00');
+        $this->get('/client/consistency')->assertOk()->assertDontSee('jumlah dibayar tidak cocok');
+
+        // melebihi sisa uang muka / sisa tagihan ditolak; jurnal otomatis tidak bisa dihapus
+        $this->post('/client/purchase-invoices/' . $inv->id . '/down-payments', ['down_payment_id' => $dp->id, 'amount' => 15000, 'applied_date' => $today])->assertSessionHas('error');
+        $app = \App\Models\DownPaymentApplication::firstOrFail();
+        $this->delete('/client/journals/' . $app->journal_id)->assertSessionHas('error');
+
+        // batalkan pemakaian: kembali seperti semula
+        $this->post('/client/down-payment-applications/' . $app->id . '/void')->assertSessionHas('success');
+        $this->assertEquals(100000, (float) $inv->fresh()->amount_due);
+        $this->assertSame('unpaid', $inv->fresh()->status);
+        $this->assertEquals(30000, (float) $advance->fresh()->balance);
+        $this->assertEquals(30000, $dp->fresh()->remaining);
+        $this->post('/client/down-payment-applications/' . $app->id . '/void')->assertSessionHas('error');
+        $this->assertBooksBalanced();
+
+        // uang muka penuh melunasi faktur
+        $this->post('/client/purchases/down-payments', ['payment_number' => 'DP-P-T2', 'supplier_id' => $this->supplier->id, 'payment_date' => $today,
+            'amount' => 80000, 'account_id' => $this->cash->id])->assertSessionHas('success');
+        $dp2 = \App\Models\DownPayment::where('payment_number', 'DP-P-T2')->firstOrFail();
+        $this->post('/client/purchase-invoices/' . $inv->id . '/down-payments', ['down_payment_id' => $dp->id, 'amount' => 30000, 'applied_date' => $today])->assertSessionHas('success');
+        $this->post('/client/purchase-invoices/' . $inv->id . '/down-payments', ['down_payment_id' => $dp2->id, 'amount' => 70000, 'applied_date' => $today])->assertSessionHas('success');
+        $this->assertSame('paid', $inv->fresh()->status);
+        $this->assertEquals(0, (float) $inv->fresh()->amount_due);
+        $this->assertEquals(10000, $dp2->fresh()->remaining);
+        $this->post("/client/purchase-invoices/{$inv->id}/void")->assertSessionHas('error'); // sudah ada pembayaran
+        $this->assertBooksBalanced();
+
+        // penjualan
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [2], 'prices' => [15000], 'discounts' => [0]])->assertSessionMissing('error');
+        $sinv = SalesInvoice::firstOrFail();
+        $this->post('/client/sales/down-payments', ['payment_number' => 'DP-S-T1', 'customer_id' => $this->customer->id, 'payment_date' => $today,
+            'amount' => 10000, 'account_id' => $this->cash->id])->assertSessionHas('success');
+        $sdp = \App\Models\DownPayment::where('type', 'sales')->firstOrFail();
+        $this->post('/client/sales-invoices/' . $sinv->id . '/down-payments', ['down_payment_id' => $sdp->id, 'amount' => 10000, 'applied_date' => $today])->assertSessionHas('success');
+        $this->assertEquals(20000, (float) $sinv->fresh()->amount_due);
+        $this->assertEquals(0, (float) \App\Services\AccountResolver::salesAdvance($cid)->fresh()->balance);
+        $this->assertBooksBalanced();
+        $this->get('/client/sales/down-payments')->assertOk();
+    }
+
+    public function test_closed_period_blocks_changes_but_allows_paying_old_invoices(): void
+    {
+        $old = date('Y-m-d', strtotime('-60 days'));
+        $closeTo = date('Y-m-d', strtotime('-30 days'));
+        $today = date('Y-m-d');
+        $po = $this->createPurchaseAndReceive(10);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-OLD',
+            'invoice_date' => $old, 'due_date' => $old, 'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertSessionMissing('error');
+        $inv = PurchaseInvoice::firstOrFail();
+        $a = Account::where('company_id', $this->user->company_id)->where('type', 'expense')->get()->first(fn ($x) => !$x->is_header);
+        $j = \App\Models\Journal::withoutGlobalScopes()->create(['company_id' => $this->user->company_id, 'ref_number' => 'MAN-1', 'type' => 'general', 'transaction_date' => $old,
+            'description' => 'lama', 'status' => 'posted', 'created_by' => $this->user->id]);
+        $this->user->company->forceFill(['closing_date' => $closeTo])->save();
+
+        // faktur lama (periode tutup) tetap bisa dibayar di periode terbuka
+        $this->post('/client/purchase-invoices/' . $inv->id . '/payments', ['account_id' => $this->cash->id, 'amount' => 40000, 'payment_date' => $today])->assertSessionHas('success');
+        $this->assertEquals(60000, (float) $inv->fresh()->amount_due);
+        $pay = \App\Models\InvoicePayment::firstOrFail();
+        $this->post('/client/invoice-payments/' . $pay->id . '/void')->assertSessionHas('success');
+        $this->assertEquals(100000, (float) $inv->fresh()->amount_due);
+
+        // transaksi baru bertanggal di periode tutup ditolak dengan pesan jelas
+        $this->post('/client/purchase-invoices/' . $inv->id . '/payments', ['account_id' => $this->cash->id, 'amount' => 1000, 'payment_date' => $old])
+            ->assertSessionHas('error', fn ($m) => str_contains($m, 'Tutup Buku'));
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', ['transaction_type' => 'spend', 'transaction_date' => $old, 'description' => 'x',
+            'contra_account_id' => [Account::where('company_id', $this->user->company_id)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header)->id], 'amounts' => [100]])
+            ->assertSessionHas('error', fn ($m) => str_contains($m, 'Tutup Buku'));
+
+        // jurnal di periode tutup tidak bisa diubah/dihapus, termasuk lewat isi barisnya
+        $this->delete('/client/journals/' . $j->id)->assertSessionHas('error');
+        $this->assertNotNull(\App\Models\Journal::find($j->id));
+        $this->expectException(\App\Exceptions\PeriodClosedException::class);
+        \App\Models\JournalDetail::create(['journal_id' => $j->id, 'account_id' => $a->id, 'debit' => 5, 'credit' => 0]);
+    }
+
+    public function test_admin_can_lock_and_unlock_period(): void
+    {
+        $this->post('/client/company/month-end', ['closing_date' => date('Y-m-d', strtotime('-10 days'))])->assertSessionHas('success');
+        $this->assertNotNull($this->user->company->fresh()->closing_date);
+        $this->post('/client/company/month-end', ['closing_date' => date('Y-m-d', strtotime('+10 days'))])->assertSessionHasErrors('closing_date');
+        $this->post('/client/company/month-end', ['action' => 'unlock'])->assertSessionHas('success');
+        $this->assertNull($this->user->company->fresh()->closing_date);
+    }
+
+    public function test_consistency_flags_duplicate_retained_earnings_only_when_used(): void
+    {
+        $cid = $this->user->company_id;
+        $primary = \App\Services\AccountResolver::retainedEarnings($cid);
+        $other = Account::where('company_id', $cid)->where('type', 'equity')->where('id', '!=', $primary->id)
+            ->where(fn ($q) => $q->where('name', 'like', '%laba ditahan%')->orWhere('name', 'like', '%retained earning%'))->firstOrFail();
+        $this->get('/client/consistency')->assertOk()->assertDontSee('Akun Laba Ditahan ganda');
+        $other->forceFill(['opening_balance' => 5000])->save();
+        $this->get('/client/consistency')->assertOk()->assertSee('Akun Laba Ditahan ganda');
+    }
+
+    public function test_service_edit_page_renders_with_services_menu_active(): void
+    {
+        $svc = \App\Models\Product::withoutGlobalScopes()->create(['company_id' => $this->user->company_id, 'name' => 'Jasa Uji', 'sku' => 'JSV-1', 'type' => 'service', 'unit' => 'Jam']);
+        $html = $this->get('/client/inventory/' . $svc->id . '/edit')->assertOk()->getContent();
+        $this->assertStringContainsString('Jasa (tanpa stok)', $html);
+    }
+
+    public function test_purchase_return_supports_expense_account_rows(): void
+    {
+        $cid = $this->user->company_id;
+        $today = date('Y-m-d');
+        $exp = Account::where('company_id', $cid)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header);
+        $this->get('/client/purchases/returns/create')->assertOk()->assertSee($exp->name);
+
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => ['a' . $exp->id], 'quantities' => [4], 'prices' => [25000], 'discounts' => [0], 'row_descriptions' => ['Servis AC']])->assertRedirect();
+        $pi = PurchaseInvoice::firstOrFail();
+        $this->assertEquals(100000, (float) $pi->amount_due);
+
+        // retur berlebih ditolak
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X1',
+            'return_date' => $today, 'products' => ['a' . $exp->id], 'quantities' => [5], 'prices' => [25000]])->assertSessionHas('error');
+        // akun kas ditolak
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X2',
+            'return_date' => $today, 'products' => ['a' . $this->cash->id], 'quantities' => [1], 'prices' => [25000]])->assertSessionHas('error');
+
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X3',
+            'return_date' => $today, 'products' => ['a' . $exp->id], 'quantities' => [1], 'prices' => [25000]])->assertSessionHas('success');
+        $this->assertEquals(75000, (float) $pi->fresh()->amount_due);
+        $ret = \App\Models\PurchaseReturn::firstOrFail();
+        $item = $ret->items()->firstOrFail();
+        $this->assertNull($item->product_id);
+        $this->assertSame($exp->id, (int) $item->account_id);
+        $d = \App\Models\JournalDetail::where('journal_id', $ret->journal_id)->where('account_id', $exp->id)->firstOrFail();
+        $this->assertEquals(25000, (float) $d->credit);
+        $this->assertBooksBalanced();
+
+        // sisa 3 saja; retur 4 lagi ditolak, 3 diterima
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X4',
+            'return_date' => $today, 'products' => ['a' . $exp->id], 'quantities' => [4], 'prices' => [25000]])->assertSessionHas('error');
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X5',
+            'return_date' => $today, 'products' => ['a' . $exp->id], 'quantities' => [3], 'prices' => [25000]])->assertSessionHas('success');
+        $this->assertEquals(0, (float) $pi->fresh()->amount_due);
+        $this->assertBooksBalanced();
+    }
+
+    public function test_one_delivery_can_fulfil_several_sales_orders_and_be_invoiced(): void
+    {
+        $this->createPurchaseAndReceive(20);
+        $today = date('Y-m-d');
+        foreach (['SO-M-1' => 3, 'SO-M-2' => 4] as $no => $q) {
+            $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => $no, 'order_date' => $today,
+                'products' => [$this->product->id], 'quantities' => [$q], 'prices' => [15000], 'discounts' => [0]])->assertRedirect();
+        }
+        [$a, $b] = SalesOrder::orderBy('id')->get()->all();
+
+        // form create menarik dua SO sekaligus
+        $this->get('/client/sales/deliveries/create?sales_order_id[]=' . $a->id . '&sales_order_id[]=' . $b->id)->assertOk()->assertSee('SO-M-1, SO-M-2');
+
+        // melebihi sisa salah satu SO ditolak
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'delivery_number' => 'DO-M-X', 'delivery_date' => $today, 'status' => 'shipped',
+            'products' => [$this->product->id, $this->product->id], 'row_orders' => [$a->id, $b->id], 'quantities' => [4, 4]])->assertSessionHas('error');
+
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'delivery_number' => 'DO-M-1', 'delivery_date' => $today, 'status' => 'shipped',
+            'products' => [$this->product->id, $this->product->id], 'row_orders' => [$a->id, $b->id], 'quantities' => [3, 4]])->assertSessionHas('success');
+        $do = DeliveryOrder::firstOrFail();
+        $this->assertNull($do->sales_order_id);
+        $this->assertEquals([$a->id, $b->id], $do->sourceOrderIds()->sort()->values()->all());
+        $this->assertEquals(13, $this->product->fresh()->stock);
+        $this->get('/client/sales/deliveries/' . $do->id)->assertOk()->assertSee('SO-M-1')->assertSee('SO-M-2')->assertSee('Buat Faktur');
+        $this->get('/client/sales/deliveries')->assertOk()->assertSee('SO-M-2');
+        // SO tidak bisa dihapus/diubah lagi karena sudah ada pengiriman
+        $this->assertNotEmpty(\App\Services\OrderLifecycle::salesOrderBlockers($b));
+
+        // faktur dari pengiriman itu: tiap baris tetap tercatat ke SO-nya
+        $page = $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->assertOk()->getContent();
+        $this->assertStringContainsString('"order_id":' . $a->id, $page);
+        $this->assertStringContainsString('"order_id":' . $b->id, $page);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id, $this->product->id], 'row_orders' => [$a->id, $b->id], 'row_docs' => [$do->id, $do->id],
+            'quantities' => [3, 4], 'prices' => [15000, 15000], 'discounts' => [0, 0]])->assertRedirect();
+        $this->assertSame('closed', $a->fresh()->status);
+        $this->assertSame('closed', $b->fresh()->status);
+
+        // batal pengiriman: kedua SO terbuka kembali untuk pengiriman (faktur tetap)
+        \App\Services\OrderLifecycle::cancelDelivery($do->fresh());
+        $this->assertSame('open', $a->fresh()->status);
+        $this->assertEquals(20, $this->product->fresh()->stock);
+        $this->assertBooksBalanced();
+    }
+
+    public function test_delivery_without_order_can_be_invoiced_only_once(): void
+    {
+        $this->createPurchaseAndReceive(10);
+        $today = date('Y-m-d');
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'delivery_number' => 'DO-F-1', 'delivery_date' => $today, 'status' => 'shipped',
+            'products' => [$this->product->id], 'quantities' => [4]])->assertSessionHas('success');
+        $do = DeliveryOrder::firstOrFail();
+        $this->get('/client/sales/deliveries/' . $do->id)->assertSee('Buat Faktur');
+        $this->get('/client/sales-invoices/create')->assertSee('DO-F-1');
+        $page = $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->assertOk()->getContent();
+        $this->assertStringContainsString('"doc_id":' . $do->id, $page);
+
+        $base = ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id],
+            'row_docs' => [$do->id], 'prices' => [15000], 'discounts' => [0]];
+        $this->post('/client/sales-invoices', $base + ['quantities' => [5]])->assertSessionHas('error');
+        $this->post('/client/sales-invoices', $base + ['quantities' => [3]])->assertRedirect();
+        $this->assertSame($do->id, (int) SalesInvoice::firstOrFail()->items()->first()->delivery_order_id);
+        // sisa 1 yang belum ditagih
+        $page = $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->getContent();
+        $this->assertMatchesRegularExpression('/"quantity":1(\.0)?[,}]/', $page);
+        $this->post('/client/sales-invoices', $base + ['quantities' => [2]])->assertSessionHas('error');
+        $this->post('/client/sales-invoices', $base + ['quantities' => [1]])->assertRedirect();
+        $this->assertEquals(6, $this->product->fresh()->stock); // stok hanya dikurangi pengiriman, bukan lagi oleh faktur
+        $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->assertSee('sudah ditagih');
+        $this->assertBooksBalanced();
+    }
+
+    public function test_one_receipt_can_receive_several_purchase_orders(): void
+    {
+        $today = date('Y-m-d');
+        foreach (['PO-M-1' => [5, 10000], 'PO-M-2' => [5, 20000]] as $no => [$q, $p]) {
+            $this->post('/client/purchases/orders', ['supplier_id' => $this->supplier->id, 'po_number' => $no, 'order_date' => $today,
+                'products' => [$this->product->id], 'quantities' => [$q], 'prices' => [$p], 'discounts' => [0]])->assertRedirect();
+        }
+        [$a, $b] = PurchaseOrder::orderBy('id')->get()->all();
+        $a->update(['status' => 'sent']); $b->update(['status' => 'sent']);
+        $this->get('/client/purchases/receipts/create?purchase_order_id[]=' . $a->id . '&purchase_order_id[]=' . $b->id)->assertOk()->assertSee('PO-M-1, PO-M-2');
+        $this->post('/client/purchases/receipts', ['supplier_id' => $this->supplier->id, 'warehouse_id' => $this->warehouse->id, 'receipt_number' => 'IR-M-1',
+            'receipt_date' => $today, 'status' => 'received', 'products' => [$this->product->id, $this->product->id], 'row_orders' => [$a->id, $b->id], 'quantities' => [5, 5]])
+            ->assertSessionHas('success');
+        $this->assertEquals(10, $this->product->fresh()->stock);
+        $this->assertEquals(15000, round((float) $this->product->fresh()->buy_price)); // harga rata-rata dari masing-masing PO
+        $this->assertSame('received', $a->fresh()->status);
+        $this->assertSame('received', $b->fresh()->status);
+        $r = \App\Models\ItemReceipt::firstOrFail();
+        $this->get('/client/purchases/receipts/' . $r->id)->assertOk()->assertSee('PO-M-2')->assertSee('Buat Faktur');
+        $this->get('/client/purchases/receipts')->assertOk()->assertSee('PO-M-2');
+    }
+
+    public function test_receipt_without_order_can_be_invoiced_only_once(): void
+    {
+        $today = date('Y-m-d');
+        $this->get('/client/purchases/receipts/create')->assertOk();
+        $this->post('/client/purchases/receipts', ['supplier_id' => $this->supplier->id, 'warehouse_id' => $this->warehouse->id, 'receipt_number' => 'IR-F-1',
+            'receipt_date' => $today, 'status' => 'received', 'products' => [$this->product->id], 'quantities' => [6]])->assertSessionHas('success');
+        $r = \App\Models\ItemReceipt::firstOrFail();
+        $this->get('/client/purchase-invoices/create')->assertSee('IR-F-1');
+        $this->assertStringContainsString('"doc_id":' . $r->id, $this->get('/client/purchase-invoices/create?item_receipt_id[]=' . $r->id)->getContent());
+        $base = ['supplier_id' => $this->supplier->id, 'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id],
+            'row_docs' => [$r->id], 'prices' => [10000], 'discounts' => [0]];
+        $this->post('/client/purchase-invoices', $base + ['quantities' => [6]])->assertRedirect();
+        $this->post('/client/purchase-invoices', $base + ['quantities' => [1]])->assertSessionHas('error');
+        $this->assertSame(1, PurchaseInvoice::count());
+        $this->assertBooksBalanced();
+    }
+
+    public function test_payment_can_be_cancelled_from_its_journal_page_and_invoice_reopens(): void
+    {
+        $today = date('Y-m-d');
+        $this->createPurchaseAndReceive(10);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [2], 'prices' => [50000], 'discounts' => [0]])->assertRedirect();
+        $inv = SalesInvoice::firstOrFail();
+        $this->post("/client/sales-invoices/{$inv->id}/payments", ['account_id' => $this->cash->id, 'amount' => 100000, 'payment_date' => $today])->assertSessionHas('success');
+        $this->assertSame('paid', $inv->fresh()->status);
+        $pay = \App\Models\InvoicePayment::firstOrFail();
+
+        $this->get('/client/journals/' . $pay->journal_id)->assertOk()
+            ->assertSee('Batalkan Pembayaran')->assertSee($pay->payment_number)->assertDontSee('Void Jurnal');
+
+        $this->from('/client/journals/' . $pay->journal_id)->post('/client/invoice-payments/' . $pay->id . '/void')
+            ->assertRedirect('/client/journals/' . $pay->journal_id)->assertSessionHas('success');
+        $this->assertSame('unpaid', $inv->fresh()->status);
+        $this->assertEquals(100000, (float) $inv->fresh()->amount_due);
+        $this->assertNotNull(\App\Models\InvoicePayment::find($pay->id)->voided_at); // tidak dihapus
+        $this->get('/client/sales/receipts')->assertSee($pay->payment_number)->assertSee('Dibatalkan');
+
+        // jurnal asli & jurnal baliknya tetap terkunci sebagai jejak
+        $this->get('/client/journals/' . $pay->journal_id)->assertSee('sudah dibatalkan')->assertDontSee('Void Jurnal');
+        $this->delete('/client/journals/' . $pay->journal_id)->assertSessionHas('error');
+        $rev = \App\Models\Journal::where('ref_number', 'like', 'VOID-%')->firstOrFail();
+        $this->delete('/client/journals/' . $rev->id)->assertSessionHas('error');
+        $this->assertBooksBalanced();
+    }
+
+    private function inventoryBalance(): float
+    {
+        $inv = \App\Services\AccountResolver::inventory($this->user->company_id);
+        return round((float) \App\Models\JournalDetail::where('account_id', $inv->id)->sum('debit') - (float) \App\Models\JournalDetail::where('account_id', $inv->id)->sum('credit'), 2);
+    }
+
+    public function test_stock_adjustment_usage_and_opname_are_journaled_and_cancellable(): void
+    {
+        $today = date('Y-m-d');
+        $po = $this->createPurchaseAndReceive(10); // 10 x 10.000
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertRedirect();
+        $this->assertEquals(100000, $this->inventoryBalance());
+        $acc = \App\Services\InventoryAccounting::defaultContra($this->user->company_id, 'adjustment');
+        foreach (['/client/inventory/adjustments', '/client/inventory/requests', '/client/inventory/stock-opname'] as $u) {
+            $this->get($u)->assertOk();
+        }
+
+        // Penyesuaian -2 (hilang): stok 8, persediaan berkurang 20.000
+        $this->post('/client/inventory/adjustments', ['product_id' => $this->product->id, 'quantity' => -2, 'date' => $today, 'account_id' => $acc->id, 'description' => 'hilang'])->assertSessionHas('success');
+        $this->assertEquals(8, $this->product->fresh()->stock);
+        $this->assertEquals(80000, $this->inventoryBalance());
+
+        // Pemakaian 3: stok 5
+        $this->post('/client/inventory/requests', ['product_id' => $this->product->id, 'quantity' => 3, 'date' => $today, 'account_id' => $acc->id])->assertSessionHas('success');
+        $this->assertEquals(5, $this->product->fresh()->stock);
+        $this->assertEquals(50000, $this->inventoryBalance());
+        // melebihi stok ditolak
+        $this->post('/client/inventory/requests', ['product_id' => $this->product->id, 'quantity' => 99, 'date' => $today, 'account_id' => $acc->id])->assertSessionHas('error');
+        // akun kas tidak boleh jadi akun lawan
+        $this->post('/client/inventory/adjustments', ['product_id' => $this->product->id, 'quantity' => 1, 'date' => $today, 'account_id' => $this->cash->id])->assertSessionHas('error');
+
+        // Stok opname: fisik 7 -> +2
+        $this->post('/client/inventory/stock-opname', ['date' => $today, 'account_id' => $acc->id, 'counts' => [$this->product->id => 7]])->assertSessionHas('success');
+        $this->assertEquals(7, $this->product->fresh()->stock);
+        $this->assertEquals(70000, $this->inventoryBalance());
+        $this->get('/client/inventory/stock-opname')->assertSee('fisik 7');
+
+        // Batalkan penyesuaian -2: stok +2, persediaan +20.000, catatan tetap ada
+        $m = \App\Models\InventoryMovement::where('reference_type', 'adjustment')->firstOrFail();
+        $this->post('/client/inventory/movements/' . $m->id . '/cancel')->assertSessionHas('success');
+        $this->assertEquals(9, $this->product->fresh()->stock);
+        $this->assertEquals(90000, $this->inventoryBalance());
+        $this->assertNotNull($m->fresh()->voided_at);
+        $this->post('/client/inventory/movements/' . $m->id . '/cancel')->assertSessionHas('error');
+        // jurnal penyesuaian terkunci dari Jurnal Umum
+        $this->get('/client/journals/' . $m->journal_id)->assertSee('Penyesuaian Persediaan')->assertDontSee('Void Jurnal');
+        $this->assertBooksBalanced();
+
+        // halaman lama diarahkan
+        $this->get('/client/inventory/stock-opname-orders')->assertRedirect('/client/inventory/stock-opname');
+    }
+
+    public function test_fixed_asset_can_be_sold_with_gain_or_loss_and_cancelled(): void
+    {
+        $cid = $this->user->company_id;
+        $assetAcc = \App\Services\AssetAccounting::assetAccounts($cid)->first();
+        $asset = \App\Models\FixedAsset::withoutGlobalScopes()->create(['company_id' => $cid, 'code' => 'AT-1', 'name' => 'Laptop', 'acquisition_date' => date('Y-m-d', strtotime('-1 year')),
+            'acquisition_cost' => 12000000, 'useful_life_months' => 48, 'salvage_value' => 0, 'depreciation_method' => 'straight_line', 'status' => 'aktif', 'asset_account_id' => $assetAcc->id]);
+        [, $accum] = (fn () => $this->depreciationAccounts($cid))->call(new \App\Http\Controllers\Client\FixedAssetController());
+        $asset->forceFill(['accumulated_depreciation' => 3000000, 'accumulated_account_id' => $accum->first()->id])->save();
+        $this->get('/client/fixed-assets/dispositions')->assertOk()->assertSee('AT-1');
+
+        // jual 10 jt: nilai buku 9 jt -> laba 1 jt
+        $gain = \App\Services\AssetDisposal::gainAccounts($cid)->first();
+        $loss = \App\Services\AssetDisposal::lossAccounts($cid)->first();
+        $this->post('/client/fixed-assets/' . $asset->id . '/dispose', ['date' => date('Y-m-d'), 'proceeds' => '10.000.000,00', 'proceeds_account_id' => $this->cash->id,
+            'asset_account_id' => $assetAcc->id, 'accumulated_account_id' => $accum->first()->id, 'gain_account_id' => $gain->id, 'loss_account_id' => $loss->id])->assertSessionHas('success');
+        $asset->refresh();
+        $this->assertSame('dijual', $asset->status);
+        $j = \App\Models\Journal::findOrFail($asset->disposal_journal_id);
+        $this->assertEquals(1000000, (float) $j->details()->where('account_id', $gain->id)->sum('credit'));
+        $this->assertEquals(12000000, (float) $j->details()->where('account_id', $assetAcc->id)->sum('credit'));
+        $this->assertBooksBalanced();
+        // sudah dilepas -> tidak bisa dilepas lagi, tidak ikut penyusutan
+        $this->post('/client/fixed-assets/' . $asset->id . '/dispose', ['date' => date('Y-m-d')])->assertSessionHas('error');
+        $this->get('/client/journals/' . $j->id)->assertSee('Batalkan Pelepasan');
+
+        // batalkan -> aktif lagi, jurnal asli tetap terkunci
+        $this->post('/client/fixed-assets/' . $asset->id . '/cancel-disposal')->assertSessionHas('success');
+        $this->assertSame('aktif', $asset->fresh()->status);
+        $this->delete('/client/journals/' . $j->id)->assertSessionHas('error');
+
+        // dihapus tanpa harga jual -> rugi sebesar nilai buku 9 jt
+        $this->post('/client/fixed-assets/' . $asset->id . '/dispose', ['date' => date('Y-m-d'), 'proceeds' => 0, 'asset_account_id' => $assetAcc->id,
+            'accumulated_account_id' => $accum->first()->id, 'gain_account_id' => $gain->id, 'loss_account_id' => $loss->id])->assertSessionHas('success');
+        $asset->refresh();
+        $this->assertSame('dihapus', $asset->status);
+        $this->assertEquals(9000000, (float) \App\Models\JournalDetail::where('journal_id', $asset->disposal_journal_id)->where('account_id', $loss->id)->sum('debit'));
+        $this->assertBooksBalanced();
+        $this->get('/client/fixed-assets/tax-categories')->assertRedirect();
+    }
+
+    public function test_bank_reconciliation_requires_matching_statement_and_can_be_undone(): void
+    {
+        $today = date('Y-m-d');
+        $exp = Account::where('company_id', $this->user->company_id)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header);
+        $rev = Account::where('company_id', $this->user->company_id)->where('type', 'revenue')->get()->first(fn ($a) => !$a->is_header);
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', ['transaction_type' => 'receive', 'transaction_date' => $today, 'description' => 'masuk', 'contra_account_id' => [$rev->id], 'amounts' => [500000]])->assertSessionHas('success');
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', ['transaction_type' => 'spend', 'transaction_date' => $today, 'description' => 'keluar', 'contra_account_id' => [$exp->id], 'amounts' => [200000]])->assertSessionHas('success');
+        $lines = \App\Models\JournalDetail::where('account_id', $this->cash->id)->orderBy('id')->get();
+        $opening = (float) $this->cash->fresh()->opening_balance;
+
+        $this->get('/client/cash-bank/reconciliation?account_id=' . $this->cash->id . '&date=' . $today)->assertOk();
+        $this->get('/client/cash-bank/reconciliation?account_id=' . $this->cash->id . '&date=' . $today)->assertSee('masuk')->assertSee('keluar');
+        // rekening koran baru memuat penerimaan saja -> saldo opening + 500.000; mencentang keduanya tidak cocok
+        $this->post('/client/cash-bank/reconciliation', ['account_id' => $this->cash->id, 'date' => $today, 'statement_balance' => $opening + 500000, 'lines' => $lines->pluck('id')->all()])->assertSessionHas('error');
+        $this->post('/client/cash-bank/reconciliation', ['account_id' => $this->cash->id, 'date' => $today, 'statement_balance' => $opening + 500000, 'lines' => [$lines[0]->id]])->assertSessionHas('success');
+        $rec = \App\Models\BankReconciliation::firstOrFail();
+        $this->assertSame($rec->id, (int) $lines[0]->fresh()->bank_reconciliation_id);
+        // yang belum cocok tetap muncul di rekonsiliasi berikutnya
+        $this->get('/client/cash-bank/reconciliation?account_id=' . $this->cash->id . '&date=' . $today)->assertSee('keluar')->assertDontSee('>masuk<', false);
+        $this->post('/client/cash-bank/reconciliation', ['account_id' => $this->cash->id, 'date' => $today, 'statement_balance' => $opening + 300000, 'lines' => [$lines[1]->id]])->assertSessionHas('success');
+        // batal hanya yang terbaru
+        $this->post('/client/cash-bank/reconciliation/' . $rec->id . '/void')->assertSessionHas('error');
+        $latest = \App\Models\BankReconciliation::latest('id')->first();
+        $this->post('/client/cash-bank/reconciliation/' . $latest->id . '/void')->assertSessionHas('success');
+        $this->assertNull($lines[1]->fresh()->bank_reconciliation_id);
+        $this->get('/client/cash-bank/statements')->assertRedirect();
+    }
 }

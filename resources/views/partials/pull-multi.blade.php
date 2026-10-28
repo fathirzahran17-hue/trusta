@@ -5,7 +5,7 @@
         <span class="pull-ico">&#8629;</span>
         <span class="pull-sum">
             <b>{{ $label }}</b>
-            <small>Bisa memilih lebih dari satu dokumen dari {{ $partyWord }} yang sama — semuanya digabung dalam satu faktur.</small>
+            <small>Bisa memilih lebih dari satu dokumen dari {{ $partyWord }} yang sama — semuanya digabung dalam satu {{ $docWord ?? 'faktur' }}.</small>
         </span>
         @if(!empty($sourceText))<span class="pull-chip">Sumber: {{ $sourceText }}</span>@endif
     </summary>

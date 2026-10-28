@@ -3,7 +3,7 @@
 
 <style>
     .spt-container {
-        background: #ffffff;
+        background: var(--surface);
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         padding: 20px;
@@ -13,7 +13,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--border);
         padding-bottom: 15px;
         margin-bottom: 20px;
     }
@@ -30,38 +30,38 @@
     }
     .filter-group label {
         font-size: 14px;
-        color: #334155;
+        color: var(--text);
         font-weight: 500;
     }
     .filter-group input[type="date"], .filter-group select, .filter-group input[type="text"] {
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--border-strong);
         border-radius: 4px;
         padding: 6px 10px;
         outline: none;
-        color: #334155;
+        color: var(--text);
         font-size: 14px;
     }
     .filter-group input[type="date"]:focus, .filter-group select:focus, .filter-group input[type="text"]:focus {
         border-color: #3b82f6;
     }
     .btn-refresh {
-        background: #f1f5f9;
-        border: 1px solid #cbd5e1;
+        background: var(--surface-2);
+        border: 1px solid var(--border-strong);
         padding: 6px 12px;
         border-radius: 4px;
         cursor: pointer;
         color: #3b82f6;
     }
     .btn-save {
-        background: #f1f5f9;
-        border: 1px solid #cbd5e1;
+        background: var(--surface-2);
+        border: 1px solid var(--border-strong);
         padding: 10px;
         border-radius: 4px;
         cursor: pointer;
-        color: #94a3b8;
+        color: var(--text-muted);
     }
     .btn-save:hover {
-        background: #e2e8f0;
+        background: var(--surface-3);
     }
     .btn-efaktur {
         background: #65a30d; /* lime-600 */
@@ -84,13 +84,13 @@
     }
     .spt-tabs {
         display: flex;
-        border-bottom: 2px solid #e2e8f0;
+        border-bottom: 2px solid var(--border);
         margin-bottom: 15px;
     }
     .spt-tab {
         padding: 10px 20px;
         font-weight: 500;
-        color: #64748b;
+        color: var(--text-dim);
         cursor: pointer;
         border-bottom: 2px solid transparent;
         margin-bottom: -2px;
@@ -109,13 +109,13 @@
     .spt-table-title {
         font-size: 18px;
         font-style: italic;
-        color: #334155;
+        color: var(--text);
     }
     
     .spt-table {
         width: 100%;
         border-collapse: collapse;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--border);
     }
     .spt-table th {
         background: #475569;
@@ -124,17 +124,17 @@
         padding: 10px;
         font-weight: 500;
         font-size: 13px;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--border);
     }
     .spt-table td {
         padding: 12px 10px;
-        border: 1px solid #e2e8f0;
-        color: #334155;
+        border: 1px solid var(--border);
+        color: var(--text);
         font-size: 14px;
     }
     .spt-table .empty-state {
         text-align: center;
-        color: #64748b;
+        color: var(--text-dim);
         font-weight: 500;
     }
     

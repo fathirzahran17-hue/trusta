@@ -9,6 +9,21 @@
         </a>
 
         <div class="flex space-x-3">
+            @if($source)
+                @if($source['url'])
+                <a href="{{ $source['url'] }}" class="px-4 py-2 border border-trusta-teal/50 text-trusta-teal hover:bg-trusta-teal hover:text-navy-900 rounded-lg text-sm font-medium transition-colors flex items-center">
+                    Buka {{ $source['label'] }}{{ $source['number'] ? ' ' . $source['number'] : '' }}
+                </a>
+                @endif
+                @if($source['cancel'])
+                <form action="{{ $source['cancel']['url'] }}" method="POST" onsubmit="return confirm(@js($source['cancel']['confirm']));" class="inline">
+                    @csrf
+                    <button type="submit" class="px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center">
+                        {{ $source['cancel']['label'] }}
+                    </button>
+                </form>
+                @endif
+            @else
             @if($journal->status !== 'void')
             <a href="{{ route('client.journals.edit', $journal->id) }}" class="px-4 py-2 border border-trusta-teal/50 text-trusta-teal hover:bg-trusta-teal hover:text-navy-900 rounded-lg text-sm font-medium transition-colors flex items-center">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -24,8 +39,17 @@
                 </button>
             </form>
             @endif
+            @endif
         </div>
     </div>
+
+    @if($source)
+    <div class="mb-4 max-w-4xl" style="border:1px solid var(--border, rgba(255,255,255,.1)); border-radius:10px; padding:10px 14px; font-size:.82rem; color:var(--text-muted, #94a3b8);">
+        Jurnal ini dibuat otomatis oleh <b style="color:var(--text-strong, #fff)">{{ $source['label'] }}{{ $source['number'] ? ' ' . $source['number'] : '' }}</b>, jadi tidak bisa diubah/di-void langsung di sini.
+        @if($source['cancel']) Gunakan tombol <b>{{ $source['cancel']['label'] }}</b>: catatannya tetap ada (ditandai Dibatalkan), dibuat jurnal balik, dan dokumen terkait kembali terbuka.
+        @elseif($source['url']) Batalkan atau ubah lewat dokumennya.@endif
+    </div>
+    @endif
 
     <div class="bg-[#1E293B] border border-gray-800 shadow-2xl rounded-2xl overflow-hidden max-w-4xl">
         <div class="p-8 border-b border-gray-700">

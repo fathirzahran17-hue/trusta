@@ -48,24 +48,28 @@ class DeliveryOrderController extends Controller
         // Auto number
         $deliveryNumber = \App\Services\DocumentNumber::next(\App\Models\DeliveryOrder::class, 'delivery_number', 'DO-', (int) $companyId, null);
             
-        // Dari tombol "Buat Pengiriman" pada Pesanan Penjualan: isi pelanggan & baris barang otomatis
-        $prefill = \App\Services\DocumentLinker::prefillFromSalesOrder($request->sales_order_id, $companyId, 'fulfilled');
+        // Dari tombol "Buat Pengiriman" atau pilihan beberapa SO sekaligus (pelanggan sama): isi pelanggan & baris barang otomatis
+        $soIds = array_values(array_filter(array_map('intval', \Illuminate\Support\Arr::wrap($request->input('sales_order_id')))));
+        $prefill = \App\Services\DocumentLinker::prefillFromSources('sales', $soIds, [], (int) $companyId, 'fulfilled');
         $goodsIds = $products->pluck('id')->all();
         $prefill['rows'] = array_values(array_filter($prefill['rows'], fn ($r) => in_array($r['product_id'], $goodsIds)));
-        if ($prefill['order'] && !$salesOrders->contains('id', $prefill['order']->id)) {
-            $salesOrders->push($prefill['order']);
+        foreach ($prefill['orders'] as $o) {
+            if (!$salesOrders->contains('id', $o->id)) $salesOrders->push($o);
         }
+        $checked = array_map(fn ($i) => "sales_order_id=$i", $soIds);
+        $options = $salesOrders->map(fn ($o) => ['id' => $o->id, 'param' => 'sales_order_id', 'group' => 'Pesanan Penjualan (SO)', 'party_id' => $o->customer_id, 'text' => $o->order_number . ' — ' . optional($o->customer)->name])->all();
 
-        return view('client.sales_deliveries.create', compact('customers', 'salesOrders', 'products', 'deliveryNumber', 'prefill'));
+        return view('client.sales_deliveries.create', compact('customers', 'salesOrders', 'products', 'deliveryNumber', 'prefill', 'checked', 'options'));
     }
 
     public function show(DeliveryOrder $deliveryOrder)
     {
         abort_if($deliveryOrder->company_id !== auth()->user()->company_id, 403);
         $deliveryOrder->load(['customer', 'salesOrder', 'details.product']);
+        $orderNo = $deliveryOrder->sourceOrders()->pluck('order_number', 'id');
 
         $lines = $deliveryOrder->details->map(fn ($d) => [
-            'name' => optional($d->product)->name ?? '-',
+            'name' => (optional($d->product)->name ?? '-') . (($o = $orderNo[$d->sales_order_id ?: $deliveryOrder->sales_order_id] ?? null) && $orderNo->count() > 1 ? ' (' . $o . ')' : ''),
             'description' => $d->description,
             'quantity' => (float) $d->quantity,
         ])->all();
@@ -78,6 +82,7 @@ class DeliveryOrderController extends Controller
             'meta' => [
                 'Tanggal' => optional($deliveryOrder->delivery_date)->format('d M Y'),
                 'Pelanggan' => optional($deliveryOrder->customer)->name,
+                'Pesanan' => $orderNo->implode(', ') ?: null,
                 'Pengemudi' => $deliveryOrder->driver_name,
                 'Plat Nomor' => $deliveryOrder->license_plate,
                 'Alamat Kirim' => $deliveryOrder->shipping_address,
@@ -88,7 +93,7 @@ class DeliveryOrderController extends Controller
             'showPrices' => false,
             'total' => null,
             'actions' => $deliveryOrder->status === 'cancelled' ? [] : array_values(array_filter([
-                $deliveryOrder->sales_order_id ? ['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['delivery_order_id' => $deliveryOrder->id])] : null,
+                $deliveryOrder->status === 'draft' ? null : ['label' => 'Buat Faktur', 'url' => route('client.sales-invoices.create', ['delivery_order_id' => $deliveryOrder->id])],
                 ['label' => 'Batalkan Pengiriman', 'url' => route('client.sales.deliveries.cancel', $deliveryOrder), 'method' => 'POST', 'style' => 'danger',
                     'confirm' => 'Batalkan pengiriman ' . $deliveryOrder->delivery_number . '? Stok barang akan dikembalikan otomatis.'],
             ])),
@@ -111,17 +116,8 @@ class DeliveryOrderController extends Controller
 
         $companyId = auth()->user()->company_id;
         $requested = \App\Services\OrderProgress::requested($request->products, $request->quantities);
-        $so = $request->sales_order_id ? SalesOrder::where('company_id', $companyId)->find($request->sales_order_id) : null;
-        if ($request->sales_order_id && !$so) {
-            return back()->withInput()->with('error', 'Pesanan Penjualan tidak ditemukan.');
-        }
-        if ($so && $so->status === 'cancelled') {
-            return back()->withInput()->with('error', 'Pesanan ' . $so->order_number . ' sudah dibatalkan.');
-        }
         try {
-            if ($so) {
-                \App\Services\OrderProgress::assertWithinRemaining(\App\Services\OrderProgress::forSalesOrder($so), 'fulfilled', $requested, 'pengiriman');
-            }
+            [$rowOrders, $orders] = \App\Services\FulfilmentSources::resolve('sales', $request, (int) $companyId, (int) $request->customer_id);
             if ($request->status == 'shipped') {
                 foreach ($requested as $pid => $qty) {
                     $p = Product::where('company_id', $companyId)->find($pid);
@@ -142,7 +138,7 @@ class DeliveryOrderController extends Controller
             $deliveryOrder = DeliveryOrder::create([
                 'company_id' => $companyId,
                 'customer_id' => $request->customer_id,
-                'sales_order_id' => $so?->id,
+                'sales_order_id' => \App\Services\FulfilmentSources::headerOrder($rowOrders),
                 'delivery_number' => $request->delivery_number,
                 'delivery_date' => $request->delivery_date,
                 'driver_name' => $request->driver_name,
@@ -163,6 +159,7 @@ class DeliveryOrderController extends Controller
 
                 DeliveryOrderDetail::create([
                     'delivery_order_id' => $deliveryOrder->id,
+                    'sales_order_id' => $rowOrders[$index] ?? null,
                     'product_id' => $productId,
                     'description' => $request->row_descriptions[$index] ?? null,
                     'quantity' => $qty,
@@ -192,7 +189,7 @@ class DeliveryOrderController extends Controller
             }
 
             DB::commit();
-            if ($so) {
+            foreach ($orders as $so) {
                 \App\Services\OrderProgress::syncSalesOrder($so->fresh());
             }
             return redirect()->route('client.sales.deliveries')->with('success', 'Pengiriman Pesanan berhasil disimpan.');

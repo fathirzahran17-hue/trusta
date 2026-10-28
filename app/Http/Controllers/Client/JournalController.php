@@ -190,7 +190,8 @@ class JournalController extends Controller
     {
         if ($journal->company_id !== auth()->user()->company_id) abort(403);
         $journal->load(['details.account', 'details.projectJob', 'createdBy']);
-        return view('client.journals.show', compact('journal'));
+        $source = $this->sourceInfo($journal);
+        return view('client.journals.show', compact('journal', 'source'));
     }
 
     public function edit(Journal $journal)
@@ -281,18 +282,82 @@ class JournalController extends Controller
     /** Nama dokumen sumber bila jurnal dibuat otomatis oleh dokumen yang masih aktif (faktur, pembayaran, retur, dll). */
     private function sourceDocument(Journal $journal): ?string
     {
-        $map = [
-            'sales_invoices' => 'Faktur Penjualan', 'purchase_invoices' => 'Faktur Pembelian',
-            'sales_returns' => 'Retur Penjualan', 'purchase_returns' => 'Retur Pembelian',
-            'delivery_orders' => 'Pengiriman Barang', 'item_receipts' => 'Penerimaan Barang', 'down_payments' => 'Uang Muka',
-        ];
-        foreach ($map as $table => $label) {
-            if (\Illuminate\Support\Facades\DB::table($table)->where('journal_id', $journal->id)->exists()) {
-                return $label;
-            }
+        return $this->sourceInfo($journal)['label'] ?? null;
+    }
+
+    /**
+     * Dokumen yang membuat jurnal otomatis ini, beserta tautan untuk membukanya dan (bila ada) tombol pembatalannya.
+     * @return array{label:string,number:?string,url:?string,cancel:?array{url:string,label:string,confirm:string}}|null
+     */
+    private function sourceInfo(Journal $journal): ?array
+    {
+        $DB = \Illuminate\Support\Facades\DB::class;
+        $mk = fn ($label, $number = null, $url = null, $cancel = null) => compact('label', 'number', 'url', 'cancel');
+
+        if ($r = $DB::table('sales_invoices')->where('journal_id', $journal->id)->first()) {
+            return $mk('Faktur Penjualan', $r->invoice_number, route('client.sales-invoices.show', $r->id));
         }
-        if (\Illuminate\Support\Facades\DB::table('invoice_payments')->where('journal_id', $journal->id)->whereNull('voided_at')->exists()) {
-            return 'Pembayaran/Penerimaan faktur';
+        if ($r = $DB::table('purchase_invoices')->where('journal_id', $journal->id)->first()) {
+            return $mk('Faktur Pembelian', $r->invoice_number, route('client.purchase-invoices.show', $r->id));
+        }
+        if ($r = $DB::table('sales_returns')->where('journal_id', $journal->id)->first()) {
+            return $mk('Retur Penjualan', $r->return_number, route('client.sales.returns'));
+        }
+        if ($r = $DB::table('purchase_returns')->where('journal_id', $journal->id)->first()) {
+            return $mk('Retur Pembelian', $r->return_number, route('client.purchases.returns'));
+        }
+        if ($r = $DB::table('delivery_orders')->where('journal_id', $journal->id)->first()) {
+            return $mk('Pengiriman Barang', $r->delivery_number, route('client.sales.deliveries.show', $r->id));
+        }
+        if ($r = $DB::table('item_receipts')->where('journal_id', $journal->id)->first()) {
+            return $mk('Penerimaan Barang', $r->receipt_number, route('client.purchases.receipts.show', $r->id));
+        }
+        if ($r = $DB::table('down_payments')->where('journal_id', $journal->id)->first()) {
+            return $mk('Uang Muka', $r->payment_number, null);
+        }
+        if ($r = $DB::table('fixed_assets')->where('acquisition_journal_id', $journal->id)->first()) {
+            return $mk('Perolehan Aset Tetap', $r->code, route('client.fixed_assets.edit', $r->id));
+        }
+        if ($DB::table('depreciation_entries')->where('journal_id', $journal->id)->whereNull('voided_at')->exists()) {
+            return $mk('Penyusutan Aset Tetap', null, null, ['url' => route('client.fixed_assets.cancel_depreciation', $journal->id), 'label' => 'Batalkan Penyusutan',
+                'confirm' => 'Batalkan penyusutan ini? Jurnal balik dibuat dan nilai buku aset dikembalikan.']);
+        }
+        if ($r = $DB::table('down_payment_applications')->where('journal_id', $journal->id)->whereNull('voided_at')->first()) {
+            return $mk('Pemakaian Uang Muka', null, null, ['url' => route('client.down-payment-applications.void', $r->id), 'label' => 'Batalkan Pemakaian Uang Muka',
+                'confirm' => 'Batalkan pemakaian uang muka ini? Jurnal balik dibuat dan faktur kembali terbuka sebesar nilai itu.']);
+        }
+        if ($r = $DB::table('invoice_payments')->where('journal_id', $journal->id)->whereNull('voided_at')->first()) {
+            $sales = (bool) $r->sales_invoice_id;
+            return $mk($sales ? 'Penerimaan Pembayaran' : 'Pembayaran Pemasok', $r->payment_number, route($sales ? 'client.sales.receipts' : 'client.purchases.payments'),
+                ['url' => route('client.invoice-payments.void', $r->id), 'label' => 'Batalkan Pembayaran',
+                 'confirm' => 'Batalkan pembayaran ' . $r->payment_number . '? Catatannya TIDAK dihapus (ditandai Dibatalkan), dibuat jurnal balik bertanggal hari ini, dan faktur yang dilunasinya terbuka kembali (Belum Lunas).']);
+        }
+        if ($m = $DB::table('inventory_movements')->where('journal_id', $journal->id)->first()) {
+            $kinds = ['adjustment' => ['Penyesuaian Persediaan', 'client.inventory.adjustments'], 'opname' => ['Stok Opname', 'client.inventory.stock_opname'], 'request' => ['Pemakaian Barang', 'client.inventory.requests']];
+            [$label, $route] = $kinds[$m->reference_type] ?? ['Mutasi Persediaan', 'client.inventory.adjustments'];
+            return $mk($label . ($m->voided_at ? ' (sudah dibatalkan)' : ''), null, route($route), $m->voided_at ? null : ['url' => route('client.inventory.movements.cancel', $m->id), 'label' => 'Batalkan ' . $label,
+                'confirm' => 'Batalkan ' . strtolower($label) . ' ini? Stok dikembalikan dan dibuat jurnal balik bertanggal hari ini; catatannya tetap ada.']);
+        }
+        if ($a = $DB::table('fixed_assets')->where('disposal_journal_id', $journal->id)->first()) {
+            return $mk('Pelepasan Aset Tetap', $a->code, route('client.fixed_assets.dispositions'), $a->disposal_date ? ['url' => route('client.fixed_assets.cancel_disposal', $a->id), 'label' => 'Batalkan Pelepasan',
+                'confirm' => 'Batalkan pelepasan aset ' . $a->code . '? Aset kembali aktif dan dibuat jurnal balik bertanggal hari ini.'] : null);
+        }
+        // Sudah dibatalkan: jurnal asli dan jurnal baliknya harus tetap utuh sebagai jejak (tidak boleh diubah/dihapus)
+        if ($r = $DB::table('invoice_payments')->where('journal_id', $journal->id)->whereNotNull('voided_at')->first()) {
+            $sales = (bool) $r->sales_invoice_id;
+            return $mk(($sales ? 'Penerimaan Pembayaran' : 'Pembayaran Pemasok') . ' (sudah dibatalkan)', $r->payment_number, route($sales ? 'client.sales.receipts' : 'client.purchases.payments'));
+        }
+        if ($DB::table('down_payment_applications')->where('journal_id', $journal->id)->exists()) {
+            return $mk('Pemakaian Uang Muka (sudah dibatalkan)');
+        }
+        if ($DB::table('depreciation_entries')->where('journal_id', $journal->id)->exists()) {
+            return $mk('Penyusutan Aset Tetap (sudah dibatalkan)');
+        }
+        if ($DB::table('journals')->where('company_id', $journal->company_id)->where('description', 'Pembatalan ' . $journal->ref_number)->exists()) {
+            return $mk('Jurnal yang sudah dibatalkan (punya jurnal balik)', $journal->ref_number);
+        }
+        if (str_starts_with((string) $journal->ref_number, 'VOID-')) {
+            return $mk('Jurnal Balik pembatalan', $journal->ref_number);
         }
 
         return null;

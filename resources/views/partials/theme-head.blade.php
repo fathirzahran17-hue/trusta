@@ -5,14 +5,22 @@
 {{-- Terapkan tema sebelum halaman digambar agar tidak berkedip. Default: gelap. --}}
 <script>
     (function () {
-        var mode = 'dark';
-        try {
-            var saved = localStorage.getItem('trusta-theme');
-            if (saved === 'light' || saved === 'dark') mode = saved;
-        } catch (e) {}
-        var root = document.documentElement;
-        if (mode === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
-        root.dataset.theme = mode;
+        function apply() {
+            var mode = 'dark';
+            try {
+                var saved = localStorage.getItem('trusta-theme');
+                if (saved === 'light' || saved === 'dark') mode = saved;
+            } catch (e) {}
+            var root = document.documentElement;
+            var changed = root.classList.contains('dark') !== (mode === 'dark');
+            if (mode === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+            root.dataset.theme = mode;
+            if (changed) { try { window.dispatchEvent(new CustomEvent('trusta:theme', { detail: { mode: mode } })); } catch (e) {} }
+        }
+        apply();
+        // Halaman yang dibuka lagi lewat tombol Kembali/Maju (cache browser) atau tab lain ikut tema terakhir.
+        window.addEventListener('pageshow', apply);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) apply(); });
     })();
 
     // TRUSTA - format uang: selalu 2 digit di belakang koma (2.000.000,13)

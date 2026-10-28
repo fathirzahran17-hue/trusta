@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Journal extends Model
 {
-    use \App\Models\Concerns\BelongsToCompany;
+    use \App\Traits\EnforcesClosingDate, \App\Models\Concerns\BelongsToCompany;
+    protected bool $closingStrict = true;
 
     protected $fillable = [
         'company_id', 'ref_number', 'type', 'transaction_date',

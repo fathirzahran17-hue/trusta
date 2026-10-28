@@ -22,7 +22,7 @@ class OrderLifecycle
     public static function salesOrderBlockers(SalesOrder $so): array
     {
         $b = [];
-        if ($n = DeliveryOrder::where('sales_order_id', $so->id)->where('status', '!=', 'cancelled')->count()) {
+        if ($n = $so->allDeliveries()->where('status', '!=', 'cancelled')->count()) {
             $b[] = "$n pengiriman";
         }
         if ($n = $so->allInvoices()->where('status', '!=', 'void')->count()) {
@@ -39,7 +39,7 @@ class OrderLifecycle
     public static function purchaseOrderBlockers(PurchaseOrder $po): array
     {
         $b = [];
-        if ($n = ItemReceipt::where('purchase_order_id', $po->id)->where('status', '!=', 'cancelled')->count()) {
+        if ($n = $po->allReceipts()->where('status', '!=', 'cancelled')->count()) {
             $b[] = "$n penerimaan barang";
         }
         if ($n = $po->allInvoices()->where('status', '!=', 'void')->count()) {
@@ -72,7 +72,7 @@ class OrderLifecycle
             InventoryMovement::where('company_id', $do->company_id)->where('reference_type', 'delivery_order')->where('reference_id', $do->id)->delete();
             $do->update(['status' => 'cancelled']);
         });
-        if ($do->sales_order_id && ($so = SalesOrder::find($do->sales_order_id))) {
+        foreach ($do->sourceOrders() as $so) {
             OrderProgress::syncSalesOrder($so);
         }
     }
@@ -103,7 +103,7 @@ class OrderLifecycle
             }
             $r->update(['status' => 'cancelled']);
         });
-        if ($r->purchase_order_id && ($po = PurchaseOrder::find($r->purchase_order_id))) {
+        foreach ($r->sourceOrders() as $po) {
             OrderProgress::syncPurchaseOrder($po);
         }
     }

@@ -11,6 +11,7 @@ class DeliveryOrderDetail extends Model
 
     protected $fillable = [
         'delivery_order_id',
+        'sales_order_id',
         'product_id',
         'description',
         'quantity'

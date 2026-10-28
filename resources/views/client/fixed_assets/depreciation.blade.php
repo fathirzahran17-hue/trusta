@@ -77,6 +77,34 @@
         </div>
     </form>
 
+    <div class="pay-card" style="margin-top: 18px;">
+        <div style="padding: 10px 14px; font-weight: 700; font-size: .85rem; color: var(--text-strong); border-bottom: 1px solid var(--border);">
+            Riwayat Penyusutan <span style="color: var(--text-dim); font-weight: 500;">&mdash; salah proses? Batalkan, jurnal balik dibuat otomatis dan akumulasi aset dikembalikan</span>
+        </div>
+        @if($history->isEmpty())
+            <div style="padding: 18px 14px; font-size: .8rem; color: var(--text-dim);">Belum ada penyusutan yang bisa dibatalkan dari sini. (Penyusutan yang dijalankan sebelum fitur ini tidak tercatat per aset; koreksi dengan jurnal manual.)</div>
+        @else
+            <table class="pay-table">
+                <thead><tr><th>Jurnal</th><th>Periode</th><th>Aset</th><th class="r">Jumlah</th><th class="c">Aksi</th></tr></thead>
+                <tbody>
+                @foreach($history as $h)
+                    <tr>
+                        <td class="num">@if($h->journal)<a href="{{ route('client.journals.show', $h->journal->id) }}">{{ $h->journal->ref_number }}</a>@endif</td>
+                        <td>{{ \Carbon\Carbon::parse($h->period . '-01')->translatedFormat('F Y') }}</td>
+                        <td class="wrap">{{ $h->assets }}</td>
+                        <td class="r">Rp {{ number_format($h->total, 2, ',', '.') }}</td>
+                        <td class="c">
+                            <form method="POST" action="{{ route('client.fixed_assets.cancel_depreciation', $h->journal->id) }}" onsubmit="return confirm('Batalkan penyusutan ini?')">@csrf
+                                <button type="submit" class="rpt-btn" style="color:#ef4444;">Batalkan</button>
+                            </form>
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        @endif
+    </div>
+
     <script>
         (function () {
             const f = document.getElementById('depForm'); if (!f) return;

@@ -46,7 +46,7 @@ class SalesInvoiceController extends Controller
         $checked = array_merge(array_map(fn ($i) => "sales_order_id=$i", $soIds), array_map(fn ($i) => "delivery_order_id=$i", $doIds));
 
         $deliveries = \App\Models\DeliveryOrder::with('customer')->where('company_id', $cid)
-            ->whereIn('status', ['shipped', 'delivered'])->whereNotNull('sales_order_id')->orderByDesc('id')->limit(100)->get()
+            ->whereIn('status', ['shipped', 'delivered'])->orderByDesc('id')->limit(100)->get()
             ->map(fn ($d) => ['id' => $d->id, 'param' => 'delivery_order_id', 'group' => 'Pengiriman (DO)', 'party_id' => $d->customer_id, 'text' => $d->delivery_number . ' — ' . optional($d->customer)->name])->all();
 
         $sourceOrders = \App\Models\SalesOrder::with('customer')->where('company_id', $cid)
@@ -78,6 +78,7 @@ class SalesInvoiceController extends Controller
 
         try {
             [$rowOrders, $orders] = \App\Services\InvoiceSources::resolve('sales', $request, (int) auth()->user()->company_id, (int) $request->customer_id);
+            $rowDocs = \App\Services\InvoiceSources::resolveDocs('sales', $request, (int) auth()->user()->company_id, (int) $request->customer_id, $rowOrders);
             \App\Services\ServiceLines::assertPriced($request->products, $request->prices);
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
@@ -102,6 +103,7 @@ class SalesInvoiceController extends Controller
                 
                 $items[] = [
                     'sales_order_id' => $rowOrders[$index] ?? null,
+                    'delivery_order_id' => $rowDocs[$index] ?? null,
                     'product_id' => $productId,
                     'quantity' => $qty,
                     'unit_price' => $price,
@@ -275,9 +277,9 @@ class SalesInvoiceController extends Controller
 
                     $totalCogs += $itemCogs;
 
-                    // Faktur langsung (tanpa Pesanan/Surat Jalan): barang keluar saat faktur dibuat.
-                    // Bila dari Pesanan, stok sudah dikurangi oleh Surat Jalan.
-                    if (!$so) {
+                    // Faktur langsung (tanpa Pesanan/Pengiriman): barang keluar saat faktur dibuat.
+                    // Baris dari Pesanan atau Pengiriman: stok dikurangi oleh Pengiriman (jangan dua kali).
+                    if (empty($item['sales_order_id']) && empty($item['delivery_order_id'])) {
                         if ((float) $prod->stock < (float) $item['quantity']) {
                             throw new \Exception('Stok ' . $prod->name . ' tidak cukup (tersedia ' . (float) $prod->stock . ').');
                         }

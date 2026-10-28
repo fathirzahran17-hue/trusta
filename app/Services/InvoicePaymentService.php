@@ -34,7 +34,7 @@ class InvoicePaymentService
      * Jurnal balik (standar akuntansi): jurnal asli tetap ada, lalu dibuat jurnal pembalik bertanggal hari pembatalan
      * dengan debit/kredit ditukar, sehingga saldo akun kembali seperti sebelum transaksi.
      */
-    private static function reverseJournal(Journal $orig, string $description, int $userId): Journal
+    public static function reverseJournal(Journal $orig, string $description, int $userId): Journal
     {
         $orig->loadMissing('details');
         $rev = Journal::create([
@@ -59,7 +59,7 @@ class InvoicePaymentService
     }
 
     /** Terapkan perubahan jumlah dibayar secara inkremental (aman terhadap retur yang sudah mengurangi sisa tagihan). */
-    private static function applyPaid($invoice, float $delta): void
+    public static function applyPaid($invoice, float $delta): void
     {
         $paid = max(0, round((float) $invoice->amount_paid + $delta, 2));
         $due = max(0, round((float) $invoice->amount_due - $delta, 2));

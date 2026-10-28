@@ -19,6 +19,8 @@
             if (qty) { qty.value = r.quantity; qty.dispatchEvent(new Event('input', { bubbles: true })); }
             var ord = tr.querySelector('.input-row-order');
             if (ord && r.order_id) ord.value = String(r.order_id);
+            var doc = tr.querySelector('.input-row-doc');
+            if (doc && r.doc_id) doc.value = String(r.doc_id);
             if (r.order_no && sel) {
                 var cell = sel.closest('td');
                 if (cell && !cell.querySelector('.src-tag')) { var t = document.createElement('div'); t.className = 'src-tag'; t.textContent = 'dari ' + r.order_no; cell.appendChild(t); }

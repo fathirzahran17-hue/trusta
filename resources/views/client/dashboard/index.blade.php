@@ -279,11 +279,26 @@
 
     <!-- Charts Initialization Script -->
     <script>
-        Chart.defaults.color = '#94a3b8';
+        // Warna grafik mengikuti tema (terang/gelap) dan ikut berubah saat tema diganti tanpa memuat ulang.
+        const chartTheme = () => {
+            const dark = document.documentElement.classList.contains('dark');
+            return { text: dark ? '#94a3b8' : '#475569', grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)', surface: dark ? '#1E293B' : '#ffffff' };
+        };
+        const trustaCharts = [];
+        Chart.defaults.color = chartTheme().text;
         Chart.defaults.font.family = "'Poppins', sans-serif";
+        window.addEventListener('trusta:theme', () => {
+            const t = chartTheme();
+            Chart.defaults.color = t.text;
+            trustaCharts.forEach(c => {
+                Object.values(c.options.scales || {}).forEach(sc => { if (sc.grid && sc.grid.display !== false) sc.grid.color = t.grid; if (sc.ticks) sc.ticks.color = t.text; });
+                c.data.datasets.forEach(d => { if (d.pointBackgroundColor) d.pointBackgroundColor = t.surface; });
+                c.update('none');
+            });
+        });
         
         // 1. Sales Trend Line Chart
-        new Chart(document.getElementById('salesTrendChart'), {
+        trustaCharts.push(new Chart(document.getElementById('salesTrendChart'), {
             type: 'line',
             data: {
                 labels: {!! json_encode($salesTrendLabels) !!},
@@ -293,7 +308,7 @@
                     borderColor: '#2DD4BF', // teal-400
                     backgroundColor: 'rgba(45, 212, 191, 0.1)',
                     borderWidth: 2,
-                    pointBackgroundColor: '#1E293B',
+                    pointBackgroundColor: chartTheme().surface,
                     pointBorderColor: '#2DD4BF',
                     pointBorderWidth: 2,
                     pointRadius: 4,
@@ -308,7 +323,7 @@
                 scales: {
                     x: { grid: { display: false, drawBorder: false } },
                     y: { 
-                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                        grid: { color: chartTheme().grid, drawBorder: false },
                         ticks: {
                             callback: function(value) {
                                 if (value >= 1000000) return (value / 1000000) + 'Jt';
@@ -319,10 +334,10 @@
                     }
                 }
             }
-        });
+        }));
 
         // 2. Profit & Loss Donut
-        new Chart(document.getElementById('plDonutChart'), {
+        trustaCharts.push(new Chart(document.getElementById('plDonutChart'), {
             type: 'doughnut',
             data: {
                 labels: ['Pendapatan', 'HPP', 'Beban'],
@@ -339,10 +354,10 @@
                 cutout: '75%',
                 plugins: { legend: { display: false } }
             }
-        });
+        }));
 
         // 3. Cash Flow Chart (Bar)
-        new Chart(document.getElementById('cashFlowChart'), {
+        trustaCharts.push(new Chart(document.getElementById('cashFlowChart'), {
             type: 'bar',
             data: {
                 labels: {!! json_encode($cashFlowLabels) !!},
@@ -369,7 +384,7 @@
                     x: { stacked: true, grid: { display: false } },
                     y: { 
                         stacked: true, 
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        grid: { color: chartTheme().grid },
                         ticks: {
                             callback: function(value) {
                                 let v = Math.abs(value);
@@ -381,14 +396,14 @@
                     }
                 }
             }
-        });
+        }));
 
         // 4. Expenses Donut
         @php 
             $expLabels = $topExpenses->pluck('name');
             $expData = $topExpenses->pluck('total');
         @endphp
-        new Chart(document.getElementById('expenseDonutChart'), {
+        trustaCharts.push(new Chart(document.getElementById('expenseDonutChart'), {
             type: 'doughnut',
             data: {
                 labels: {!! json_encode($expLabels) !!},
@@ -405,6 +420,6 @@
                 cutout: '75%',
                 plugins: { legend: { display: false } }
             }
-        });
+        }));
     </script>
 </x-app-layout>

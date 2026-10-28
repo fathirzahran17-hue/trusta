@@ -86,6 +86,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::get('accounts/history/{account?}', [\App\Http\Controllers\Client\AccountController::class, 'history'])->name('accounts.history');
     Route::resource('accounts', \App\Http\Controllers\Client\AccountController::class);
     Route::get('consistency', [\App\Http\Controllers\Client\ConsistencyController::class, 'index'])->name('consistency');
+    Route::post('sales-invoices/{sales_invoice}/down-payments', [\App\Http\Controllers\Client\DownPaymentApplicationController::class, 'applySales'])->name('sales-invoices.down-payments.apply');
+    Route::post('purchase-invoices/{purchase_invoice}/down-payments', [\App\Http\Controllers\Client\DownPaymentApplicationController::class, 'applyPurchase'])->name('purchase-invoices.down-payments.apply');
+    Route::post('down-payment-applications/{application}/void', [\App\Http\Controllers\Client\DownPaymentApplicationController::class, 'void'])->whereNumber('application')->name('down-payment-applications.void');
     Route::post('consistency/rebuild-purchase/{purchase_invoice}', [\App\Http\Controllers\Client\ConsistencyController::class, 'rebuildPurchase'])->whereNumber('purchase_invoice')->name('consistency.rebuild-purchase');
     Route::resource('journals', \App\Http\Controllers\Client\JournalController::class);
     Route::resource('project-jobs', \App\Http\Controllers\Client\ProjectJobController::class);
@@ -114,7 +117,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::post('cash-bank/transfers', [\App\Http\Controllers\Client\CashBankController::class, 'storeTransfers'])->name('cash-bank.transfers.store');
     Route::get('cash-bank/statements', [\App\Http\Controllers\Client\CashBankController::class, 'statements'])->name('cash-bank.statements');
 
-    Route::get('cash-bank/reconciliation', [\App\Http\Controllers\Client\CashBankController::class, 'reconciliation'])->name('cash-bank.reconciliation');
+    Route::get('cash-bank/reconciliation', [\App\Http\Controllers\Client\BankReconciliationController::class, 'index'])->name('cash-bank.reconciliation');
+    Route::post('cash-bank/reconciliation', [\App\Http\Controllers\Client\BankReconciliationController::class, 'store'])->name('cash-bank.reconciliation.store');
+    Route::post('cash-bank/reconciliation/{reconciliation}/void', [\App\Http\Controllers\Client\BankReconciliationController::class, 'void'])->whereNumber('reconciliation')->name('cash-bank.reconciliation.void');
     Route::get('cash-bank/{account}', [\App\Http\Controllers\Client\CashBankController::class, 'show'])->name('cash-bank.show');
     Route::post('cash-bank/{account}/transaction', [\App\Http\Controllers\Client\CashBankController::class, 'storeTransaction'])->name('cash-bank.transaction');
     
@@ -126,12 +131,15 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::put('fixed-assets/{fixedAsset}', [\App\Http\Controllers\Client\FixedAssetController::class, 'update'])->name('fixed_assets.update');
     Route::delete('fixed-assets/{fixedAsset}', [\App\Http\Controllers\Client\FixedAssetController::class, 'destroy'])->name('fixed_assets.destroy');
     Route::get('fixed-assets/depreciation', [\App\Http\Controllers\Client\FixedAssetController::class, 'depreciation'])->name('fixed_assets.depreciation');
+    Route::post('fixed-assets/depreciation/{journal}/cancel', [\App\Http\Controllers\Client\FixedAssetController::class, 'cancelDepreciation'])->whereNumber('journal')->name('fixed_assets.cancel_depreciation');
     Route::post('fixed-assets/run-depreciation', [\App\Http\Controllers\Client\FixedAssetController::class, 'runDepreciation'])->name('fixed_assets.run_depreciation');
     Route::get('fixed-assets/categories', [\App\Http\Controllers\Client\FixedAssetController::class, 'categories'])->name('fixed_assets.categories');
     Route::post('fixed-assets/categories', [\App\Http\Controllers\Client\FixedAssetController::class, 'storeCategory'])->name('fixed_assets.categories.store');
     Route::delete('fixed-assets/categories/{category}', [\App\Http\Controllers\Client\FixedAssetController::class, 'destroyCategory'])->name('fixed_assets.categories.destroy');
     Route::get('fixed-assets/tax-categories', [\App\Http\Controllers\Client\FixedAssetController::class, 'taxCategories'])->name('fixed_assets.tax_categories');
     Route::get('fixed-assets/modifications', [\App\Http\Controllers\Client\FixedAssetController::class, 'modifications'])->name('fixed_assets.modifications');
+    Route::post('fixed-assets/{fixedAsset}/dispose', [\App\Http\Controllers\Client\FixedAssetController::class, 'dispose'])->whereNumber('fixedAsset')->name('fixed_assets.dispose');
+    Route::post('fixed-assets/{fixedAsset}/cancel-disposal', [\App\Http\Controllers\Client\FixedAssetController::class, 'cancelDisposal'])->whereNumber('fixedAsset')->name('fixed_assets.cancel_disposal');
     Route::get('fixed-assets/dispositions', [\App\Http\Controllers\Client\FixedAssetController::class, 'dispositions'])->name('fixed_assets.dispositions');
     Route::get('fixed-assets/transfers', [\App\Http\Controllers\Client\FixedAssetController::class, 'transfers'])->name('fixed_assets.transfers');
     Route::get('fixed-assets/locations', [\App\Http\Controllers\Client\FixedAssetController::class, 'assetsByLocation'])->name('fixed_assets.locations');
@@ -149,6 +157,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::post('inventory/transfers', [\App\Http\Controllers\Client\InventoryController::class, 'storeTransfer'])->name('inventory.transfers.store');
     Route::get('inventory/adjustments', [\App\Http\Controllers\Client\InventoryController::class, 'adjustments'])->name('inventory.adjustments');
     Route::post('inventory/adjustments', [\App\Http\Controllers\Client\InventoryController::class, 'storeAdjustment'])->name('inventory.adjustments.store');
+    Route::get('inventory/stock-opname', [\App\Http\Controllers\Client\InventoryController::class, 'stockOpname'])->name('inventory.stock_opname');
+    Route::post('inventory/stock-opname', [\App\Http\Controllers\Client\InventoryController::class, 'storeStockOpname'])->name('inventory.stock_opname.store');
+    Route::post('inventory/movements/{movement}/cancel', [\App\Http\Controllers\Client\InventoryController::class, 'cancelMovement'])->whereNumber('movement')->name('inventory.movements.cancel');
     Route::get('inventory/stock-opname-orders', [\App\Http\Controllers\Client\InventoryController::class, 'stockOpnameOrders'])->name('inventory.stock_opname_orders');
     Route::get('inventory/stock-opname-results', [\App\Http\Controllers\Client\InventoryController::class, 'stockOpnameResults'])->name('inventory.stock_opname_results');
     Route::get('inventory/warehouses', [\App\Http\Controllers\Client\InventoryController::class, 'warehouses'])->name('inventory.warehouses');

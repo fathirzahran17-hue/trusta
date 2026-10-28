@@ -64,7 +64,7 @@
                                 {{ $receipt->receipt_date->format('d M Y') }}
                             </td>
                             <td class="px-6 py-4">
-                                @if($receipt->purchaseOrder)<a href="{{ route('client.purchases.orders.show', $receipt->purchaseOrder) }}" class="link-doc">{{ $receipt->purchaseOrder->po_number }}</a>@else - @endif
+                                @php($__ords = $receipt->purchaseOrder ? collect([$receipt->purchaseOrder]) : $receipt->sourceOrders())@forelse($__ords as $__o)<a href="{{ route('client.purchases.orders.show', $__o) }}" class="link-doc">{{ $__o->po_number }}</a>@if(!$loop->last), @endif @empty - @endforelse
                             </td>
                             <td class="px-6 py-4 text-center">
                                 @if($receipt->status == 'received')

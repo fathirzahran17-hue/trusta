@@ -46,7 +46,7 @@ class PurchaseInvoiceController extends Controller
         $checked = array_merge(array_map(fn ($i) => "po_id=$i", $poIds), array_map(fn ($i) => "item_receipt_id=$i", $rcIds));
 
         $receipts = \App\Models\ItemReceipt::with('supplier')->where('company_id', $cid)
-            ->where('status', 'received')->whereNotNull('purchase_order_id')->orderByDesc('id')->limit(100)->get()
+            ->where('status', 'received')->orderByDesc('id')->limit(100)->get()
             ->map(fn ($r) => ['id' => $r->id, 'param' => 'item_receipt_id', 'group' => 'Penerimaan Barang', 'party_id' => $r->supplier_id, 'text' => $r->receipt_number . ' — ' . optional($r->supplier)->name])->all();
 
         $sourceOrders = \App\Models\PurchaseOrder::with('supplier')->where('company_id', $cid)
@@ -116,6 +116,7 @@ class PurchaseInvoiceController extends Controller
 
         try {
             [$rowOrders, $orders] = \App\Services\InvoiceSources::resolve('purchase', $request, (int) auth()->user()->company_id, (int) $request->supplier_id);
+            $rowDocs = \App\Services\InvoiceSources::resolveDocs('purchase', $request, (int) auth()->user()->company_id, (int) $request->supplier_id, $rowOrders);
             \App\Services\ServiceLines::assertPriced($request->products, $request->prices);
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
@@ -140,6 +141,7 @@ class PurchaseInvoiceController extends Controller
                 
                 $items[] = [
                     'po_id' => $rowOrders[$index] ?? null,
+                    'item_receipt_id' => $rowDocs[$index] ?? null,
                     'product_id' => $productId,
                     'account_id' => $rowAccounts[$index] ?? null,
                     'quantity' => $qty,

@@ -11,6 +11,7 @@ class ItemReceiptDetail extends Model
 
     protected $fillable = [
         'item_receipt_id',
+        'purchase_order_id',
         'product_id',
         'description',
         'quantity'

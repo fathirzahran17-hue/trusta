@@ -49,24 +49,28 @@ class ItemReceiptController extends Controller
         // Auto number
         $receiptNumber = \App\Services\DocumentNumber::next(\App\Models\ItemReceipt::class, 'receipt_number', 'IR-', (int) $companyId, null);
             
-        // Dari tombol "Buat Penerimaan" pada Pesanan Pembelian: isi pemasok & baris barang otomatis
-        $prefill = \App\Services\DocumentLinker::prefillFromPurchaseOrder(request('purchase_order_id'), $companyId, 'fulfilled');
+        // Dari tombol "Buat Penerimaan" atau pilihan beberapa PO sekaligus (pemasok sama): isi pemasok & baris barang otomatis
+        $poIds = array_values(array_filter(array_map('intval', \Illuminate\Support\Arr::wrap(request('purchase_order_id')))));
+        $prefill = \App\Services\DocumentLinker::prefillFromSources('purchase', $poIds, [], (int) $companyId, 'fulfilled');
         $goodsIds = $products->pluck('id')->all();
         $prefill['rows'] = array_values(array_filter($prefill['rows'], fn ($r) => in_array($r['product_id'], $goodsIds)));
-        if ($prefill['order'] && !$purchaseOrders->contains('id', $prefill['order']->id)) {
-            $purchaseOrders->push($prefill['order']);
+        foreach ($prefill['orders'] as $o) {
+            if (!$purchaseOrders->contains('id', $o->id)) $purchaseOrders->push($o);
         }
+        $checked = array_map(fn ($i) => "purchase_order_id=$i", $poIds);
+        $options = $purchaseOrders->map(fn ($o) => ['id' => $o->id, 'param' => 'purchase_order_id', 'group' => 'Pesanan Pembelian (PO)', 'party_id' => $o->supplier_id, 'text' => $o->po_number . ' — ' . optional($o->supplier)->name])->all();
 
-        return view('client.item_receipts.create', compact('suppliers', 'purchaseOrders', 'products', 'warehouses', 'receiptNumber', 'prefill'));
+        return view('client.item_receipts.create', compact('suppliers', 'purchaseOrders', 'products', 'warehouses', 'receiptNumber', 'prefill', 'checked', 'options'));
     }
 
     public function show(ItemReceipt $itemReceipt)
     {
         abort_if($itemReceipt->company_id !== auth()->user()->company_id, 403);
         $itemReceipt->load(['supplier', 'purchaseOrder', 'details.product']);
+        $orderNo = $itemReceipt->sourceOrders()->pluck('po_number', 'id');
 
         $lines = $itemReceipt->details->map(fn ($d) => [
-            'name' => optional($d->product)->name ?? '-',
+            'name' => (optional($d->product)->name ?? '-') . (($o = $orderNo[$d->purchase_order_id ?: $itemReceipt->purchase_order_id] ?? null) && $orderNo->count() > 1 ? ' (' . $o . ')' : ''),
             'description' => $d->description,
             'quantity' => (float) $d->quantity,
         ])->all();
@@ -79,6 +83,7 @@ class ItemReceiptController extends Controller
             'meta' => [
                 'Tanggal' => optional($itemReceipt->receipt_date)->format('d M Y'),
                 'Pemasok' => optional($itemReceipt->supplier)->name,
+                'Pesanan' => $orderNo->implode(', ') ?: null,
                 'No. Surat Jalan' => $itemReceipt->delivery_note_number,
                 'Status' => ['draft' => 'Draft', 'received' => 'Diterima', 'cancelled' => 'Dibatalkan'][$itemReceipt->status] ?? $itemReceipt->status,
                 'Catatan' => $itemReceipt->notes,
@@ -87,7 +92,7 @@ class ItemReceiptController extends Controller
             'showPrices' => false,
             'total' => null,
             'actions' => $itemReceipt->status === 'cancelled' ? [] : array_values(array_filter([
-                $itemReceipt->purchase_order_id ? ['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['item_receipt_id' => $itemReceipt->id])] : null,
+                $itemReceipt->status === 'draft' ? null : ['label' => 'Buat Faktur', 'url' => route('client.purchase-invoices.create', ['item_receipt_id' => $itemReceipt->id])],
                 ['label' => 'Batalkan Penerimaan', 'url' => route('client.purchases.receipts.cancel', $itemReceipt), 'method' => 'POST', 'style' => 'danger',
                     'confirm' => 'Batalkan penerimaan ' . $itemReceipt->receipt_number . '? Stok masuk akan ditarik kembali (hanya bila barangnya belum terpakai).'],
             ])),
@@ -111,17 +116,8 @@ class ItemReceiptController extends Controller
 
         $companyId = auth()->user()->company_id;
         $requested = \App\Services\OrderProgress::requested($request->products, $request->quantities);
-        $po = $request->purchase_order_id ? PurchaseOrder::where('company_id', $companyId)->find($request->purchase_order_id) : null;
-        if ($request->purchase_order_id && !$po) {
-            return back()->withInput()->with('error', 'Pesanan Pembelian tidak ditemukan.');
-        }
-        if ($po && $po->status === 'cancelled') {
-            return back()->withInput()->with('error', 'Pesanan ' . $po->po_number . ' sudah dibatalkan.');
-        }
         try {
-            if ($po && $request->status == 'received') {
-                \App\Services\OrderProgress::assertWithinRemaining(\App\Services\OrderProgress::forPurchaseOrder($po), 'fulfilled', $requested, 'penerimaan');
-            }
+            [$rowOrders, $orders] = \App\Services\FulfilmentSources::resolve('purchase', $request, (int) $companyId, (int) $request->supplier_id, $request->status == 'received');
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
@@ -135,7 +131,7 @@ class ItemReceiptController extends Controller
                 'company_id' => $companyId,
                 'supplier_id' => $request->supplier_id,
                 'warehouse_id' => $request->warehouse_id,
-                'purchase_order_id' => $po?->id,
+                'purchase_order_id' => \App\Services\FulfilmentSources::headerOrder($rowOrders),
                 'receipt_number' => $request->receipt_number,
                 'receipt_date' => $request->receipt_date,
                 'delivery_note_number' => $request->delivery_note_number,
@@ -154,6 +150,7 @@ class ItemReceiptController extends Controller
 
                 ItemReceiptDetail::create([
                     'item_receipt_id' => $itemReceipt->id,
+                    'purchase_order_id' => $rowOrders[$index] ?? null,
                     'product_id' => $productId,
                     'description' => $request->row_descriptions[$index] ?? null,
                     'quantity' => $qty,
@@ -168,6 +165,7 @@ class ItemReceiptController extends Controller
                     $product = Product::find($productId);
                     // Harga perolehan mengikuti Pesanan Pembelian (setelah diskon baris); tanpa PO pakai harga beli master
                     $price = (float) $product->buy_price;
+                    $po = ($rowOrders[$index] ?? null) ? $orders[$rowOrders[$index]] : null;
                     if ($po) {
                         $poItem = $po->items()->where('product_id', $productId)->first();
                         if ($poItem) {
@@ -206,7 +204,7 @@ class ItemReceiptController extends Controller
             }
 
             DB::commit();
-            if ($po) {
+            foreach ($orders as $po) {
                 \App\Services\OrderProgress::syncPurchaseOrder($po->fresh());
             }
             return redirect()->route('client.purchases.receipts')->with('success', 'Penerimaan Barang berhasil disimpan.');
