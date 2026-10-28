@@ -277,9 +277,9 @@ class SalesInvoiceController extends Controller
 
                     $totalCogs += $itemCogs;
 
-                    // Faktur langsung (tanpa Pesanan/Surat Jalan): barang keluar saat faktur dibuat.
-                    // Bila dari Pesanan, stok sudah dikurangi oleh Surat Jalan.
-                    if (!$so) {
+                    // Faktur langsung (tanpa Pesanan/Pengiriman): barang keluar saat faktur dibuat.
+                    // Baris dari Pesanan atau Pengiriman: stok dikurangi oleh Pengiriman (jangan dua kali).
+                    if (empty($item['sales_order_id']) && empty($item['delivery_order_id'])) {
                         if ((float) $prod->stock < (float) $item['quantity']) {
                             throw new \Exception('Stok ' . $prod->name . ' tidak cukup (tersedia ' . (float) $prod->stock . ').');
                         }

@@ -1461,6 +1461,7 @@ class DocumentFlowTest extends TestCase
         $this->assertMatchesRegularExpression('/"quantity":1(\.0)?[,}]/', $page);
         $this->post('/client/sales-invoices', $base + ['quantities' => [2]])->assertSessionHas('error');
         $this->post('/client/sales-invoices', $base + ['quantities' => [1]])->assertRedirect();
+        $this->assertEquals(6, $this->product->fresh()->stock); // stok hanya dikurangi pengiriman, bukan lagi oleh faktur
         $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->assertSee('sudah ditagih');
         $this->assertBooksBalanced();
     }
