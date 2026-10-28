@@ -1292,4 +1292,48 @@ class DocumentFlowTest extends TestCase
         $this->assertBooksBalanced();
         $this->get('/client/sales/down-payments')->assertOk();
     }
+
+    public function test_closed_period_blocks_changes_but_allows_paying_old_invoices(): void
+    {
+        $old = date('Y-m-d', strtotime('-60 days'));
+        $closeTo = date('Y-m-d', strtotime('-30 days'));
+        $today = date('Y-m-d');
+        $po = $this->createPurchaseAndReceive(10);
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'supplier_invoice_no' => 'S-OLD',
+            'invoice_date' => $old, 'due_date' => $old, 'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertSessionMissing('error');
+        $inv = PurchaseInvoice::firstOrFail();
+        $a = Account::where('company_id', $this->user->company_id)->where('type', 'expense')->get()->first(fn ($x) => !$x->is_header);
+        $j = \App\Models\Journal::withoutGlobalScopes()->create(['company_id' => $this->user->company_id, 'ref_number' => 'MAN-1', 'type' => 'general', 'transaction_date' => $old,
+            'description' => 'lama', 'status' => 'posted', 'created_by' => $this->user->id]);
+        $this->user->company->forceFill(['closing_date' => $closeTo])->save();
+
+        // faktur lama (periode tutup) tetap bisa dibayar di periode terbuka
+        $this->post('/client/purchase-invoices/' . $inv->id . '/payments', ['account_id' => $this->cash->id, 'amount' => 40000, 'payment_date' => $today])->assertSessionHas('success');
+        $this->assertEquals(60000, (float) $inv->fresh()->amount_due);
+        $pay = \App\Models\InvoicePayment::firstOrFail();
+        $this->post('/client/invoice-payments/' . $pay->id . '/void')->assertSessionHas('success');
+        $this->assertEquals(100000, (float) $inv->fresh()->amount_due);
+
+        // transaksi baru bertanggal di periode tutup ditolak dengan pesan jelas
+        $this->post('/client/purchase-invoices/' . $inv->id . '/payments', ['account_id' => $this->cash->id, 'amount' => 1000, 'payment_date' => $old])
+            ->assertSessionHas('error', fn ($m) => str_contains($m, 'Tutup Buku'));
+        $this->post('/client/cash-bank/' . $this->cash->id . '/transaction', ['transaction_type' => 'spend', 'transaction_date' => $old, 'description' => 'x',
+            'contra_account_id' => [Account::where('company_id', $this->user->company_id)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header)->id], 'amounts' => [100]])
+            ->assertSessionHas('error', fn ($m) => str_contains($m, 'Tutup Buku'));
+
+        // jurnal di periode tutup tidak bisa diubah/dihapus, termasuk lewat isi barisnya
+        $this->delete('/client/journals/' . $j->id)->assertSessionHas('error');
+        $this->assertNotNull(\App\Models\Journal::find($j->id));
+        $this->expectException(\App\Exceptions\PeriodClosedException::class);
+        \App\Models\JournalDetail::create(['journal_id' => $j->id, 'account_id' => $a->id, 'debit' => 5, 'credit' => 0]);
+    }
+
+    public function test_admin_can_lock_and_unlock_period(): void
+    {
+        $this->post('/client/company/month-end', ['closing_date' => date('Y-m-d', strtotime('-10 days'))])->assertSessionHas('success');
+        $this->assertNotNull($this->user->company->fresh()->closing_date);
+        $this->post('/client/company/month-end', ['closing_date' => date('Y-m-d', strtotime('+10 days'))])->assertSessionHasErrors('closing_date');
+        $this->post('/client/company/month-end', ['action' => 'unlock'])->assertSessionHas('success');
+        $this->assertNull($this->user->company->fresh()->closing_date);
+    }
 }

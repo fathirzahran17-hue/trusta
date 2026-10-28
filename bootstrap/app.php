@@ -36,4 +36,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return redirect($target)->with('error', 'Pengiriman terakhir sempat terputus oleh verifikasi keamanan hosting, sehingga data BELUM tersimpan. Silakan isi dan kirim lagi.');
         });
+
+        // Transaksi di periode Tutup Buku: tampilkan pesan jelas dan kembali ke halaman sebelumnya.
+        $exceptions->render(function (\App\Exceptions\PeriodClosedException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->withInput()->with('error', $e->getMessage());
+        });
     })->create();

@@ -18,6 +18,18 @@ class JournalDetail extends Model
         'credit' => 'decimal:2',
     ];
 
+    protected static function booted(): void
+    {
+        $check = function (JournalDetail $d) {
+            if (!\App\Support\PeriodLock::closingDate()) return;
+            $date = Journal::withoutGlobalScopes()->whereKey($d->journal_id)->value('transaction_date');
+            \App\Support\PeriodLock::assertOpen($date, 'Jurnal');
+        };
+        static::creating($check);
+        static::updating($check);
+        static::deleting($check);
+    }
+
     public function journal(): BelongsTo
     {
         return $this->belongsTo(Journal::class);

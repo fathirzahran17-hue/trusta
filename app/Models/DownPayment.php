@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class DownPayment extends Model
 {
-    use HasFactory, \App\Models\Concerns\BelongsToCompany;
+    use HasFactory, \App\Traits\EnforcesClosingDate, \App\Models\Concerns\BelongsToCompany;
+    protected string $closingDateField = 'payment_date';
 
     protected $fillable = [
         'company_id',

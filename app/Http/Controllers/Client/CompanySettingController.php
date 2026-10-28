@@ -38,24 +38,34 @@ class CompanySettingController extends Controller
 
     public function processMonthEnd(Request $request)
     {
-        $request->validate([
-            'closing_date' => 'required|date',
-        ]);
-
+        abort_unless(in_array(auth()->user()->role, ['super_admin', 'client_admin'], true), 403, 'Hanya admin yang dapat mengubah kunci periode.');
         $company = auth()->user()->company;
-        $company->closing_date = $request->closing_date;
+        $unlock = $request->input('action') === 'unlock';
+
+        if ($unlock) {
+            $previous = $company->closing_date;
+            $company->closing_date = null;
+        } else {
+            $request->validate(['closing_date' => 'required|date|before_or_equal:today']);
+            $previous = $company->closing_date;
+            $company->closing_date = $request->closing_date;
+        }
         $company->save();
 
         \App\Models\ActivityLog::create([
             'company_id' => $company->id,
             'user_id' => auth()->id(),
-            'action' => 'close_period',
+            'action' => $unlock ? 'open_period' : 'close_period',
             'model_type' => get_class($company),
             'model_id' => $company->id,
-            'description' => 'Tutup Buku / Kunci Transaksi hingga ' . $request->closing_date,
+            'description' => $unlock
+                ? 'Buka Kunci Periode (sebelumnya terkunci hingga ' . ($previous ?: '-') . ')'
+                : 'Tutup Buku / Kunci Transaksi hingga ' . $request->closing_date . ' (sebelumnya ' . ($previous ?: 'tidak terkunci') . ')',
             'ip_address' => $request->ip(),
         ]);
 
-        return back()->with('success', 'Tutup Buku berhasil dilakukan. Transaksi sebelum atau pada tanggal ' . date('d/m/Y', strtotime($request->closing_date)) . ' kini terkunci.');
+        return back()->with('success', $unlock
+            ? 'Kunci periode dibuka. Semua tanggal kini dapat diubah kembali.'
+            : 'Tutup Buku berhasil. Transaksi pada atau sebelum ' . date('d/m/Y', strtotime($request->closing_date)) . ' kini terkunci.');
     }
 }
