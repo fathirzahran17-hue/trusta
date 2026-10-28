@@ -15,6 +15,8 @@
         </div>
     @endif
 
+    @include('partials.pull-multi', ['label' => 'Tarik dari Pesanan Pembelian (PO)', 'partyWord' => 'pemasok', 'docWord' => 'penerimaan', 'options' => $options, 'checked' => $checked, 'baseUrl' => route('client.purchases.receipts.create'), 'sourceText' => $prefill['source'], 'notice' => $prefill['ignored'] ? $prefill['ignored'] . ' pesanan dilewati karena beda pemasok.' : (($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada pesanan yang dipilih sudah diterima.' : null)])
+
     <form action="{{ route('client.purchases.receipts.store') }}" method="POST" id="receiptForm">
         @csrf
         
@@ -35,19 +37,14 @@
                         <select name="supplier_id" id="supplier_id" required>
                             <option value="">-- Pilih Pemasok --</option>
                             @foreach($suppliers as $supp)
-                                <option value="{{ $supp->id }}" {{ old('supplier_id', optional($prefill['order'])->supplier_id) == $supp->id ? 'selected' : '' }}>{{ $supp->name }}</option>
+                                <option value="{{ $supp->id }}" {{ old('supplier_id', $prefill['party_id']) == $supp->id ? 'selected' : '' }}>{{ $supp->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     
                     <div>
-                        <label for="purchase_order_id">Dari Pesanan (PO)</label>
-                        <select name="purchase_order_id" id="purchase_order_id" onchange="window.location.href = this.value ? '{{ route('client.purchases.receipts.create') }}?purchase_order_id=' + this.value : '{{ route('client.purchases.receipts.create') }}'">
-                            <option value="">-- Pilih PO (Opsional) --</option>
-                            @foreach($purchaseOrders as $po)
-                                <option value="{{ $po->id }}" {{ old('purchase_order_id', optional($prefill['order'])->id) == $po->id ? 'selected' : '' }}>{{ $po->po_number }} — {{ optional($po->supplier)->name }}</option>
-                            @endforeach
-                        </select>
+                        <label>Dari Pesanan</label>
+                        <div style="font-size:0.78rem; padding:6px 0; color:var(--text-strong, #fff);">{{ $prefill['source'] ?: 'Tanpa pesanan (bebas)' }}</div>
                     </div>
 
                     <div>
@@ -112,7 +109,7 @@
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
-                                    <input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
+                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                                 </td>
                                 <td style="padding: 4px 4px;">
                                     <input type="number" step="0.01" name="quantities[]" value="1" min="0.01" required style="width: 100%; text-align: right;">
@@ -173,7 +170,7 @@
                         </select>
                     </td>
                     <td style="padding: 4px 4px;">
-                        <input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
+                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                     </td>
                     <td style="padding: 4px 4px;">
                         <input type="number" step="0.01" name="quantities[]" value="1" min="0.01" required style="width: 100%; text-align: right;">

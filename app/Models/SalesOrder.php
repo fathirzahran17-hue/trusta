@@ -67,6 +67,15 @@ class SalesOrder extends Model
         });
     }
 
+    /** Semua pengiriman untuk pesanan ini, termasuk pengiriman gabungan beberapa pesanan. */
+    public function allDeliveries()
+    {
+        $id = $this->id;
+        return DeliveryOrder::where('company_id', $this->company_id)->where(function ($q) use ($id) {
+            $q->where('sales_order_id', $id)->orWhereHas('details', fn ($d) => $d->where('sales_order_id', $id));
+        });
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

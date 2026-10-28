@@ -121,7 +121,7 @@ class DocumentLinker
      * @param int[] $orderIds   id SO/PO
      * @param int[] $docIds     id Pengiriman/Penerimaan
      */
-    public static function prefillFromSources(string $kind, array $orderIds, array $docIds, int $companyId): array
+    public static function prefillFromSources(string $kind, array $orderIds, array $docIds, int $companyId, string $mode = 'invoiced'): array
     {
         $sales = $kind === 'sales';
         $empty = ['orders' => collect(), 'order' => null, 'rows' => [], 'party_id' => null, 'source' => null, 'sources' => [], 'ignored' => 0];
@@ -150,8 +150,8 @@ class DocumentLinker
         $orders = $orders->filter(fn ($o) => $o->{$partyCol} == $party)->values();
 
         $remaining = [];   // order_id => product_id => sisa
-        $remainingOf = function ($o) use (&$remaining, $sales) {
-            return $remaining[$o->id] ??= OrderProgress::remaining($sales ? OrderProgress::forSalesOrder($o) : OrderProgress::forPurchaseOrder($o), 'invoiced');
+        $remainingOf = function ($o) use (&$remaining, $sales, $mode) {
+            return $remaining[$o->id] ??= OrderProgress::remaining($sales ? OrderProgress::forSalesOrder($o) : OrderProgress::forPurchaseOrder($o), $mode);
         };
 
         $rows = [];
@@ -172,33 +172,50 @@ class DocumentLinker
                 $rows[] = $c + [];
                 $rows[array_key_last($rows)]['quantity'] = $q;
                 $rows[array_key_last($rows)]['order_id'] = $ord?->id;
-                $rows[array_key_last($rows)]['order_no'] = $ord ? ($sales ? $ord->order_number : $ord->po_number) : null;
+                $rows[array_key_last($rows)]['order_no'] = $ord ? ($sales ? $ord->order_number : $ord->po_number) : ($c['doc_no'] ?? null);
             }
             if ($ord) {
                 $remaining[$ord->id] = $left;
             }
         };
 
-        // pengiriman/penerimaan dulu (jumlah nyata yang dikirim/diterima), lalu pesanan menarik sisanya
+        // pengiriman/penerimaan dulu (jumlah nyata yang dikirim/diterima), lalu pesanan menarik sisanya.
+        // Tiap baris pengiriman memakai pesanan asalnya sendiri (satu pengiriman bisa dari beberapa pesanan);
+        // baris tanpa pesanan dibatasi jumlah yang belum pernah ditagih dari pengiriman itu.
         foreach ($docs as $d) {
-            $ord = $sales ? $d->salesOrder : $d->purchaseOrder;
-            $lines = $ord ? ($sales ? $ord->details : $ord->items)->groupBy('product_id') : collect();
-            $cand = [];
+            $docOrders = $d->sourceOrders()->keyBy('id');
+            $headerId = $sales ? $d->sales_order_id : $d->purchase_order_id;
+            $billedFree = $mode === 'invoiced' ? self::billedFromDocument($kind, $d->id) : [];
+            $byOrder = [];
             foreach ($d->details as $x) {
-                $line = optional($lines->get($x->product_id))->first();
-                $cand[] = [
+                $oid = (int) (($sales ? $x->sales_order_id : $x->purchase_order_id) ?: $headerId) ?: 0;
+                $ord = $oid ? ($docOrders[$oid] ?? null) : null;
+                $line = $ord ? optional(($sales ? $ord->details : $ord->items)->firstWhere('product_id', $x->product_id)) : null;
+                $q = (float) $x->quantity;
+                if (!$ord && $mode === 'invoiced') {
+                    $used = min($q, $billedFree[$x->product_id] ?? 0);
+                    $billedFree[$x->product_id] = ($billedFree[$x->product_id] ?? 0) - $used;
+                    $q -= $used;
+                    if ($q <= 0.0001) continue;
+                }
+                $byOrder[$oid][] = [
                     'product_id' => $x->product_id,
-                    'description' => $line->description ?? null,
-                    'quantity' => (float) $x->quantity,
+                    'description' => $line->description ?? $x->description,
+                    'quantity' => $q,
                     'price' => (float) ($line->unit_price ?? ($sales ? optional($x->product)->sell_price : optional($x->product)->buy_price) ?? 0),
                     'discount' => (float) ($line->discount_percent ?? 0),
+                    'doc_id' => $d->id,
+                    'doc_no' => $sales ? $d->delivery_number : $d->receipt_number,
                 ];
             }
-            $take($cand, $ord);
-            $labels[] = $sales ? $d->delivery_number : $d->receipt_number;
-            if ($ord) {
-                $usedOrders->push($ord);
+            foreach ($byOrder as $oid => $cand) {
+                $ord = $oid ? ($docOrders[$oid] ?? null) : null;
+                $take($cand, $ord);
+                if ($ord) {
+                    $usedOrders->push($ord);
+                }
             }
+            $labels[] = $sales ? $d->delivery_number : $d->receipt_number;
         }
         foreach ($orders as $o) {
             $cand = ($sales ? $o->details : $o->items)->map(fn ($x) => [
@@ -220,6 +237,21 @@ class DocumentLinker
             'orders' => $usedOrders, 'order' => $usedOrders->first(), 'rows' => $rows, 'party_id' => $party,
             'source' => implode(', ', $labels), 'sources' => $labels, 'ignored' => $ignored,
         ];
+    }
+
+    /** Jumlah per produk yang sudah ditagih (faktur aktif) langsung dari sebuah pengiriman/penerimaan. */
+    public static function billedFromDocument(string $kind, int $docId): array
+    {
+        $sales = $kind === 'sales';
+        $q = $sales
+            ? \App\Models\SalesInvoiceItem::join('sales_invoices', 'sales_invoices.id', '=', 'sales_invoice_items.sales_invoice_id')
+                ->where('sales_invoice_items.delivery_order_id', $docId)->where('sales_invoices.status', '!=', 'void')
+                ->selectRaw('sales_invoice_items.product_id as pid, SUM(sales_invoice_items.quantity) as qty')->groupBy('sales_invoice_items.product_id')
+            : \App\Models\PurchaseInvoiceItem::join('purchase_invoices', 'purchase_invoices.id', '=', 'purchase_invoice_items.purchase_invoice_id')
+                ->where('purchase_invoice_items.item_receipt_id', $docId)->where('purchase_invoices.status', '!=', 'void')
+                ->selectRaw('purchase_invoice_items.product_id as pid, SUM(purchase_invoice_items.quantity) as qty')->groupBy('purchase_invoice_items.product_id');
+
+        return $q->pluck('qty', 'pid')->map(fn ($v) => (float) $v)->all();
     }
 
     /** Batasi jumlah tiap baris ke sisa pesanan (per produk); baris yang sudah habis dibuang. */
@@ -310,7 +342,8 @@ class DocumentLinker
         $orders = $inv->sourceOrders();
         if ($orders->isNotEmpty()) {
             $groups[] = ['label' => 'Pesanan Penjualan', 'items' => $orders->map(fn ($so) => self::item($so->order_number, route('client.sales.orders.show', $so), self::rp($so->total)))->all()];
-            $dos = \App\Models\DeliveryOrder::whereIn('sales_order_id', $orders->pluck('id'))->orderBy('delivery_date')->get();
+            $dos = \App\Models\DeliveryOrder::where(fn ($q) => $q->whereIn('sales_order_id', $orders->pluck('id'))->orWhereHas('details', fn ($d) => $d->whereIn('sales_order_id', $orders->pluck('id'))))
+                ->orWhereIn('id', $inv->items()->whereNotNull('delivery_order_id')->pluck('delivery_order_id'))->orderBy('delivery_date')->get();
             $groups[] = ['label' => 'Pengiriman Barang', 'items' => $dos->map(fn ($d) => self::item($d->delivery_number, route('client.sales.deliveries.show', $d), optional($d->delivery_date)->format('d M Y')))->all()];
             $dps = \App\Models\DownPayment::whereIn('sales_order_id', $orders->pluck('id'))->get();
             $groups[] = ['label' => 'Uang Muka', 'items' => $dps->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()];
@@ -329,7 +362,8 @@ class DocumentLinker
         $orders = $inv->sourceOrders();
         if ($orders->isNotEmpty()) {
             $groups[] = ['label' => 'Pesanan Pembelian', 'items' => $orders->map(fn ($po) => self::item($po->po_number, route('client.purchases.orders.show', $po), self::rp($po->total)))->all()];
-            $rcs = \App\Models\ItemReceipt::whereIn('purchase_order_id', $orders->pluck('id'))->orderBy('receipt_date')->get();
+            $rcs = \App\Models\ItemReceipt::where(fn ($q) => $q->whereIn('purchase_order_id', $orders->pluck('id'))->orWhereHas('details', fn ($d) => $d->whereIn('purchase_order_id', $orders->pluck('id'))))
+                ->orWhereIn('id', $inv->items()->whereNotNull('item_receipt_id')->pluck('item_receipt_id'))->orderBy('receipt_date')->get();
             $groups[] = ['label' => 'Penerimaan Barang', 'items' => $rcs->map(fn ($r) => self::item($r->receipt_number, route('client.purchases.receipts.show', $r), optional($r->receipt_date)->format('d M Y')))->all()];
             $dps = \App\Models\DownPayment::whereIn('purchase_order_id', $orders->pluck('id'))->get();
             $groups[] = ['label' => 'Uang Muka', 'items' => $dps->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()];
@@ -345,7 +379,7 @@ class DocumentLinker
     {
         return [
             ['label' => 'Pelanggan', 'items' => $so->customer ? [self::item($so->customer->name, route('client.customers.show', $so->customer))] : []],
-            ['label' => 'Pengiriman Barang', 'items' => $so->deliveryOrders()->orderBy('delivery_date')->get()->map(fn ($d) => self::item($d->delivery_number, route('client.sales.deliveries.show', $d), optional($d->delivery_date)->format('d M Y')))->all()],
+            ['label' => 'Pengiriman Barang', 'items' => $so->allDeliveries()->orderBy('delivery_date')->get()->map(fn ($d) => self::item($d->delivery_number, route('client.sales.deliveries.show', $d), optional($d->delivery_date)->format('d M Y')))->all()],
             ['label' => 'Faktur Penjualan', 'items' => $so->allInvoices()->orderBy('invoice_date')->get()->map(fn ($i) => self::item($i->invoice_number, route('client.sales-invoices.show', $i), self::rp($i->total)))->all()],
             ['label' => 'Uang Muka', 'items' => $so->downPayments()->get()->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()],
         ];
@@ -355,7 +389,7 @@ class DocumentLinker
     {
         return [
             ['label' => 'Pemasok', 'items' => $po->supplier ? [self::item($po->supplier->name, route('client.suppliers.show', $po->supplier))] : []],
-            ['label' => 'Penerimaan Barang', 'items' => $po->receipts()->orderBy('receipt_date')->get()->map(fn ($r) => self::item($r->receipt_number, route('client.purchases.receipts.show', $r), optional($r->receipt_date)->format('d M Y')))->all()],
+            ['label' => 'Penerimaan Barang', 'items' => $po->allReceipts()->orderBy('receipt_date')->get()->map(fn ($r) => self::item($r->receipt_number, route('client.purchases.receipts.show', $r), optional($r->receipt_date)->format('d M Y')))->all()],
             ['label' => 'Faktur Pembelian', 'items' => $po->allInvoices()->orderBy('invoice_date')->get()->map(fn ($i) => self::item($i->invoice_number, route('client.purchase-invoices.show', $i), self::rp($i->total)))->all()],
             ['label' => 'Uang Muka', 'items' => $po->downPayments()->get()->map(fn ($d) => self::item($d->payment_number, null, self::rp($d->amount)))->all()],
         ];
@@ -363,11 +397,15 @@ class DocumentLinker
 
     public static function relatedForDelivery(DeliveryOrder $do): array
     {
-        $so = $do->salesOrder;
+        $orders = $do->sourceOrders();
+        $invoices = SalesInvoice::where('company_id', $do->company_id)->where(function ($q) use ($orders, $do) {
+            $q->whereIn('sales_order_id', $orders->pluck('id'))
+                ->orWhereHas('items', fn ($i) => $i->whereIn('sales_order_id', $orders->pluck('id'))->orWhere('delivery_order_id', $do->id));
+        })->get();
 
         return [
-            ['label' => 'Pesanan Penjualan', 'items' => $so ? [self::item($so->order_number, route('client.sales.orders.show', $so), self::rp($so->total))] : []],
-            ['label' => 'Faktur Penjualan', 'items' => $so ? $so->allInvoices()->get()->map(fn ($i) => self::item($i->invoice_number, route('client.sales-invoices.show', $i), self::rp($i->total)))->all() : []],
+            ['label' => 'Pesanan Penjualan', 'items' => $orders->map(fn ($so) => self::item($so->order_number, route('client.sales.orders.show', $so), self::rp($so->total)))->all()],
+            ['label' => 'Faktur Penjualan', 'items' => $invoices->map(fn ($i) => self::item($i->invoice_number, route('client.sales-invoices.show', $i), self::rp($i->total)))->all()],
             ['label' => 'Pelanggan', 'items' => $do->customer ? [self::item($do->customer->name, route('client.customers.show', $do->customer))] : []],
             ['label' => 'Jurnal Akuntansi', 'items' => self::journalItems($do->journal)],
         ];
@@ -375,11 +413,15 @@ class DocumentLinker
 
     public static function relatedForReceipt(ItemReceipt $r): array
     {
-        $po = $r->purchaseOrder;
+        $orders = $r->sourceOrders();
+        $invoices = PurchaseInvoice::where('company_id', $r->company_id)->where(function ($q) use ($orders, $r) {
+            $q->whereIn('po_id', $orders->pluck('id'))
+                ->orWhereHas('items', fn ($i) => $i->whereIn('po_id', $orders->pluck('id'))->orWhere('item_receipt_id', $r->id));
+        })->get();
 
         return [
-            ['label' => 'Pesanan Pembelian', 'items' => $po ? [self::item($po->po_number, route('client.purchases.orders.show', $po), self::rp($po->total))] : []],
-            ['label' => 'Faktur Pembelian', 'items' => $po ? $po->allInvoices()->get()->map(fn ($i) => self::item($i->invoice_number, route('client.purchase-invoices.show', $i), self::rp($i->total)))->all() : []],
+            ['label' => 'Pesanan Pembelian', 'items' => $orders->map(fn ($po) => self::item($po->po_number, route('client.purchases.orders.show', $po), self::rp($po->total)))->all()],
+            ['label' => 'Faktur Pembelian', 'items' => $invoices->map(fn ($i) => self::item($i->invoice_number, route('client.purchase-invoices.show', $i), self::rp($i->total)))->all()],
             ['label' => 'Pemasok', 'items' => $r->supplier ? [self::item($r->supplier->name, route('client.suppliers.show', $r->supplier))] : []],
             ['label' => 'Jurnal Akuntansi', 'items' => self::journalItems($r->journal)],
         ];

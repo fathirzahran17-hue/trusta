@@ -15,6 +15,8 @@
         </div>
     @endif
 
+    @include('partials.pull-multi', ['label' => 'Tarik dari Pesanan Penjualan (SO)', 'partyWord' => 'pelanggan', 'docWord' => 'pengiriman', 'options' => $options, 'checked' => $checked, 'baseUrl' => route('client.sales.deliveries.create'), 'sourceText' => $prefill['source'], 'notice' => $prefill['ignored'] ? $prefill['ignored'] . ' pesanan dilewati karena beda pelanggan.' : (($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada pesanan yang dipilih sudah dikirim.' : null)])
+
     <form action="{{ route('client.sales.deliveries.store') }}" method="POST" id="deliveryForm">
         @csrf
         
@@ -35,19 +37,14 @@
                         <select name="customer_id" id="customer_id" required>
                             <option value="">-- Pilih Pelanggan --</option>
                             @foreach($customers as $cust)
-                                <option value="{{ $cust->id }}" {{ old('customer_id', optional($prefill['order'])->customer_id) == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
+                                <option value="{{ $cust->id }}" {{ old('customer_id', $prefill['party_id']) == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     
                     <div>
-                        <label for="sales_order_id">Dari Pesanan (Sales Order)</label>
-                        <select name="sales_order_id" id="sales_order_id" onchange="window.location.href = this.value ? '{{ route('client.sales.deliveries.create') }}?sales_order_id=' + this.value : '{{ route('client.sales.deliveries.create') }}'">
-                            <option value="">-- Pilih SO (Opsional) --</option>
-                            @foreach($salesOrders as $so)
-                                <option value="{{ $so->id }}" {{ old('sales_order_id', optional($prefill['order'])->id) == $so->id ? 'selected' : '' }}>{{ $so->order_number }} — {{ optional($so->customer)->name }}</option>
-                            @endforeach
-                        </select>
+                        <label>Dari Pesanan</label>
+                        <div style="font-size:0.78rem; padding:6px 0; color:var(--text-strong, #fff);">{{ $prefill['source'] ?: 'Tanpa pesanan (bebas)' }}</div>
                     </div>
 
                     <div>
@@ -106,7 +103,7 @@
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
-                                    <input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
+                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                                 </td>
                                 <td style="padding: 4px 4px;">
                                     <input type="number" step="0.01" name="quantities[]" value="1" min="0.01" required style="width: 100%; text-align: right;">
@@ -167,7 +164,7 @@
                         </select>
                     </td>
                     <td style="padding: 4px 4px;">
-                        <input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
+                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                     </td>
                     <td style="padding: 4px 4px;">
                         <input type="number" step="0.01" name="quantities[]" value="1" min="0.01" required style="width: 100%; text-align: right;">

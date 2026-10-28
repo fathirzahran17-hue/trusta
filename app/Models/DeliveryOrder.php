@@ -39,6 +39,19 @@ class DeliveryOrder extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    /** Id pesanan asal (header + per baris; satu dokumen bisa dari beberapa pesanan). */
+    public function sourceOrderIds()
+    {
+        return $this->details()->whereNotNull('sales_order_id')->pluck('sales_order_id')->push($this->sales_order_id)->filter()->map(fn ($v) => (int) $v)->unique()->values();
+    }
+
+    public function sourceOrders()
+    {
+        $ids = $this->sourceOrderIds();
+
+        return $ids->isEmpty() ? collect() : SalesOrder::where('company_id', $this->company_id)->whereIn('id', $ids)->get();
+    }
+
     public function salesOrder()
     {
         return $this->belongsTo(SalesOrder::class);

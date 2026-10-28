@@ -64,6 +64,15 @@ class PurchaseOrder extends Model
         });
     }
 
+    /** Semua penerimaan untuk PO ini, termasuk penerimaan gabungan beberapa PO. */
+    public function allReceipts()
+    {
+        $id = $this->id;
+        return ItemReceipt::where('company_id', $this->company_id)->where(function ($q) use ($id) {
+            $q->where('purchase_order_id', $id)->orWhereHas('details', fn ($d) => $d->where('purchase_order_id', $id));
+        });
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseOrderItem::class);

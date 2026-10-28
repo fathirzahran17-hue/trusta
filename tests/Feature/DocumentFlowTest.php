@@ -1393,4 +1393,114 @@ class DocumentFlowTest extends TestCase
         $this->assertEquals(0, (float) $pi->fresh()->amount_due);
         $this->assertBooksBalanced();
     }
+
+    public function test_one_delivery_can_fulfil_several_sales_orders_and_be_invoiced(): void
+    {
+        $this->createPurchaseAndReceive(20);
+        $today = date('Y-m-d');
+        foreach (['SO-M-1' => 3, 'SO-M-2' => 4] as $no => $q) {
+            $this->post('/client/sales/orders', ['customer_id' => $this->customer->id, 'order_number' => $no, 'order_date' => $today,
+                'products' => [$this->product->id], 'quantities' => [$q], 'prices' => [15000], 'discounts' => [0]])->assertRedirect();
+        }
+        [$a, $b] = SalesOrder::orderBy('id')->get()->all();
+
+        // form create menarik dua SO sekaligus
+        $this->get('/client/sales/deliveries/create?sales_order_id[]=' . $a->id . '&sales_order_id[]=' . $b->id)->assertOk()->assertSee('SO-M-1, SO-M-2');
+
+        // melebihi sisa salah satu SO ditolak
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'delivery_number' => 'DO-M-X', 'delivery_date' => $today, 'status' => 'shipped',
+            'products' => [$this->product->id, $this->product->id], 'row_orders' => [$a->id, $b->id], 'quantities' => [4, 4]])->assertSessionHas('error');
+
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'delivery_number' => 'DO-M-1', 'delivery_date' => $today, 'status' => 'shipped',
+            'products' => [$this->product->id, $this->product->id], 'row_orders' => [$a->id, $b->id], 'quantities' => [3, 4]])->assertSessionHas('success');
+        $do = DeliveryOrder::firstOrFail();
+        $this->assertNull($do->sales_order_id);
+        $this->assertEquals([$a->id, $b->id], $do->sourceOrderIds()->sort()->values()->all());
+        $this->assertEquals(13, $this->product->fresh()->stock);
+        $this->get('/client/sales/deliveries/' . $do->id)->assertOk()->assertSee('SO-M-1')->assertSee('SO-M-2')->assertSee('Buat Faktur');
+        $this->get('/client/sales/deliveries')->assertOk()->assertSee('SO-M-2');
+        // SO tidak bisa dihapus/diubah lagi karena sudah ada pengiriman
+        $this->assertNotEmpty(\App\Services\OrderLifecycle::salesOrderBlockers($b));
+
+        // faktur dari pengiriman itu: tiap baris tetap tercatat ke SO-nya
+        $page = $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->assertOk()->getContent();
+        $this->assertStringContainsString('"order_id":' . $a->id, $page);
+        $this->assertStringContainsString('"order_id":' . $b->id, $page);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id, $this->product->id], 'row_orders' => [$a->id, $b->id], 'row_docs' => [$do->id, $do->id],
+            'quantities' => [3, 4], 'prices' => [15000, 15000], 'discounts' => [0, 0]])->assertRedirect();
+        $this->assertSame('closed', $a->fresh()->status);
+        $this->assertSame('closed', $b->fresh()->status);
+
+        // batal pengiriman: kedua SO terbuka kembali untuk pengiriman (faktur tetap)
+        \App\Services\OrderLifecycle::cancelDelivery($do->fresh());
+        $this->assertSame('open', $a->fresh()->status);
+        $this->assertEquals(20, $this->product->fresh()->stock);
+        $this->assertBooksBalanced();
+    }
+
+    public function test_delivery_without_order_can_be_invoiced_only_once(): void
+    {
+        $this->createPurchaseAndReceive(10);
+        $today = date('Y-m-d');
+        $this->post('/client/sales/deliveries', ['customer_id' => $this->customer->id, 'delivery_number' => 'DO-F-1', 'delivery_date' => $today, 'status' => 'shipped',
+            'products' => [$this->product->id], 'quantities' => [4]])->assertSessionHas('success');
+        $do = DeliveryOrder::firstOrFail();
+        $this->get('/client/sales/deliveries/' . $do->id)->assertSee('Buat Faktur');
+        $this->get('/client/sales-invoices/create')->assertSee('DO-F-1');
+        $page = $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->assertOk()->getContent();
+        $this->assertStringContainsString('"doc_id":' . $do->id, $page);
+
+        $base = ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id],
+            'row_docs' => [$do->id], 'prices' => [15000], 'discounts' => [0]];
+        $this->post('/client/sales-invoices', $base + ['quantities' => [5]])->assertSessionHas('error');
+        $this->post('/client/sales-invoices', $base + ['quantities' => [3]])->assertRedirect();
+        $this->assertSame($do->id, (int) SalesInvoice::firstOrFail()->items()->first()->delivery_order_id);
+        // sisa 1 yang belum ditagih
+        $page = $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->getContent();
+        $this->assertMatchesRegularExpression('/"quantity":1(\.0)?[,}]/', $page);
+        $this->post('/client/sales-invoices', $base + ['quantities' => [2]])->assertSessionHas('error');
+        $this->post('/client/sales-invoices', $base + ['quantities' => [1]])->assertRedirect();
+        $this->get('/client/sales-invoices/create?delivery_order_id[]=' . $do->id)->assertSee('sudah ditagih');
+        $this->assertBooksBalanced();
+    }
+
+    public function test_one_receipt_can_receive_several_purchase_orders(): void
+    {
+        $today = date('Y-m-d');
+        foreach (['PO-M-1' => [5, 10000], 'PO-M-2' => [5, 20000]] as $no => [$q, $p]) {
+            $this->post('/client/purchases/orders', ['supplier_id' => $this->supplier->id, 'po_number' => $no, 'order_date' => $today,
+                'products' => [$this->product->id], 'quantities' => [$q], 'prices' => [$p], 'discounts' => [0]])->assertRedirect();
+        }
+        [$a, $b] = PurchaseOrder::orderBy('id')->get()->all();
+        $a->update(['status' => 'sent']); $b->update(['status' => 'sent']);
+        $this->get('/client/purchases/receipts/create?purchase_order_id[]=' . $a->id . '&purchase_order_id[]=' . $b->id)->assertOk()->assertSee('PO-M-1, PO-M-2');
+        $this->post('/client/purchases/receipts', ['supplier_id' => $this->supplier->id, 'warehouse_id' => $this->warehouse->id, 'receipt_number' => 'IR-M-1',
+            'receipt_date' => $today, 'status' => 'received', 'products' => [$this->product->id, $this->product->id], 'row_orders' => [$a->id, $b->id], 'quantities' => [5, 5]])
+            ->assertSessionHas('success');
+        $this->assertEquals(10, $this->product->fresh()->stock);
+        $this->assertEquals(15000, round((float) $this->product->fresh()->buy_price)); // harga rata-rata dari masing-masing PO
+        $this->assertSame('received', $a->fresh()->status);
+        $this->assertSame('received', $b->fresh()->status);
+        $r = \App\Models\ItemReceipt::firstOrFail();
+        $this->get('/client/purchases/receipts/' . $r->id)->assertOk()->assertSee('PO-M-2')->assertSee('Buat Faktur');
+        $this->get('/client/purchases/receipts')->assertOk()->assertSee('PO-M-2');
+    }
+
+    public function test_receipt_without_order_can_be_invoiced_only_once(): void
+    {
+        $today = date('Y-m-d');
+        $this->get('/client/purchases/receipts/create')->assertOk();
+        $this->post('/client/purchases/receipts', ['supplier_id' => $this->supplier->id, 'warehouse_id' => $this->warehouse->id, 'receipt_number' => 'IR-F-1',
+            'receipt_date' => $today, 'status' => 'received', 'products' => [$this->product->id], 'quantities' => [6]])->assertSessionHas('success');
+        $r = \App\Models\ItemReceipt::firstOrFail();
+        $this->get('/client/purchase-invoices/create')->assertSee('IR-F-1');
+        $this->assertStringContainsString('"doc_id":' . $r->id, $this->get('/client/purchase-invoices/create?item_receipt_id[]=' . $r->id)->getContent());
+        $base = ['supplier_id' => $this->supplier->id, 'invoice_date' => $today, 'due_date' => $today, 'products' => [$this->product->id],
+            'row_docs' => [$r->id], 'prices' => [10000], 'discounts' => [0]];
+        $this->post('/client/purchase-invoices', $base + ['quantities' => [6]])->assertRedirect();
+        $this->post('/client/purchase-invoices', $base + ['quantities' => [1]])->assertSessionHas('error');
+        $this->assertSame(1, PurchaseInvoice::count());
+        $this->assertBooksBalanced();
+    }
 }

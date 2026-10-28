@@ -29,7 +29,7 @@ class OrderProgress
 
         $delivered = DeliveryOrderDetail::query()
             ->join('delivery_orders', 'delivery_orders.id', '=', 'delivery_order_details.delivery_order_id')
-            ->where('delivery_orders.sales_order_id', $so->id)
+            ->whereRaw('COALESCE(delivery_order_details.sales_order_id, delivery_orders.sales_order_id) = ?', [$so->id])
             ->whereIn('delivery_orders.status', ['shipped', 'delivered'])
             ->selectRaw('delivery_order_details.product_id as pid, SUM(delivery_order_details.quantity) as qty')
             ->groupBy('delivery_order_details.product_id')->pluck('qty', 'pid');
@@ -62,7 +62,7 @@ class OrderProgress
 
         $received = ItemReceiptDetail::query()
             ->join('item_receipts', 'item_receipts.id', '=', 'item_receipt_details.item_receipt_id')
-            ->where('item_receipts.purchase_order_id', $po->id)
+            ->whereRaw('COALESCE(item_receipt_details.purchase_order_id, item_receipts.purchase_order_id) = ?', [$po->id])
             ->where('item_receipts.status', 'received')
             ->selectRaw('item_receipt_details.product_id as pid, SUM(item_receipt_details.quantity) as qty')
             ->groupBy('item_receipt_details.product_id')->pluck('qty', 'pid');

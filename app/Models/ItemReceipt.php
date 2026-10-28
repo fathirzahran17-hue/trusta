@@ -38,6 +38,19 @@ class ItemReceipt extends Model
         return $this->belongsTo(Supplier::class);
     }
 
+    /** Id pesanan asal (header + per baris; satu dokumen bisa dari beberapa pesanan). */
+    public function sourceOrderIds()
+    {
+        return $this->details()->whereNotNull('purchase_order_id')->pluck('purchase_order_id')->push($this->purchase_order_id)->filter()->map(fn ($v) => (int) $v)->unique()->values();
+    }
+
+    public function sourceOrders()
+    {
+        $ids = $this->sourceOrderIds();
+
+        return $ids->isEmpty() ? collect() : PurchaseOrder::where('company_id', $this->company_id)->whereIn('id', $ids)->get();
+    }
+
     public function purchaseOrder()
     {
         return $this->belongsTo(PurchaseOrder::class);

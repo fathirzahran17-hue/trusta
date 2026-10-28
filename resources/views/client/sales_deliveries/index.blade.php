@@ -61,7 +61,7 @@
                                 {{ $do->delivery_date->format('d M Y') }}
                             </td>
                             <td class="px-6 py-4">
-                                @if($do->salesOrder)<a href="{{ route('client.sales.orders.show', $do->salesOrder) }}" class="link-doc">{{ $do->salesOrder->order_number }}</a>@else - @endif
+                                @php($__ords = $do->salesOrder ? collect([$do->salesOrder]) : $do->sourceOrders())@forelse($__ords as $__o)<a href="{{ route('client.sales.orders.show', $__o) }}" class="link-doc">{{ $__o->order_number }}</a>@if(!$loop->last), @endif @empty - @endforelse
                             </td>
                             <td class="px-6 py-4 text-center">
                                 @if($do->status == 'shipped')

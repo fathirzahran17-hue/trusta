@@ -84,7 +84,7 @@
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
-                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
+                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                                 </td>
                                 <td style="padding: 4px 4px;">
                                     <input type="number" step="0.01" name="quantities[]" class="input-qty" value="1" min="0.01" required style="width: 100%; text-align: right;">
@@ -239,7 +239,7 @@
                         </select>
                     </td>
                     <td style="padding: 4px 4px;">
-                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
+                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                     </td>
                     <td style="padding: 4px 4px;">
                         <input type="number" step="0.01" name="quantities[]" class="input-qty" value="1" min="0.01" required style="width: 100%; text-align: right;">

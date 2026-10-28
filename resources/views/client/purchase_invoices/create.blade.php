@@ -101,7 +101,7 @@
                                     </select>
                                 </td>
                                 <td class="px-2 py-3">
-                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
+                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
                                 </td>
                                 <td class="px-2 py-3">
                                     <input type="number" step="0.01" name="quantities[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-qty" value="1" min="0.01" required>
@@ -252,7 +252,7 @@
                         </select>
                     </td>
                     <td class="px-2 py-3">
-                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
+                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
                     </td>
                     <td class="px-2 py-3">
                         <input type="number" step="0.01" name="quantities[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-qty" value="1" min="0.01" required>
