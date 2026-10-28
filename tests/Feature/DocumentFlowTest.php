@@ -1738,4 +1738,32 @@ class DocumentFlowTest extends TestCase
         $this->assertNull(\Illuminate\Support\Facades\DB::table('journals')->find($other)->reverses_journal_id);
         $this->assertEqualsCanonicalizing([$orig, $rev], \App\Support\LedgerPeriod::cancelledPairIds($cid));
     }
+
+    public function test_unlinked_old_reversal_on_other_date_is_hidden_with_consistent_balance(): void
+    {
+        $cid = $this->user->company_id;
+        $rev = Account::where('company_id', $cid)->where('type', 'revenue')->get()->first(fn ($a) => !$a->is_header);
+        $mk = function ($ref, $date, $desc, $debit) use ($cid, $rev) {
+            $id = \Illuminate\Support\Facades\DB::table('journals')->insertGetId(['company_id' => $cid, 'ref_number' => $ref, 'type' => 'general',
+                'transaction_date' => $date, 'description' => $desc, 'status' => 'posted', 'created_by' => $this->user->id, 'created_at' => now(), 'updated_at' => now()]);
+            \Illuminate\Support\Facades\DB::table('journal_details')->insert([
+                ['journal_id' => $id, 'account_id' => $this->cash->id, 'debit' => $debit > 0 ? $debit : 0, 'credit' => $debit < 0 ? -$debit : 0, 'description' => $desc],
+                ['journal_id' => $id, 'account_id' => $rev->id, 'debit' => $debit < 0 ? -$debit : 0, 'credit' => $debit > 0 ? $debit : 0, 'description' => $desc],
+            ]);
+        };
+        $mk('RC-OLD-1', date('Y-m-d', strtotime('-40 days')), 'Diterima', 90000);
+        $mk('KEEP-1', date('Y-m-d', strtotime('-20 days')), 'Lain', 5000);
+        $mk('VOID-OLD-1', date('Y-m-d'), 'Pembatalan RC-OLD-1', -90000); // jurnal balik lama: tanggal berbeda, belum tertaut
+
+        $this->get('/client/dashboard');
+        $html = $this->get('/client/cash-bank/' . $this->cash->id . '?range=all')->assertOk()->getContent();
+        $this->assertStringNotContainsString('RC-OLD-1', $html);
+        $this->assertStringNotContainsString('VOID-OLD-1', $html);
+        $this->assertStringContainsString('KEEP-1', $html);
+        // periode yang dimulai di antara keduanya: saldo awal tidak memuat transaksi yang dibatalkan
+        $open = \App\Support\LedgerPeriod::openingBefore($this->cash->fresh(), date('Y-m-d', strtotime('-30 days')), false);
+        $this->assertEquals((float) $this->cash->fresh()->opening_balance, $open);
+        $this->get('/client/cash-bank/' . $this->cash->id . '?void=1&range=all')->assertSee('VOID-OLD-1');
+        $this->get('/client/cash-bank/' . $this->cash->id . '?void=0');
+    }
 }

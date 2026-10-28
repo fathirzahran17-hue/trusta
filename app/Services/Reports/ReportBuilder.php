@@ -26,12 +26,13 @@ class ReportBuilder
 
     /* ------------------------------------------------------------------ helpers */
 
-    private function sums(?string $from, string $to): array
+    private function sums(?string $from, string $to, array $excludeJournals = []): array
     {
         return JournalDetail::query()
             ->join('journals', 'journals.id', '=', 'journal_details.journal_id')
             ->where('journals.company_id', $this->companyId)
             ->where('journals.status', 'posted')
+            ->when($excludeJournals, fn ($q) => $q->whereNotIn('journals.id', $excludeJournals))
             ->whereDate('journals.transaction_date', '<=', $to)
             ->when($from, fn ($q) => $q->whereDate('journals.transaction_date', '>=', $from))
             ->groupBy('journal_details.account_id')
@@ -267,7 +268,7 @@ class ReportBuilder
 
         $showVoid = $r->input('void') === '1';
         $hide = $showVoid ? [] : \App\Support\LedgerPeriod::cancelledPairIds((int) $this->companyId);
-        $before = $this->sums(null, Carbon::parse($start)->subDay()->toDateString());
+        $before = $this->sums(null, Carbon::parse($start)->subDay()->toDateString(), $hide);
         $details = JournalDetail::query()
             ->join('journals', 'journals.id', '=', 'journal_details.journal_id')
             ->where('journals.company_id', $this->companyId)->where('journals.status', 'posted')
