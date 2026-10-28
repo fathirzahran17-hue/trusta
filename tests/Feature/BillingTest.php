@@ -133,8 +133,8 @@ class BillingTest extends TestCase
         $this->assertSame(now()->addMonthsNoOverflow(3)->subDay()->toDateString(), $sub->end_date->toDateString());
         $this->assertTrue((bool) $company->fresh()->is_premium);
         $this->get('/superadmin/clients?tab=active')->assertSee('PT Klien');
-        $this->get('/superadmin/clients?tab=inactive')->assertDontSee('PT Klien');
-        $this->get('/superadmin/clients?q=tidakada')->assertDontSee('PT Klien');
+        $this->get('/superadmin/clients?tab=inactive')->assertDontSee('>PT Klien</b>', false);
+        $this->get('/superadmin/clients?q=tidakada')->assertDontSee('>PT Klien</b>', false);
         $this->get('/superadmin/dashboard')->assertOk()->assertSee('Rp 200.000'); // MRR 600rb / 3 bulan
         $this->put('/superadmin/clients/' . $company->id . '/subscription', ['status' => 'expired', 'end_date' => now()->subDays(10)->toDateString()])->assertSessionHas('success');
         $this->assertFalse((bool) $company->fresh()->is_premium);

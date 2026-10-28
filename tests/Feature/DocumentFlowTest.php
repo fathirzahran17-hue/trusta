@@ -1654,4 +1654,43 @@ class DocumentFlowTest extends TestCase
         $this->assertNull($lines[1]->fresh()->bank_reconciliation_id);
         $this->get('/client/cash-bank/statements')->assertRedirect();
     }
+
+    public function test_dashboard_period_cash_flow_upcoming_and_notifications(): void
+    {
+        $today = date('Y-m-d');
+        $this->createPurchaseAndReceive(10);
+        // faktur penjualan jatuh tempo 5 hari lagi + diterima sebagian ke kas
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $today, 'due_date' => date('Y-m-d', strtotime('+5 days')),
+            'products' => [$this->product->id], 'quantities' => [2], 'prices' => [50000], 'discounts' => [0]])->assertRedirect();
+        $inv = SalesInvoice::firstOrFail();
+        $this->post("/client/sales-invoices/{$inv->id}/payments", ['account_id' => $this->cash->id, 'amount' => 40000, 'payment_date' => $today])->assertSessionHas('success');
+        // hutang lewat jatuh tempo
+        $po = PurchaseOrder::firstOrFail();
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'invoice_date' => date('Y-m-d', strtotime('-40 days')), 'due_date' => date('Y-m-d', strtotime('-10 days')),
+            'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertRedirect();
+
+        $html = $this->get('/client/dashboard?period=7d')->assertOk()->getContent();
+        $this->assertStringContainsString('7 hari terakhir', $html);
+        $this->assertStringContainsString('+40.000', $html);                  // arus kas dari penerimaan faktur (bukan hanya transaksi kas manual)
+        $this->assertStringContainsString('Tagih piutang', $html);            // kegiatan mendatang memuat piutang
+        $this->assertStringContainsString('Penerimaan Penjualan', $html);     // aktivitas bernama dokumen asalnya
+        $this->get('/client/dashboard')->assertSee('7 hari terakhir');        // periode diingat
+        $this->get('/client/dashboard?period=custom&from=' . date('Y-m-d', strtotime('-60 days')) . '&to=' . $today)->assertOk()->assertSee('Rentang tanggal');
+        $this->get('/client/dashboard?period=year')->assertOk();
+
+        // notifikasi: hutang lewat jatuh tempo + pengumuman admin
+        \Illuminate\Support\Facades\Cache::flush();
+        $html = $this->get('/notifications')->assertOk()->getContent();
+        $this->assertStringContainsString('hutang lewat jatuh tempo', $html);
+        $admin = User::create(['company_id' => null, 'name' => 'SA', 'email' => 'sa2@example.com', 'password' => bcrypt('x'), 'role' => 'super_admin', 'is_active' => true]);
+        $this->actingAs($admin)->post('/superadmin/announcements', ['title' => 'Pemeliharaan Sabtu', 'level' => 'warning'])->assertSessionHas('success');
+        $this->get('/superadmin/announcements')->assertOk()->assertSee('Pemeliharaan Sabtu');
+        $this->actingAs($this->user);
+        $page = $this->get('/client/dashboard')->getContent();
+        $this->assertStringContainsString('Pemeliharaan Sabtu', $page);
+        $this->assertGreaterThan(0, \App\Services\NotificationService::unreadCount($this->user->fresh()));
+        $this->postJson('/notifications/read')->assertOk();
+        $this->assertNotNull($this->user->fresh()->notifications_read_at);
+        $this->assertSame(0, \App\Services\NotificationService::unreadCount($this->user->fresh()));
+    }
 }

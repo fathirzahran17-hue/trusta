@@ -4,15 +4,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <div class="mb-4 flex justify-between items-center">
-        <button class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 text-sm flex items-center shadow-sm">
-            <svg class="w-4 h-4 mr-2 text-trusta-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-            Widget
-        </button>
-        <select class="bg-gray-800 border border-gray-600 text-white text-sm rounded-md focus:ring-trusta-teal focus:border-trusta-teal py-2 pl-3 pr-8">
-            <option>Dashboard Utama</option>
+    @php $rpd = fn ($v) => 'Rp ' . number_format((float) $v, 2, ',', '.'); @endphp
+    <form method="GET" action="{{ route('client.dashboard') }}" class="dash-period" x-data="{ p: '{{ $period['key'] }}' }">
+        <span class="dash-period-label">Periode</span>
+        <select name="period" x-model="p" @change="if (p !== 'custom') $el.form.submit()">
+            @foreach($period['presets'] as $k => $l)<option value="{{ $k }}" @selected($period['key'] === $k)>{{ $l }}</option>@endforeach
         </select>
-    </div>
+        <span x-show="p === 'custom'" @if($period['key'] !== 'custom') style="display:none" @endif class="dash-period-range">
+            <input type="date" name="from" value="{{ $period['from']->toDateString() }}"> – <input type="date" name="to" value="{{ $period['to']->toDateString() }}">
+            <button type="submit" class="pay-mini prim">Terapkan</button>
+        </span>
+        <span class="dash-period-now">{{ $period['label'] }}</span>
+    </form>
 
     @if($alerts['overdue_ar_count'] || $alerts['overdue_ap_count'] || $alerts['low_stock'])
     <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -44,7 +47,7 @@
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
                 <h3 class="text-sm font-semibold text-gray-200">Aktifitas Terakhir Anda</h3>
-                <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+                <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 overflow-y-auto">
                 @if($recentActivities->isEmpty())
@@ -55,7 +58,7 @@
                             <div class="pl-4 relative">
                                 <div class="absolute w-3 h-3 bg-trusta-teal rounded-full -left-[6.5px] border-2 border-[#1E293B] top-1"></div>
                                 <p class="text-xs text-gray-400">{{ $act->created_at->translatedFormat('d M') }} &bull; {{ $act->created_at->format('H:i') }}</p>
-                                <p class="text-sm text-gray-200 mt-1">Buat Jurnal Umum <a href="{{ route('client.journals.show', $act) }}" class="link-doc">{{ $act->ref_number }}</a></p>
+                                <p class="text-sm text-gray-200 mt-1">{{ $act->act_label }} <a href="{{ $act->act_url }}" class="link-doc">{{ $act->ref_number }}</a></p>
                             </div>
                         @endforeach
                     </div>
@@ -66,26 +69,27 @@
         <!-- 2. Kegiatan Mendatang -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200">Kegiatan Mendatang</h3>
-                <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+                <h3 class="text-sm font-semibold text-gray-200">Kegiatan Mendatang <span class="text-[10px] text-gray-400 ml-1 font-normal">(jatuh tempo 14 hari)</span></h3>
+                <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 overflow-y-auto">
                 @if($upcomingEvents->isEmpty())
-                    <p class="text-xs text-gray-500 text-center mt-8">Tidak ada kegiatan dalam 7 hari kedepan</p>
+                    <p class="text-xs text-gray-500 text-center mt-8">Tidak ada tagihan/pembayaran jatuh tempo dalam 14 hari ke depan.</p>
                 @else
-                    <div class="space-y-4">
-                        @foreach($upcomingEvents as $event)
-                            <div class="flex items-start">
-                                <div class="flex-shrink-0 mr-3 text-center">
-                                    <div class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($event->due_date)->translatedFormat('l') }}</div>
-                                    <div class="text-xl font-bold text-gray-200">{{ \Carbon\Carbon::parse($event->due_date)->format('d') }}</div>
-                                    <div class="text-xs text-gray-400">{{ \Carbon\Carbon::parse($event->due_date)->translatedFormat('M') }}</div>
+                    <div class="space-y-3">
+                        @foreach($upcomingEvents as $ev)
+                            @php $d = \Carbon\Carbon::parse($ev['date']); @endphp
+                            <a href="{{ $ev['url'] }}" class="flex items-start" style="text-decoration:none">
+                                <div class="flex-shrink-0 mr-3 text-center" style="width:38px">
+                                    <div class="text-xs text-gray-400">{{ $d->translatedFormat('D') }}</div>
+                                    <div class="text-lg font-bold text-gray-200" style="line-height:1.1">{{ $d->format('d') }}</div>
+                                    <div class="text-xs text-gray-400">{{ $d->translatedFormat('M') }}</div>
                                 </div>
-                                <div class="flex-1 mt-1 border-l-2 border-green-500 pl-3">
-                                    <p class="text-xs text-gray-400 font-semibold mb-1"><a href="{{ route('client.purchase-invoices.show', $event) }}" class="link-doc">{{ $event->invoice_number }}</a></p>
-                                    <p class="text-sm text-gray-200">Jatuh Tempo Utang, {{ $event->supplier->name ?? 'Supplier' }}</p>
+                                <div class="flex-1 pl-3" style="border-left: 2px solid {{ $ev['kind'] === 'ar' ? '#16a34a' : ($ev['kind'] === 'ap' ? '#d97706' : 'var(--accent)') }}">
+                                    <p class="text-sm text-gray-200">{{ $ev['title'] }}</p>
+                                    <p class="text-xs text-gray-400">{{ $ev['number'] }}@if($ev['amount'] !== null) · {{ $rpd($ev['amount']) }}@endif</p>
                                 </div>
-                            </div>
+                            </a>
                         @endforeach
                     </div>
                 @endif
@@ -95,8 +99,8 @@
         <!-- 3. Tren Penjualan -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.sales-report') }}" class="hover:text-trusta-teal">Tren Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">(7 hari terakhir)</span></a></h3>
-                <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.sales-report') }}" class="hover:text-trusta-teal">Tren Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">{{ $rpd($salesTotal) }}</span></a></h3>
+                <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 relative w-full h-full">
                 <canvas id="salesTrendChart"></canvas>
@@ -106,8 +110,8 @@
         <!-- 4. Laba / Rugi Tahun ini -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.profit-loss') }}" class="hover:text-trusta-teal">Laba/Rugi Tahun ini</a></h3>
-                <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.profit-loss') }}" class="hover:text-trusta-teal">Laba/Rugi <span class="text-[10px] text-gray-400 ml-1 font-normal">(periode)</span></a></h3>
+                <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 flex items-center justify-between">
                 <div class="w-1/2 relative h-full flex flex-col justify-center items-center">
@@ -143,8 +147,8 @@
         <!-- 5. Arus Kas -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.cash-bank.index') }}" class="hover:text-trusta-teal">Arus Kas <span class="text-[10px] text-gray-400 ml-1 font-normal">(7 hari terakhir)</span></a></h3>
-                <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.cash-bank.index') }}" class="hover:text-trusta-teal">Arus Kas <span class="text-[10px] ml-1 font-normal" style="color:#16a34a">+{{ number_format($cashTotals['in'], 0, ',', '.') }}</span> <span class="text-[10px] font-normal" style="color:var(--danger)">−{{ number_format($cashTotals['out'], 0, ',', '.') }}</span></a></h3>
+                <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 relative w-full h-full">
                 <canvas id="cashFlowChart"></canvas>
@@ -154,8 +158,8 @@
         <!-- 6. Beban Perusahaan -->
         <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.profit-loss') }}" class="hover:text-trusta-teal">Beban Perusahaan <span class="text-[10px] text-gray-400 ml-1 font-normal">(Tahun ini)</span></a></h3>
-                <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.profit-loss') }}" class="hover:text-trusta-teal">Beban Perusahaan <span class="text-[10px] text-gray-400 ml-1 font-normal">(periode)</span></a></h3>
+                <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 flex items-center">
                 <div class="w-1/2 relative h-full flex flex-col justify-center items-center">
@@ -190,7 +194,7 @@
         <div class="md:col-span-3 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-56">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
                 <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.sales-invoices.index') }}" class="hover:text-trusta-teal">Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">(Semua Data)</span></a></h3>
-                <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+                <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex flex-col flex-1">
                 <div class="flex justify-between items-center mb-6">
@@ -235,7 +239,7 @@
         <div class="md:col-span-3 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-56">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
                 <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.purchase-invoices.index') }}" class="hover:text-trusta-teal">Pembelian <span class="text-[10px] text-gray-400 ml-1 font-normal">(Semua Data)</span></a></h3>
-                <button class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+                <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex flex-col flex-1">
                 <div class="flex justify-between items-center mb-6">

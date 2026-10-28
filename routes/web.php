@@ -62,6 +62,10 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/settings', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'index'])->name('settings.index');
     Route::post('/settings', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'update'])->name('settings.update');
 
+    Route::get('/announcements', [\App\Http\Controllers\SuperAdmin\AnnouncementController::class, 'index'])->name('announcements.index');
+    Route::post('/announcements', [\App\Http\Controllers\SuperAdmin\AnnouncementController::class, 'store'])->name('announcements.store');
+    Route::delete('/announcements/{announcement}', [\App\Http\Controllers\SuperAdmin\AnnouncementController::class, 'destroy'])->whereNumber('announcement')->name('announcements.destroy');
+
     // Template Akun Default (CoA)
     Route::get('/default-accounts', [\App\Http\Controllers\SuperAdmin\DefaultAccountController::class, 'index'])->name('default-accounts.index');
     Route::post('/default-accounts', [\App\Http\Controllers\SuperAdmin\DefaultAccountController::class, 'store'])->name('default-accounts.store');
@@ -292,6 +296,8 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
 // PROFILE ROUTES (Global)
 // ==========================================
 Route::middleware('auth')->group(function () {
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

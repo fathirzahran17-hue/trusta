@@ -19,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Nama hari/bulan & "x menit yang lalu" dalam Bahasa Indonesia
+        \Carbon\Carbon::setLocale('id');
+        \Illuminate\Support\Carbon::setLocale('id');
+
         // Produksi: jangan pernah menampilkan halaman debug (membocorkan DB host, path, kode) meski .env keliru.
         if (! $this->app->runningInConsole()) {
             $host = request()->getHost();

@@ -200,32 +200,33 @@
                         </a>
                         
                         <!-- Notifikasi Dropdown -->
-                        <div x-data="{ notifOpen: false }" class="relative">
-                            <button @click="notifOpen = !notifOpen" @click.away="notifOpen = false" class="header-icon-btn" data-tooltip="Notifikasi">
+                        @php
+                            $__notifs = \App\Services\NotificationService::forUser(auth()->user());
+                            $__readAt = auth()->user()->notifications_read_at ? \Illuminate\Support\Carbon::parse(auth()->user()->notifications_read_at) : null;
+                            $__unread = collect($__notifs)->filter(fn ($n) => ! $__readAt || $n['at']->gt($__readAt))->count();
+                        @endphp
+                        <div x-data="{ notifOpen: false, unread: {{ $__unread }},
+                                       markRead() { fetch('{{ route('notifications.read') }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' } }).then(() => { this.unread = 0; document.querySelectorAll('.notif-item.unread').forEach(e => e.classList.remove('unread')); }); } }" class="relative">
+                            <button @click="notifOpen = !notifOpen" @click.away="notifOpen = false" class="header-icon-btn" data-tooltip="Notifikasi" style="position:relative">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                                <!-- Badge Unread (Opsional) -->
-                                <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-[#0a0f1e]"></span>
+                                <span class="notif-badge" x-show="unread > 0" x-text="unread > 9 ? '9+' : unread" @if(!$__unread) style="display:none" @endif>{{ $__unread }}</span>
                             </button>
-                            
-                            <!-- Dropdown Menu -->
-                            <div x-show="notifOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95 transform -translate-y-2" x-transition:enter-end="opacity-100 scale-100 transform translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95" class="absolute right-0 mt-3 w-80 bg-[#1e293b] border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden" style="display: none;">
-                                <div class="px-4 py-3 border-b border-gray-700 flex justify-between items-center bg-[#0f172a]">
-                                    <h3 class="text-sm font-semibold text-white">Notifikasi Sistem</h3>
-                                    <span class="text-xs text-trusta-teal cursor-pointer hover:text-white">Tandai dibaca</span>
+                            <div x-show="notifOpen" x-transition class="notif-panel" style="display: none;">
+                                <div class="notif-head">
+                                    <h3>Notifikasi</h3>
+                                    <button type="button" class="notif-link" @click="markRead()" x-show="unread > 0">Tandai dibaca</button>
                                 </div>
-                                <div class="max-h-80 overflow-y-auto">
-                                    <div class="px-4 py-4 text-center text-sm text-gray-500 flex flex-col items-center justify-center">
-                                        <svg class="w-10 h-10 mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                                        Belum ada notifikasi baru untuk saat ini.
-                                    </div>
-                                    <!-- Jika ada notif, formatnya seperti ini:
-                                    <a href="#" class="px-4 py-3 border-b border-gray-700/50 hover:bg-[#0f172a] block transition-colors">
-                                        <p class="text-sm text-gray-200">Pesanan Penjualan <span class="font-bold text-trusta-teal">SO-001</span> telah disetujui.</p>
-                                        <p class="text-xs text-gray-500 mt-1">2 jam yang lalu</p>
-                                    </a>
-                                    -->
+                                <div class="notif-list">
+                                    @forelse(array_slice($__notifs, 0, 8) as $n)
+                                        <a href="{{ $n['url'] ?: route('notifications.index') }}" class="notif-item lvl-{{ $n['level'] }} {{ (! $__readAt || $n['at']->gt($__readAt)) ? 'unread' : '' }}">
+                                            <span class="notif-dot"></span>
+                                            <span><b>{{ $n['title'] }}</b>@if($n['body'])<small>{{ \Illuminate\Support\Str::limit($n['body'], 110) }}</small>@endif<em>{{ $n['at']->isToday() && $n['at']->format('H:i') === '00:00' ? 'Hari ini' : $n['at']->diffForHumans() }}</em></span>
+                                        </a>
+                                    @empty
+                                        <div class="notif-empty">Belum ada notifikasi.</div>
+                                    @endforelse
                                 </div>
-                                <a href="#" class="block px-4 py-2 text-center text-xs font-medium text-gray-400 hover:text-white hover:bg-[#0f172a] border-t border-gray-700 transition-colors">Lihat Semua Notifikasi</a>
+                                <a href="{{ route('notifications.index') }}" class="notif-foot">Lihat semua notifikasi</a>
                             </div>
                         </div>
                     </div>
