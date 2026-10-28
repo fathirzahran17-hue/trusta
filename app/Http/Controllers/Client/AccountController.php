@@ -170,8 +170,11 @@ class AccountController extends Controller
 
         $period = \App\Support\LedgerPeriod::resolve($request);
         $periodOpening = \App\Support\LedgerPeriod::openingBefore($account, $period['from']);
-        $mutations = \App\Support\LedgerPeriod::mutations($account, $period['from'], $period['to']);
-        $totalCount = \App\Support\LedgerPeriod::totalCount($account);
+        $showVoid = \App\Support\LedgerPeriod::showVoided($request);
+        $period['show_void'] = $showVoid;
+        $period['hidden_void'] = $showVoid ? 0 : (int) ceil(count(array_intersect(\App\Support\LedgerPeriod::cancelledPairIds((int) $account->company_id), \App\Models\JournalDetail::where('account_id', $account->id)->pluck('journal_id')->all())) / 2);
+        $mutations = \App\Support\LedgerPeriod::mutations($account, $period['from'], $period['to'], $showVoid);
+        $totalCount = \App\Support\LedgerPeriod::totalCount($account, $showVoid);
 
         return view('client.accounts.show', compact('account', 'mutations', 'period', 'periodOpening', 'totalCount'));
     }

@@ -1693,4 +1693,49 @@ class DocumentFlowTest extends TestCase
         $this->assertNotNull($this->user->fresh()->notifications_read_at);
         $this->assertSame(0, \App\Services\NotificationService::unreadCount($this->user->fresh()));
     }
+
+    public function test_cancelled_payment_disappears_from_mutations_but_stays_auditable(): void
+    {
+        $old = date('Y-m-d', strtotime('-10 days'));
+        $this->createPurchaseAndReceive(10);
+        $this->post('/client/sales-invoices', ['customer_id' => $this->customer->id, 'invoice_date' => $old, 'due_date' => $old,
+            'products' => [$this->product->id], 'quantities' => [2], 'prices' => [50000], 'discounts' => [0]])->assertRedirect();
+        $inv = SalesInvoice::firstOrFail();
+        $this->post("/client/sales-invoices/{$inv->id}/payments", ['account_id' => $this->cash->id, 'amount' => 100000, 'payment_date' => $old])->assertSessionHas('success');
+        $pay = \App\Models\InvoicePayment::firstOrFail();
+        $this->post('/client/invoice-payments/' . $pay->id . '/void')->assertSessionHas('success');
+
+        $rev = \App\Models\Journal::where('reverses_journal_id', $pay->journal_id)->firstOrFail();
+        $this->assertSame($old, $rev->transaction_date->toDateString()); // jurnal balik bertanggal sama dengan aslinya
+        $this->assertSame('unpaid', $inv->fresh()->status);
+
+        $this->get('/client/dashboard'); // habiskan pesan flash
+        $html = $this->get('/client/cash-bank/' . $this->cash->id . '?range=all')->assertOk()->getContent();
+        $this->assertStringNotContainsString($pay->payment_number, $html);
+        $this->assertStringNotContainsString($rev->ref_number, $html);
+        $this->assertStringContainsString('1 transaksi dibatalkan disembunyikan', $html);
+        $this->get('/client/cash-bank/' . $this->cash->id . '?void=1')->assertSee($rev->ref_number);
+        $this->get('/client/cash-bank/' . $this->cash->id . '?void=0')->assertDontSee($rev->ref_number);
+        $this->get('/client/reports/general-ledger?start_date=' . $old . '&end_date=' . date('Y-m-d'))->assertDontSee($rev->ref_number);
+        $this->get('/client/reports/general-ledger?start_date=' . $old . '&end_date=' . date('Y-m-d') . '&void=1')->assertSee($rev->ref_number);
+        // tetap tercatat di riwayat penerimaan sebagai "Dibatalkan"
+        $this->get('/client/sales/receipts')->assertSee($pay->payment_number)->assertSee('Dibatalkan');
+        $this->assertBooksBalanced();
+    }
+
+    public function test_migration_links_and_redates_old_reversal_journals(): void
+    {
+        $cid = $this->user->company_id;
+        $mk = fn ($ref, $date, $desc) => \Illuminate\Support\Facades\DB::table('journals')->insertGetId(['company_id' => $cid, 'ref_number' => $ref, 'type' => 'general',
+            'transaction_date' => $date, 'description' => $desc, 'status' => 'posted', 'created_by' => $this->user->id, 'created_at' => now(), 'updated_at' => now()]);
+        $orig = $mk('RC-202609-0002', '2026-09-14', 'Diterima');
+        $rev = $mk('VOID-202610-0002', '2026-10-28', 'Pembatalan RC-202609-0002');
+        $other = $mk('VOID-202610-0003', '2026-10-28', 'Pembatalan sesuatu yang tidak ada');
+        (require base_path('database/migrations/2026_10_28_000008_link_reversal_journals.php'))->up();
+        $r = \Illuminate\Support\Facades\DB::table('journals')->find($rev);
+        $this->assertSame($orig, (int) $r->reverses_journal_id);
+        $this->assertSame('2026-09-14', substr($r->transaction_date, 0, 10));
+        $this->assertNull(\Illuminate\Support\Facades\DB::table('journals')->find($other)->reverses_journal_id);
+        $this->assertEqualsCanonicalizing([$orig, $rev], \App\Support\LedgerPeriod::cancelledPairIds($cid));
+    }
 }

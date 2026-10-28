@@ -16,5 +16,11 @@
         <label>Sampai <input type="date" name="to" value="{{ $period['to'] }}"></label>
         <button type="submit" class="lf-go">Tampilkan</button>
     </div>
-    <div class="lf-info">Periode: <b>{{ $label }}</b> · {{ count($mutations) }} dari {{ $totalCount }} mutasi</div>
+    <div class="lf-info">Periode: <b>{{ $label }}</b> · {{ count($mutations) }} dari {{ $totalCount }} mutasi
+        @if(!empty($period['show_void']))
+            · <a href="{{ url()->current() }}?void=0" class="lnk" style="color:var(--accent)">Sembunyikan transaksi dibatalkan</a>
+        @elseif(!empty($period['hidden_void']))
+            · {{ $period['hidden_void'] }} transaksi dibatalkan disembunyikan (<a href="{{ url()->current() }}?void=1" class="lnk" style="color:var(--accent)">tampilkan</a>)
+        @endif
+    </div>
 </form>

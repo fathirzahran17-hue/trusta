@@ -31,21 +31,27 @@ class InvoicePaymentService
     }
 
     /**
-     * Jurnal balik (standar akuntansi): jurnal asli tetap ada, lalu dibuat jurnal pembalik bertanggal hari pembatalan
-     * dengan debit/kredit ditukar, sehingga saldo akun kembali seperti sebelum transaksi.
+     * Jurnal balik: jurnal asli tetap ada (jejak audit), dibuat jurnal pembalik dengan debit/kredit ditukar.
+     * Tanggalnya sama dengan jurnal asli (seolah transaksi tidak pernah terjadi), sehingga keduanya bisa disembunyikan
+     * dari riwayat mutasi tanpa mengubah saldo. Bila periode jurnal asli sudah Tutup Buku, dipakai tanggal hari ini.
      */
     public static function reverseJournal(Journal $orig, string $description, int $userId): Journal
     {
         $orig->loadMissing('details');
+        $date = $orig->transaction_date ? $orig->transaction_date->format('Y-m-d') : now()->format('Y-m-d');
+        if (\App\Support\PeriodLock::isClosed($date)) {
+            $date = now()->format('Y-m-d');
+        }
         $rev = Journal::create([
             'company_id' => $orig->company_id,
-            'ref_number' => self::nextRef((int) $orig->company_id, 'VOID-', now()->format('Y-m-d')),
+            'ref_number' => self::nextRef((int) $orig->company_id, 'VOID-', $date),
             'type' => $orig->type,
-            'transaction_date' => now()->format('Y-m-d'),
+            'transaction_date' => $date,
             'description' => $description,
             'status' => 'posted',
             'created_by' => $userId,
         ]);
+        $rev->forceFill(['reverses_journal_id' => $orig->id])->saveQuietly();
         foreach ($orig->details as $d) {
             JournalDetail::create([
                 'journal_id' => $rev->id, 'account_id' => $d->account_id, 'project_job_id' => $d->project_job_id,

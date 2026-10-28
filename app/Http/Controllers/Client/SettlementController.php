@@ -146,7 +146,7 @@ class SettlementController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Pembayaran ' . $payment->payment_number . ' dibatalkan. Jurnal balik dibuat dan faktur kembali ke status sebelumnya.');
+        return back()->with('success', 'Pembayaran ' . $payment->payment_number . ' dibatalkan: faktur kembali belum lunas, dan transaksi ini tidak lagi tampil di riwayat mutasi kas/bank (jejaknya tetap tersimpan).');
     }
 
     // ---- status pelunasan -----------------------------------------------------

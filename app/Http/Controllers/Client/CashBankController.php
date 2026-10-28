@@ -28,8 +28,11 @@ class CashBankController extends Controller
         $period = \App\Support\LedgerPeriod::resolve($request);
         $periodOpening = \App\Support\LedgerPeriod::openingBefore($account, $period['from']);
         // Menaik, dibalik di view (terbaru di atas) setelah saldo berjalan dihitung.
-        $mutations = \App\Support\LedgerPeriod::mutations($account, $period['from'], $period['to'])->reverse()->values();
-        $totalCount = \App\Support\LedgerPeriod::totalCount($account);
+        $showVoid = \App\Support\LedgerPeriod::showVoided($request);
+        $period['show_void'] = $showVoid;
+        $period['hidden_void'] = $showVoid ? 0 : (int) ceil(count(array_intersect(\App\Support\LedgerPeriod::cancelledPairIds((int) $account->company_id), \App\Models\JournalDetail::where('account_id', $account->id)->pluck('journal_id')->all())) / 2);
+        $mutations = \App\Support\LedgerPeriod::mutations($account, $period['from'], $period['to'], $showVoid)->reverse()->values();
+        $totalCount = \App\Support\LedgerPeriod::totalCount($account, $showVoid);
 
         $allAccounts = Account::where('company_id', auth()->user()->company_id)
             ->where('id', '!=', $account->id)

@@ -265,12 +265,15 @@ class ReportBuilder
         $all = Account::where('company_id', $this->companyId)->orderBy('code')->get()->filter(fn ($a) => ! $a->is_header)->values();
         $selected = $accountId ? $all->where('id', (int) $accountId) : $all;
 
+        $showVoid = $r->input('void') === '1';
+        $hide = $showVoid ? [] : \App\Support\LedgerPeriod::cancelledPairIds((int) $this->companyId);
         $before = $this->sums(null, Carbon::parse($start)->subDay()->toDateString());
         $details = JournalDetail::query()
             ->join('journals', 'journals.id', '=', 'journal_details.journal_id')
             ->where('journals.company_id', $this->companyId)->where('journals.status', 'posted')
             ->whereDate('journals.transaction_date', '>=', $start)->whereDate('journals.transaction_date', '<=', $end)
             ->whereIn('journal_details.account_id', $selected->pluck('id'))
+            ->when($hide, fn ($q) => $q->whereNotIn('journals.id', $hide)) // transaksi dibatalkan + jurnal baliknya (saling meniadakan)
             ->orderBy('journals.transaction_date')->orderBy('journals.id')
             ->get(['journal_details.account_id', 'journal_details.debit', 'journal_details.credit', 'journal_details.description as line_desc',
                 'journals.transaction_date', 'journals.ref_number', 'journals.description as j_desc'])
@@ -302,6 +305,9 @@ class ReportBuilder
             'filters' => array_merge($this->dateFilters($start, $end), [[
                 'name' => 'account_id', 'label' => 'Akun', 'type' => 'select', 'value' => $accountId,
                 'options' => ['' => 'Semua akun'] + $all->mapWithKeys(fn ($a) => [$a->id => $a->code . ' — ' . $a->name])->all(),
+            ], [
+                'name' => 'void', 'label' => 'Transaksi dibatalkan', 'type' => 'select', 'value' => $showVoid ? '1' : '',
+                'options' => ['' => 'Sembunyikan', '1' => 'Tampilkan'],
             ]]),
             'columns' => [
                 ['key' => 'date', 'label' => 'Tanggal', 'width' => 14, 'format' => 'date'],
