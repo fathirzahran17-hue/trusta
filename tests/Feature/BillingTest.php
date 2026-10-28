@@ -120,4 +120,23 @@ class BillingTest extends TestCase
         $this->assertFalse(\App\Services\SubscriptionService::expireIfOverdue($c2->fresh()));
         $this->assertTrue((bool) $c2->fresh()->is_premium);
     }
+
+    public function test_admin_manages_client_subscription_manually_and_lists_filter(): void
+    {
+        $client = $this->registerClient('m@uji.test');
+        $company = $client->company;
+        $plan = Plan::create(['name' => 'Pro', 'price' => 200000, 'max_accounts' => 1000, 'max_transactions' => 1000, 'max_users' => 5, 'is_active' => true, 'is_public' => true]);
+        $this->actingAs($this->admin);
+        $this->get('/superadmin/clients?tab=inactive')->assertOk()->assertSee('PT Klien');
+        $this->post('/superadmin/clients/' . $company->id . '/grant-premium', ['plan_id' => $plan->id, 'status' => 'active', 'months' => 3, 'amount_paid' => '600.000'])->assertSessionHas('success');
+        $sub = Subscription::where('company_id', $company->id)->firstOrFail();
+        $this->assertSame(now()->addMonthsNoOverflow(3)->subDay()->toDateString(), $sub->end_date->toDateString());
+        $this->assertTrue((bool) $company->fresh()->is_premium);
+        $this->get('/superadmin/clients?tab=active')->assertSee('PT Klien');
+        $this->get('/superadmin/clients?tab=inactive')->assertDontSee('PT Klien');
+        $this->get('/superadmin/clients?q=tidakada')->assertDontSee('PT Klien');
+        $this->get('/superadmin/dashboard')->assertOk()->assertSee('Rp 200.000'); // MRR 600rb / 3 bulan
+        $this->put('/superadmin/clients/' . $company->id . '/subscription', ['status' => 'expired', 'end_date' => now()->subDays(10)->toDateString()])->assertSessionHas('success');
+        $this->assertFalse((bool) $company->fresh()->is_premium);
+    }
 }
