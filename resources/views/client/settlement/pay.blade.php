@@ -47,7 +47,13 @@
             </div>
             <div class="pay-field"><label for="pf_date">Tanggal</label><input type="date" name="payment_date" id="pf_date" value="{{ old('payment_date', date('Y-m-d')) }}" required></div>
             <div class="pay-field"><label for="pf_notes">Catatan</label><input type="text" name="notes" id="pf_notes" maxlength="255" value="{{ old('notes') }}" placeholder="Opsional, mis. transfer BCA"></div>
+            <div class="pay-field">
+                <label for="pf_cash">{{ $sales ? 'Nominal diterima di bank/kas' : 'Nominal dibayar dari bank/kas' }}</label>
+                <input type="text" inputmode="decimal" autocomplete="off" id="pf_cash" class="money-in" placeholder="Isi sesuai mutasi bank, mis. 50.000.000,00">
+                <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px">Otomatis dibagi ke faktur terpilih (jatuh tempo terlama dulu). Bila kurang, sisanya tetap terbuka.</div>
+            </div>
         </div>
+        <div id="pf_info" class="pay-flow" style="margin: -4px 18px 12px; display:none;"></div>
 
         <div class="pay-empty" id="pf_hint">
             @if(count($parties))
@@ -89,7 +95,7 @@
         </div>
 
         <div class="pay-foot">
-            <div class="pay-total"><span id="pf_count">0 faktur dipilih</span> &middot; Total {{ $sales ? 'diterima' : 'dibayar' }}<b id="pf_total">Rp 0</b></div>
+            <div class="pay-total"><span id="pf_count">0 faktur dipilih</span> &middot; Total dilunasi (termasuk potongan)<b id="pf_total">Rp 0</b></div>
             <button type="submit" class="btn-primary" id="pf_submit" disabled style="opacity:.5;cursor:not-allowed">{{ $sales ? 'Terima Pembayaran' : 'Catat Pembayaran' }}</button>
         </div>
     </form>
@@ -140,18 +146,53 @@
                 amt.value = on ? window.fmtMoney(val !== undefined ? val : parseFloat(row.dataset.due)) : '';
                 row.classList.toggle('picked', on);
             }
-            function recalc() {
-                const b = cur(); let n = 0, total = 0;
+            const cashIn = f.querySelector('#pf_cash'), info = f.querySelector('#pf_info');
+            let cashLocked = false; // true = pengguna mengetik nominal bank: alokasi faktur mengikuti nominal itu
+            let userPicked = false; // true = pengguna sendiri yang mencentang faktur (bukan otomatis)
+            const dedTotal = () => [...f.querySelectorAll('#splitRows [data-f="amount"]')].reduce((t, e) => t + window.parseMoney(e.value), 0);
+            const round2 = n => Math.round(n * 100) / 100;
+
+            // Bagi (nominal bank + potongan) ke faktur, mulai dari jatuh tempo terlama; sisanya tetap terbuka.
+            function distribute() {
+                const b = cur(); if (!b) return;
+                const rows = [...b.querySelectorAll('.pf-row')];
+                let left = round2(window.parseMoney(cashIn.value) + dedTotal());
+                const anyChecked = userPicked && rows.some(r => r.querySelector('.pf-chk').checked);
+                rows.forEach(r => {
+                    const chk = r.querySelector('.pf-chk');
+                    if (anyChecked && !chk.checked) return;           // hanya faktur yang dicentang
+                    const due = parseFloat(r.dataset.due);
+                    const take = round2(Math.min(due, Math.max(0, left)));
+                    if (take > 0) { setRow(r, true, take); left = round2(left - take); }
+                    else setRow(r, anyChecked, 0);
+                });
+                return left; // > 0 = kelebihan bayar
+            }
+            function recalc(over) {
+                const b = cur(); let n = 0, total = 0, dueAll = 0, duePicked = 0;
                 if (b) b.querySelectorAll('.pf-row').forEach(r => {
-                    if (r.querySelector('.pf-chk').checked) { n++; total += Math.min(window.parseMoney(r.querySelector('.pf-amt').value), parseFloat(r.dataset.due)); }
+                    dueAll += parseFloat(r.dataset.due);
+                    if (r.querySelector('.pf-chk').checked) { n++; duePicked += parseFloat(r.dataset.due); total += Math.min(window.parseMoney(r.querySelector('.pf-amt').value), parseFloat(r.dataset.due)); }
                     b.querySelector('.pf-all').checked = n === b.querySelectorAll('.pf-row').length;
                 });
+                total = round2(total);
+                const ded = dedTotal(), cash = round2(total - ded);
+                if (!cashLocked && document.activeElement !== cashIn) cashIn.value = total > 0 ? window.fmtMoney(cash) : '';
                 f.querySelector('#pf_count').textContent = n + ' faktur dipilih';
                 f.querySelector('#pf_total').textContent = fmt(total);
                 f.dispatchEvent(new CustomEvent('paytotal', { detail: { total: total } }));
+                const remain = round2(duePicked - total);
+                let msg = '';
+                if (total > 0) {
+                    msg = '{{ $sales ? 'Diterima di bank' : 'Dibayar dari bank' }} <b>' + fmt(cash) + '</b>' + (ded > 0 ? ' + potongan <b>' + fmt(ded) + '</b>' : '') + ' = melunasi <b>' + fmt(total) + '</b>.';
+                    msg += remain > 0.004 ? ' Sisa <b>' + fmt(remain) + '</b> tetap terbuka (belum lunas).' : ' Faktur terpilih lunas.';
+                }
+                if (over && over > 0.004) msg += ' <span style="color:var(--danger)">Kelebihan ' + fmt(over) + ' tidak dicatat di sini (melebihi sisa tagihan) — catat sebagai Uang Muka bila memang lebih bayar.</span>';
+                info.innerHTML = msg; info.style.display = msg ? '' : 'none';
                 const btn = f.querySelector('#pf_submit'); btn.disabled = !(total > 0);
                 btn.style.opacity = total > 0 ? '' : '.5'; btn.style.cursor = total > 0 ? '' : 'not-allowed';
             }
+            cashIn.addEventListener('input', () => { cashLocked = cashIn.value.trim() !== ''; recalc(distribute()); });
             function show() {
                 blocks.forEach(b => {
                     const on = b === cur(); b.hidden = !on;
@@ -159,18 +200,23 @@
                 });
                 hint.hidden = !!cur(); recalc();
             }
-            sel.addEventListener('change', show);
+            sel.addEventListener('change', () => { cashLocked = false; userPicked = false; cashIn.value = ''; show(); });
             f.addEventListener('change', e => {
                 const t = e.target;
+                if (t.classList.contains('pf-chk') || t.classList.contains('pf-all')) userPicked = true;
                 if (t.classList.contains('pf-chk')) setRow(t.closest('.pf-row'), t.checked);
                 if (t.classList.contains('pf-all')) cur().querySelectorAll('.pf-row').forEach(r => setRow(r, t.checked));
+                if ((t.classList.contains('pf-chk') || t.classList.contains('pf-all')) && cashLocked) return recalc(distribute());
                 recalc();
             });
             f.addEventListener('input', e => {
+                if (e.target.closest && e.target.closest('#splitRows')) { return recalc(cashLocked ? distribute() : 0); } // potongan berubah
                 if (!e.target.classList.contains('pf-amt')) return;
+                cashLocked = false; // alokasi diubah manual: nominal bank mengikuti
                 const max = parseFloat(e.target.dataset.max); if (window.parseMoney(e.target.value) > max) e.target.value = window.fmtMoney(max);
                 recalc();
             });
+            f.addEventListener('click', e => { if (e.target.closest && e.target.closest('.split-del')) setTimeout(() => recalc(cashLocked ? distribute() : 0), 0); });
             f.addEventListener('submit', e => { if (f.querySelector('#pf_submit').disabled) e.preventDefault(); });
 
             // pra-pilih dari tombol "Terima/Bayar" di daftar status pelunasan
@@ -178,7 +224,7 @@
             let target = preI && f.querySelector('.pf-row[data-id="' + preI + '"]');
             if (target) sel.value = target.closest('.pf-block').dataset.party; else if (preP) sel.value = preP;
             show();
-            if (target) setRow(target, true), recalc();
+            if (target) { userPicked = true; setRow(target, true); recalc(); }
         })();
     </script>
 </x-app-layout>
