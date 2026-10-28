@@ -63,7 +63,7 @@
                     <table class="w-full text-sm text-left">
                         <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
                             <tr>
-                                <th style="padding: 6px 8px; width: 35%;">Pilih Barang</th>
+                                <th style="padding: 6px 8px; width: 35%;">Barang / Akun Biaya</th>
                                 <th style="padding: 6px 8px; width: 100px; text-align: right;">Qty Retur</th>
                                 <th style="padding: 6px 8px; width: 150px; text-align: right;">Harga Retur</th>
                                 <th style="padding: 6px 8px; width: 150px; text-align: right;">Total Retur</th>
@@ -74,10 +74,13 @@
                             <tr class="item-row">
                                 <td style="padding: 4px 4px;">
                                     <select name="products[]" class="product-select" required style="width: 100%;">
-                                        <option value="" data-price="0">-- Pilih Barang --</option>
+                                        <option value="" data-price="0">-- Pilih Barang / Akun --</option>
+                                        <optgroup label="Barang / Jasa">
                                         @foreach($products as $prod)
                                             <option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
                                         @endforeach
+                                        </optgroup>
+                                        <optgroup label="Akun Biaya / Akun Lawan">@foreach($expenseAccounts as $acc)<option value="a{{ $acc->id }}" data-price="0">{{ $acc->code }} - {{ $acc->name }}</option>@endforeach</optgroup>
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
@@ -141,7 +144,7 @@
             const btnAddRow = document.getElementById('btnAddRow');
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            const productOptions = `<optgroup label="Barang / Jasa">@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach</optgroup><optgroup label="Akun Biaya / Akun Lawan">@foreach($expenseAccounts as $acc)<option value="a{{ $acc->id }}" data-price="0">{{ $acc->code }} - {{ $acc->name }}</option>@endforeach</optgroup>`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;
@@ -164,7 +167,7 @@
                 tr.innerHTML = `
                     <td style="padding: 4px 4px;">
                         <select name="products[]" class="product-select" required style="width: 100%;">
-                            <option value="" data-price="0">-- Pilih Barang --</option>
+                            <option value="" data-price="0">-- Pilih Barang / Akun --</option>
                             ${productOptions}
                         </select>
                     </td>

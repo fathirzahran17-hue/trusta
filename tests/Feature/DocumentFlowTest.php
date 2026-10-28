@@ -1354,4 +1354,43 @@ class DocumentFlowTest extends TestCase
         $html = $this->get('/client/inventory/' . $svc->id . '/edit')->assertOk()->getContent();
         $this->assertStringContainsString('Jasa (tanpa stok)', $html);
     }
+
+    public function test_purchase_return_supports_expense_account_rows(): void
+    {
+        $cid = $this->user->company_id;
+        $today = date('Y-m-d');
+        $exp = Account::where('company_id', $cid)->where('type', 'expense')->get()->first(fn ($a) => !$a->is_header);
+        $this->get('/client/purchases/returns/create')->assertOk()->assertSee($exp->name);
+
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => ['a' . $exp->id], 'quantities' => [4], 'prices' => [25000], 'discounts' => [0], 'row_descriptions' => ['Servis AC']])->assertRedirect();
+        $pi = PurchaseInvoice::firstOrFail();
+        $this->assertEquals(100000, (float) $pi->amount_due);
+
+        // retur berlebih ditolak
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X1',
+            'return_date' => $today, 'products' => ['a' . $exp->id], 'quantities' => [5], 'prices' => [25000]])->assertSessionHas('error');
+        // akun kas ditolak
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X2',
+            'return_date' => $today, 'products' => ['a' . $this->cash->id], 'quantities' => [1], 'prices' => [25000]])->assertSessionHas('error');
+
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X3',
+            'return_date' => $today, 'products' => ['a' . $exp->id], 'quantities' => [1], 'prices' => [25000]])->assertSessionHas('success');
+        $this->assertEquals(75000, (float) $pi->fresh()->amount_due);
+        $ret = \App\Models\PurchaseReturn::firstOrFail();
+        $item = $ret->items()->firstOrFail();
+        $this->assertNull($item->product_id);
+        $this->assertSame($exp->id, (int) $item->account_id);
+        $d = \App\Models\JournalDetail::where('journal_id', $ret->journal_id)->where('account_id', $exp->id)->firstOrFail();
+        $this->assertEquals(25000, (float) $d->credit);
+        $this->assertBooksBalanced();
+
+        // sisa 3 saja; retur 4 lagi ditolak, 3 diterima
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X4',
+            'return_date' => $today, 'products' => ['a' . $exp->id], 'quantities' => [4], 'prices' => [25000]])->assertSessionHas('error');
+        $this->post('/client/purchases/returns', ['supplier_id' => $this->supplier->id, 'purchase_invoice_id' => $pi->id, 'return_number' => 'PR-X5',
+            'return_date' => $today, 'products' => ['a' . $exp->id], 'quantities' => [3], 'prices' => [25000]])->assertSessionHas('success');
+        $this->assertEquals(0, (float) $pi->fresh()->amount_due);
+        $this->assertBooksBalanced();
+    }
 }
