@@ -332,6 +332,16 @@ class JournalController extends Controller
                 ['url' => route('client.invoice-payments.void', $r->id), 'label' => 'Batalkan Pembayaran',
                  'confirm' => 'Batalkan pembayaran ' . $r->payment_number . '? Catatannya TIDAK dihapus (ditandai Dibatalkan), dibuat jurnal balik bertanggal hari ini, dan faktur yang dilunasinya terbuka kembali (Belum Lunas).']);
         }
+        if ($m = $DB::table('inventory_movements')->where('journal_id', $journal->id)->first()) {
+            $kinds = ['adjustment' => ['Penyesuaian Persediaan', 'client.inventory.adjustments'], 'opname' => ['Stok Opname', 'client.inventory.stock_opname'], 'request' => ['Pemakaian Barang', 'client.inventory.requests']];
+            [$label, $route] = $kinds[$m->reference_type] ?? ['Mutasi Persediaan', 'client.inventory.adjustments'];
+            return $mk($label . ($m->voided_at ? ' (sudah dibatalkan)' : ''), null, route($route), $m->voided_at ? null : ['url' => route('client.inventory.movements.cancel', $m->id), 'label' => 'Batalkan ' . $label,
+                'confirm' => 'Batalkan ' . strtolower($label) . ' ini? Stok dikembalikan dan dibuat jurnal balik bertanggal hari ini; catatannya tetap ada.']);
+        }
+        if ($a = $DB::table('fixed_assets')->where('disposal_journal_id', $journal->id)->first()) {
+            return $mk('Pelepasan Aset Tetap', $a->code, route('client.fixed_assets.dispositions'), $a->disposal_date ? ['url' => route('client.fixed_assets.cancel_disposal', $a->id), 'label' => 'Batalkan Pelepasan',
+                'confirm' => 'Batalkan pelepasan aset ' . $a->code . '? Aset kembali aktif dan dibuat jurnal balik bertanggal hari ini.'] : null);
+        }
         // Sudah dibatalkan: jurnal asli dan jurnal baliknya harus tetap utuh sebagai jejak (tidak boleh diubah/dihapus)
         if ($r = $DB::table('invoice_payments')->where('journal_id', $journal->id)->whereNotNull('voided_at')->first()) {
             $sales = (bool) $r->sales_invoice_id;
@@ -342,6 +352,9 @@ class JournalController extends Controller
         }
         if ($DB::table('depreciation_entries')->where('journal_id', $journal->id)->exists()) {
             return $mk('Penyusutan Aset Tetap (sudah dibatalkan)');
+        }
+        if ($DB::table('journals')->where('company_id', $journal->company_id)->where('description', 'Pembatalan ' . $journal->ref_number)->exists()) {
+            return $mk('Jurnal yang sudah dibatalkan (punya jurnal balik)', $journal->ref_number);
         }
         if (str_starts_with((string) $journal->ref_number, 'VOID-')) {
             return $mk('Jurnal Balik pembatalan', $journal->ref_number);

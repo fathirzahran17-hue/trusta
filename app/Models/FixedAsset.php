@@ -16,6 +16,7 @@ class FixedAsset extends Model
         'depreciation_method', 'location', 'condition', 'status',
         'serial_number', 'brand', 'supplier_name', 'invoice_number', 'notes',
         'depreciation_expense_account_id', 'accumulated_account_id', 'asset_account_id', 'acquisition_journal_id',
+        'disposal_date', 'disposal_proceeds', 'disposal_journal_id',
     ];
 
     protected $casts = [

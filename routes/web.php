@@ -136,6 +136,8 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::delete('fixed-assets/categories/{category}', [\App\Http\Controllers\Client\FixedAssetController::class, 'destroyCategory'])->name('fixed_assets.categories.destroy');
     Route::get('fixed-assets/tax-categories', [\App\Http\Controllers\Client\FixedAssetController::class, 'taxCategories'])->name('fixed_assets.tax_categories');
     Route::get('fixed-assets/modifications', [\App\Http\Controllers\Client\FixedAssetController::class, 'modifications'])->name('fixed_assets.modifications');
+    Route::post('fixed-assets/{fixedAsset}/dispose', [\App\Http\Controllers\Client\FixedAssetController::class, 'dispose'])->whereNumber('fixedAsset')->name('fixed_assets.dispose');
+    Route::post('fixed-assets/{fixedAsset}/cancel-disposal', [\App\Http\Controllers\Client\FixedAssetController::class, 'cancelDisposal'])->whereNumber('fixedAsset')->name('fixed_assets.cancel_disposal');
     Route::get('fixed-assets/dispositions', [\App\Http\Controllers\Client\FixedAssetController::class, 'dispositions'])->name('fixed_assets.dispositions');
     Route::get('fixed-assets/transfers', [\App\Http\Controllers\Client\FixedAssetController::class, 'transfers'])->name('fixed_assets.transfers');
     Route::get('fixed-assets/locations', [\App\Http\Controllers\Client\FixedAssetController::class, 'assetsByLocation'])->name('fixed_assets.locations');
@@ -153,6 +155,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::post('inventory/transfers', [\App\Http\Controllers\Client\InventoryController::class, 'storeTransfer'])->name('inventory.transfers.store');
     Route::get('inventory/adjustments', [\App\Http\Controllers\Client\InventoryController::class, 'adjustments'])->name('inventory.adjustments');
     Route::post('inventory/adjustments', [\App\Http\Controllers\Client\InventoryController::class, 'storeAdjustment'])->name('inventory.adjustments.store');
+    Route::get('inventory/stock-opname', [\App\Http\Controllers\Client\InventoryController::class, 'stockOpname'])->name('inventory.stock_opname');
+    Route::post('inventory/stock-opname', [\App\Http\Controllers\Client\InventoryController::class, 'storeStockOpname'])->name('inventory.stock_opname.store');
+    Route::post('inventory/movements/{movement}/cancel', [\App\Http\Controllers\Client\InventoryController::class, 'cancelMovement'])->whereNumber('movement')->name('inventory.movements.cancel');
     Route::get('inventory/stock-opname-orders', [\App\Http\Controllers\Client\InventoryController::class, 'stockOpnameOrders'])->name('inventory.stock_opname_orders');
     Route::get('inventory/stock-opname-results', [\App\Http\Controllers\Client\InventoryController::class, 'stockOpnameResults'])->name('inventory.stock_opname_results');
     Route::get('inventory/warehouses', [\App\Http\Controllers\Client\InventoryController::class, 'warehouses'])->name('inventory.warehouses');

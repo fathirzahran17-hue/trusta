@@ -1533,4 +1533,97 @@ class DocumentFlowTest extends TestCase
         $this->delete('/client/journals/' . $rev->id)->assertSessionHas('error');
         $this->assertBooksBalanced();
     }
+
+    private function inventoryBalance(): float
+    {
+        $inv = \App\Services\AccountResolver::inventory($this->user->company_id);
+        return round((float) \App\Models\JournalDetail::where('account_id', $inv->id)->sum('debit') - (float) \App\Models\JournalDetail::where('account_id', $inv->id)->sum('credit'), 2);
+    }
+
+    public function test_stock_adjustment_usage_and_opname_are_journaled_and_cancellable(): void
+    {
+        $today = date('Y-m-d');
+        $po = $this->createPurchaseAndReceive(10); // 10 x 10.000
+        $this->post('/client/purchase-invoices', ['supplier_id' => $this->supplier->id, 'po_id' => $po->id, 'invoice_date' => $today, 'due_date' => $today,
+            'products' => [$this->product->id], 'quantities' => [10], 'prices' => [10000], 'discounts' => [0]])->assertRedirect();
+        $this->assertEquals(100000, $this->inventoryBalance());
+        $acc = \App\Services\InventoryAccounting::defaultContra($this->user->company_id, 'adjustment');
+        foreach (['/client/inventory/adjustments', '/client/inventory/requests', '/client/inventory/stock-opname'] as $u) {
+            $this->get($u)->assertOk();
+        }
+
+        // Penyesuaian -2 (hilang): stok 8, persediaan berkurang 20.000
+        $this->post('/client/inventory/adjustments', ['product_id' => $this->product->id, 'quantity' => -2, 'date' => $today, 'account_id' => $acc->id, 'description' => 'hilang'])->assertSessionHas('success');
+        $this->assertEquals(8, $this->product->fresh()->stock);
+        $this->assertEquals(80000, $this->inventoryBalance());
+
+        // Pemakaian 3: stok 5
+        $this->post('/client/inventory/requests', ['product_id' => $this->product->id, 'quantity' => 3, 'date' => $today, 'account_id' => $acc->id])->assertSessionHas('success');
+        $this->assertEquals(5, $this->product->fresh()->stock);
+        $this->assertEquals(50000, $this->inventoryBalance());
+        // melebihi stok ditolak
+        $this->post('/client/inventory/requests', ['product_id' => $this->product->id, 'quantity' => 99, 'date' => $today, 'account_id' => $acc->id])->assertSessionHas('error');
+        // akun kas tidak boleh jadi akun lawan
+        $this->post('/client/inventory/adjustments', ['product_id' => $this->product->id, 'quantity' => 1, 'date' => $today, 'account_id' => $this->cash->id])->assertSessionHas('error');
+
+        // Stok opname: fisik 7 -> +2
+        $this->post('/client/inventory/stock-opname', ['date' => $today, 'account_id' => $acc->id, 'counts' => [$this->product->id => 7]])->assertSessionHas('success');
+        $this->assertEquals(7, $this->product->fresh()->stock);
+        $this->assertEquals(70000, $this->inventoryBalance());
+        $this->get('/client/inventory/stock-opname')->assertSee('fisik 7');
+
+        // Batalkan penyesuaian -2: stok +2, persediaan +20.000, catatan tetap ada
+        $m = \App\Models\InventoryMovement::where('reference_type', 'adjustment')->firstOrFail();
+        $this->post('/client/inventory/movements/' . $m->id . '/cancel')->assertSessionHas('success');
+        $this->assertEquals(9, $this->product->fresh()->stock);
+        $this->assertEquals(90000, $this->inventoryBalance());
+        $this->assertNotNull($m->fresh()->voided_at);
+        $this->post('/client/inventory/movements/' . $m->id . '/cancel')->assertSessionHas('error');
+        // jurnal penyesuaian terkunci dari Jurnal Umum
+        $this->get('/client/journals/' . $m->journal_id)->assertSee('Penyesuaian Persediaan')->assertDontSee('Void Jurnal');
+        $this->assertBooksBalanced();
+
+        // halaman lama diarahkan
+        $this->get('/client/inventory/stock-opname-orders')->assertRedirect('/client/inventory/stock-opname');
+    }
+
+    public function test_fixed_asset_can_be_sold_with_gain_or_loss_and_cancelled(): void
+    {
+        $cid = $this->user->company_id;
+        $assetAcc = \App\Services\AssetAccounting::assetAccounts($cid)->first();
+        $asset = \App\Models\FixedAsset::withoutGlobalScopes()->create(['company_id' => $cid, 'code' => 'AT-1', 'name' => 'Laptop', 'acquisition_date' => date('Y-m-d', strtotime('-1 year')),
+            'acquisition_cost' => 12000000, 'useful_life_months' => 48, 'salvage_value' => 0, 'depreciation_method' => 'straight_line', 'status' => 'aktif', 'asset_account_id' => $assetAcc->id]);
+        [, $accum] = (fn () => $this->depreciationAccounts($cid))->call(new \App\Http\Controllers\Client\FixedAssetController());
+        $asset->forceFill(['accumulated_depreciation' => 3000000, 'accumulated_account_id' => $accum->first()->id])->save();
+        $this->get('/client/fixed-assets/dispositions')->assertOk()->assertSee('AT-1');
+
+        // jual 10 jt: nilai buku 9 jt -> laba 1 jt
+        $gain = \App\Services\AssetDisposal::gainAccounts($cid)->first();
+        $loss = \App\Services\AssetDisposal::lossAccounts($cid)->first();
+        $this->post('/client/fixed-assets/' . $asset->id . '/dispose', ['date' => date('Y-m-d'), 'proceeds' => '10.000.000,00', 'proceeds_account_id' => $this->cash->id,
+            'asset_account_id' => $assetAcc->id, 'accumulated_account_id' => $accum->first()->id, 'gain_account_id' => $gain->id, 'loss_account_id' => $loss->id])->assertSessionHas('success');
+        $asset->refresh();
+        $this->assertSame('dijual', $asset->status);
+        $j = \App\Models\Journal::findOrFail($asset->disposal_journal_id);
+        $this->assertEquals(1000000, (float) $j->details()->where('account_id', $gain->id)->sum('credit'));
+        $this->assertEquals(12000000, (float) $j->details()->where('account_id', $assetAcc->id)->sum('credit'));
+        $this->assertBooksBalanced();
+        // sudah dilepas -> tidak bisa dilepas lagi, tidak ikut penyusutan
+        $this->post('/client/fixed-assets/' . $asset->id . '/dispose', ['date' => date('Y-m-d')])->assertSessionHas('error');
+        $this->get('/client/journals/' . $j->id)->assertSee('Batalkan Pelepasan');
+
+        // batalkan -> aktif lagi, jurnal asli tetap terkunci
+        $this->post('/client/fixed-assets/' . $asset->id . '/cancel-disposal')->assertSessionHas('success');
+        $this->assertSame('aktif', $asset->fresh()->status);
+        $this->delete('/client/journals/' . $j->id)->assertSessionHas('error');
+
+        // dihapus tanpa harga jual -> rugi sebesar nilai buku 9 jt
+        $this->post('/client/fixed-assets/' . $asset->id . '/dispose', ['date' => date('Y-m-d'), 'proceeds' => 0, 'asset_account_id' => $assetAcc->id,
+            'accumulated_account_id' => $accum->first()->id, 'gain_account_id' => $gain->id, 'loss_account_id' => $loss->id])->assertSessionHas('success');
+        $asset->refresh();
+        $this->assertSame('dihapus', $asset->status);
+        $this->assertEquals(9000000, (float) \App\Models\JournalDetail::where('journal_id', $asset->disposal_journal_id)->where('account_id', $loss->id)->sum('debit'));
+        $this->assertBooksBalanced();
+        $this->get('/client/fixed-assets/tax-categories')->assertRedirect();
+    }
 }

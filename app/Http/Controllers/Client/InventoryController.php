@@ -274,115 +274,154 @@ class InventoryController extends Controller
     // ========== PENYESUAIAN PERSEDIAAN ==========
     public function adjustments()
     {
-        $products = Product::where('company_id', $this->companyId())->where('type', 'goods')->orderBy('name')->get();
-        $movements = InventoryMovement::whereHas('product', fn($q) => $q->where('company_id', $this->companyId()))
-            ->where('reference_type', 'adjustment')
-            ->with('product')
-            ->orderBy('date', 'desc')
-            ->paginate(20);
-        return view('client.inventory.adjustments', compact('products', 'movements'));
+        return $this->stockMovesPage('adjustment');
     }
 
     public function storeAdjustment(Request $request)
     {
-        $validated = $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'quantity' => 'required|numeric|not_in:0',
-            'date' => 'required|date',
-            'description' => 'nullable|string|max:255',
-        ]);
-        $product = Product::findOrFail($validated['product_id']);
-        if ($product->company_id != $this->companyId()) abort(404);
-
-        $type = $validated['quantity'] > 0 ? 'in' : 'out';
-        $qty = abs($validated['quantity']);
-
-        InventoryMovement::create([
-            'company_id' => $this->companyId(),
-            'product_id' => $validated['product_id'],
-            'type' => $type,
-            'quantity' => $qty,
-            'unit_cost' => $type === 'in' ? $product->buy_price : 0,
-            'remaining_qty' => $type === 'in' ? $qty : 0,
-            'date' => $validated['date'],
-            'notes' => $validated['description'] ?? 'Penyesuaian stok',
-            'reference_type' => 'adjustment',
-            'created_by' => auth()->id(),
-        ]);
-        return redirect()->route('client.inventory.adjustments')->with('success', 'Penyesuaian persediaan berhasil dicatat.');
+        return $this->storeStockMove($request, 'adjustment');
     }
 
     // ========== PERMINTAAN BARANG ==========
     public function requests()
     {
-        $products = Product::where('company_id', $this->companyId())->where('type', 'goods')->orderBy('name')->get();
-        $movements = InventoryMovement::whereHas('product', fn($q) => $q->where('company_id', $this->companyId()))
-            ->where('reference_type', 'request')
-            ->with('product')
-            ->orderBy('date', 'desc')
-            ->paginate(20);
-        return view('client.inventory.requests_list', compact('products', 'movements'));
+        return $this->stockMovesPage('request');
     }
 
-    public function storeRequest(\Illuminate\Http\Request $request)
+    /** Halaman Penyesuaian Persediaan / Pemakaian Barang: form + riwayat (semuanya dijurnal). */
+    private function stockMovesPage(string $kind)
     {
-        $validated = $request->validate(['product_id' => 'required|exists:products,id', 'quantity' => 'required|numeric|min:1', 'date' => 'required|date', 'description' => 'nullable|string|max:255']);
-        $product = Product::findOrFail($validated['product_id']);
-        if ($product->company_id != $this->companyId()) abort(404);
-        InventoryMovement::create(['company_id' => $this->companyId(), 'product_id' => $validated['product_id'], 'type' => 'out', 'quantity' => $validated['quantity'], 'date' => $validated['date'], 'notes' => $validated['description'] ?? 'Permintaan barang', 'reference_type' => 'request', 'created_by' => auth()->id()]);
-        return redirect()->route('client.inventory.requests')->with('success', 'Permintaan barang berhasil dicatat.');
+        $cid = (int) $this->companyId();
+        $products = Product::where('company_id', $cid)->where('type', 'goods')->where('is_active', true)->orderBy('name')->get();
+        $movements = InventoryMovement::where('company_id', $cid)->where('reference_type', $kind)
+            ->with('product')->orderByDesc('date')->orderByDesc('id')->paginate(20);
+        $journals = \App\Models\Journal::whereIn('id', $movements->pluck('journal_id')->filter())->pluck('ref_number', 'id');
+        $accounts = \App\Services\InventoryAccounting::contraAccounts($cid);
+        $defaultAccount = optional(\App\Services\InventoryAccounting::defaultContra($cid, $kind))->id;
+
+        return view('client.inventory.stock_moves', compact('kind', 'products', 'movements', 'journals', 'accounts', 'defaultAccount'));
+    }
+
+    private function storeStockMove(Request $request, string $kind)
+    {
+        $data = $request->validate([
+            'product_id' => 'required|integer',
+            'quantity' => 'required|numeric|not_in:0',
+            'date' => 'required|date',
+            'account_id' => 'required|integer',
+            'description' => 'nullable|string|max:255',
+        ]);
+        $product = Product::where('company_id', $this->companyId())->find($data['product_id']);
+        if (!$product) abort(404);
+        $qty = (float) $data['quantity'];
+        if ($kind === 'request') {
+            $qty = -abs($qty); // pemakaian selalu mengurangi stok
+        }
+        try {
+            \App\Services\InventoryAccounting::adjust((int) $this->companyId(), $product, $qty, $data['date'], (int) $data['account_id'], $kind, $data['description'] ?? null, auth()->id());
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', ($kind === 'request' ? 'Pemakaian barang' : 'Penyesuaian persediaan') . ' dicatat dan dijurnal.');
+    }
+
+    public function cancelMovement(InventoryMovement $movement)
+    {
+        if ($movement->company_id != $this->companyId()) abort(404);
+        try {
+            \App\Services\InventoryAccounting::cancel($movement, auth()->id());
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Mutasi dibatalkan: stok dikembalikan dan jurnal balik dibuat.');
+    }
+
+    /** Stok Opname: isi jumlah fisik, selisihnya otomatis menjadi penyesuaian bersama jurnalnya. */
+    public function stockOpname()
+    {
+        $cid = (int) $this->companyId();
+        $products = Product::where('company_id', $cid)->where('type', 'goods')->where('is_active', true)->with('category')->orderBy('name')->get();
+        $accounts = \App\Services\InventoryAccounting::contraAccounts($cid);
+        $defaultAccount = optional(\App\Services\InventoryAccounting::defaultContra($cid, 'opname'))->id;
+        $history = InventoryMovement::where('company_id', $cid)->where('reference_type', 'opname')->with('product')
+            ->orderByDesc('date')->orderByDesc('id')->limit(50)->get();
+        $journals = \App\Models\Journal::whereIn('id', $history->pluck('journal_id')->filter())->pluck('ref_number', 'id');
+
+        return view('client.inventory.stock_opname', compact('products', 'accounts', 'defaultAccount', 'history', 'journals'));
+    }
+
+    public function storeStockOpname(Request $request)
+    {
+        $data = $request->validate([
+            'date' => 'required|date',
+            'account_id' => 'required|integer',
+            'counts' => 'required|array',
+            'counts.*' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string|max:200',
+        ]);
+        $cid = (int) $this->companyId();
+        $products = Product::where('company_id', $cid)->where('type', 'goods')->whereIn('id', array_keys($data['counts']))->get()->keyBy('id');
+        $changed = 0;
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($data, $products, $cid, &$changed) {
+                foreach ($data['counts'] as $pid => $count) {
+                    if ($count === null || $count === '' || !isset($products[$pid])) continue; // tidak dihitung
+                    $p = $products[$pid];
+                    $diff = round((float) $count - (float) $p->stock, 2);
+                    if (abs($diff) < 0.0001) continue;
+                    $note = 'Stok opname ' . date('d/m/Y', strtotime($data['date'])) . ': sistem ' . (float) $p->stock . ', fisik ' . (float) $count . (!empty($data['notes']) ? ' — ' . $data['notes'] : '');
+                    \App\Services\InventoryAccounting::adjust($cid, $p, $diff, $data['date'], (int) $data['account_id'], 'opname', $note, auth()->id());
+                    $changed++;
+                }
+            });
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('client.inventory.stock_opname')->with('success', $changed
+            ? "Stok opname disimpan: {$changed} barang disesuaikan dan dijurnal."
+            : 'Stok opname disimpan: tidak ada selisih antara stok fisik dan sistem.');
+    }
+
+    public function storeRequest(Request $request)
+    {
+        return $this->storeStockMove($request, 'request');
     }
 
     // ========== PEMINDAHAN BARANG ==========
     public function transfers()
     {
-        $products = Product::where('company_id', $this->companyId())->where('type', 'goods')->orderBy('name')->get();
-        $warehouses = Warehouse::where('company_id', $this->companyId())->get();
-        $movements = InventoryMovement::whereHas('product', fn($q) => $q->where('company_id', $this->companyId()))
-            ->where('reference_type', 'transfer')
-            ->with('product')
-            ->orderBy('date', 'desc')
-            ->paginate(20);
-        return view('client.inventory.transfers_list', compact('products', 'warehouses', 'movements'));
+        return redirect()->route('client.inventory.index');
     }
 
-    public function storeTransfer(\Illuminate\Http\Request $request)
+    public function storeTransfer(Request $request)
     {
-        $validated = $request->validate(['product_id' => 'required|exists:products,id', 'quantity' => 'required|numeric|min:1', 'date' => 'required|date', 'description' => 'nullable|string|max:255']);
-        $product = Product::findOrFail($validated['product_id']);
-        if ($product->company_id != $this->companyId()) abort(404);
-        InventoryMovement::create(['company_id' => $this->companyId(), 'product_id' => $validated['product_id'], 'type' => 'out', 'quantity' => $validated['quantity'], 'date' => $validated['date'], 'notes' => $validated['description'] ?? 'Pemindahan barang', 'reference_type' => 'transfer', 'created_by' => auth()->id()]);
-        InventoryMovement::create(['company_id' => $this->companyId(), 'product_id' => $validated['product_id'], 'type' => 'in', 'quantity' => $validated['quantity'], 'date' => $validated['date'], 'notes' => $validated['description'] ?? 'Penerimaan dari pemindahan', 'reference_type' => 'transfer', 'created_by' => auth()->id()]);
-        return redirect()->route('client.inventory.transfers')->with('success', 'Pemindahan barang berhasil dicatat.');
+        return redirect()->route('client.inventory.index')->with('error', 'Pemindahan antar gudang belum didukung karena stok dihitung total untuk semua gudang.');
     }
 
     // ========== STOK OPNAME ==========
     public function stockOpnameOrders()
     {
-        $products = Product::where('company_id', $this->companyId())->where('type', 'goods')->orderBy('name')->get();
-        return view('client.inventory.stock_opname_orders', compact('products'));
+        return redirect()->route('client.inventory.stock_opname');
     }
 
     public function stockOpnameResults()
     {
-        $products = Product::where('company_id', $this->companyId())->where('type', 'goods')->orderBy('name')->get();
-        foreach ($products as $p) { $p->current_stock = $p->stock; }
-        return view('client.inventory.stock_opname_results', compact('products'));
+        return redirect()->route('client.inventory.stock_opname');
     }
 
     // ========== LAPORAN ==========
     public function orderFulfillments()
     {
-        $invoices = \App\Models\SalesInvoice::where('company_id', $this->companyId())->whereIn('status', ['sent', 'paid'])->with('customer')->orderBy('invoice_date', 'desc')->paginate(20);
-        return view('client.inventory.order_fulfillments', compact('invoices'));
+        return redirect()->route('client.sales.deliveries'); // pemenuhan pesanan = Pengiriman Barang
     }
 
     public function itemsPerWarehouse()
     {
-        $warehouses = Warehouse::where('company_id', $this->companyId())->get();
-        $products = Product::where('company_id', $this->companyId())->where('type', 'goods')->orderBy('name')->get();
-        foreach ($products as $p) { $p->current_stock = $p->stock; }
-        return view('client.inventory.items_per_warehouse', compact('warehouses', 'products'));
+        // Stok belum dilacak per gudang di semua transaksi; tampilkan daftar barang (stok total) agar tidak menyesatkan.
+        return redirect()->route('client.inventory.index');
     }
 
     public function minimumStockItems()

@@ -418,30 +418,72 @@ class FixedAssetController extends Controller
 
     public function taxCategories()
     {
-        $companyId = auth()->user()->company_id;
-        $categories = FixedAssetCategory::where('company_id', $companyId)->orderBy('name')->get();
-        return view('client.fixed_assets.tax_categories', compact('categories'));
+        return redirect()->route('client.fixed_assets.categories');
     }
 
     public function modifications()
     {
-        $companyId = auth()->user()->company_id;
-        $assets = FixedAsset::where('company_id', $companyId)->where('status', 'aktif')->with('category')->orderBy('name')->get();
-        return view('client.fixed_assets.modifications', compact('assets'));
+        return redirect()->route('client.fixed_assets.index');
     }
 
+    /** Pelepasan aset (dijual/dihapus) dengan jurnal laba/rugi. */
     public function dispositions()
     {
-        $companyId = auth()->user()->company_id;
-        $assets = FixedAsset::where('company_id', $companyId)->with('category')->orderBy('name')->get();
-        return view('client.fixed_assets.dispositions', compact('assets'));
+        $cid = (int) auth()->user()->company_id;
+        $active = FixedAsset::where('company_id', $cid)->where('status', 'aktif')->with('category')->orderBy('code')->get();
+        $disposed = FixedAsset::where('company_id', $cid)->where('status', '!=', 'aktif')->orderByDesc('disposal_date')->get();
+        $journals = \App\Models\Journal::whereIn('id', $disposed->pluck('disposal_journal_id')->filter())->pluck('ref_number', 'id');
+        $assetAccounts = \App\Services\AssetAccounting::assetAccounts($cid);
+        [, $accumAccounts] = $this->depreciationAccounts($cid);
+        $proceedsAccounts = \App\Services\AssetDisposal::proceedsAccounts($cid);
+        $gainAccounts = \App\Services\AssetDisposal::gainAccounts($cid);
+        $lossAccounts = \App\Services\AssetDisposal::lossAccounts($cid);
+        $defaults = [
+            'gain' => optional(\App\Services\AssetDisposal::defaultOf($gainAccounts, '/pelepasan|penjualan aset|lain/i'))->id,
+            'loss' => optional(\App\Services\AssetDisposal::defaultOf($lossAccounts, '/pelepasan|kerugian aset|lain/i'))->id,
+        ];
+
+        return view('client.fixed_assets.dispositions', compact('active', 'disposed', 'journals', 'assetAccounts', 'accumAccounts', 'proceedsAccounts', 'gainAccounts', 'lossAccounts', 'defaults'));
+    }
+
+    public function dispose(Request $request, FixedAsset $fixedAsset)
+    {
+        abort_if($fixedAsset->company_id != auth()->user()->company_id, 404);
+        \App\Support\Money::normalize($request, ['proceeds']);
+        $d = $request->validate([
+            'date' => 'required|date',
+            'proceeds' => 'nullable|numeric|min:0',
+            'proceeds_account_id' => 'nullable|integer',
+            'asset_account_id' => 'nullable|integer',
+            'accumulated_account_id' => 'nullable|integer',
+            'gain_account_id' => 'nullable|integer',
+            'loss_account_id' => 'nullable|integer',
+            'notes' => 'nullable|string|max:200',
+        ]);
+        try {
+            $j = \App\Services\AssetDisposal::dispose($fixedAsset, $d, auth()->id());
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('client.fixed_assets.dispositions')->with('success', 'Aset ' . $fixedAsset->code . ' dilepas. Jurnal ' . $j->ref_number . ' dibuat.');
+    }
+
+    public function cancelDisposal(FixedAsset $fixedAsset)
+    {
+        abort_if($fixedAsset->company_id != auth()->user()->company_id, 404);
+        try {
+            \App\Services\AssetDisposal::cancel($fixedAsset, auth()->id());
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Pelepasan aset ' . $fixedAsset->code . ' dibatalkan; aset kembali aktif dan jurnal balik dibuat.');
     }
 
     public function transfers()
     {
-        $companyId = auth()->user()->company_id;
-        $assets = FixedAsset::where('company_id', $companyId)->where('status', 'aktif')->with('category')->orderBy('name')->get();
-        return view('client.fixed_assets.transfers', compact('assets'));
+        return redirect()->route('client.fixed_assets.locations');
     }
 
     public function assetsByLocation()
