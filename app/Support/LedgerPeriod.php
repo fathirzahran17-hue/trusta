@@ -63,6 +63,29 @@ class LedgerPeriod
         try { return Carbon::parse($v)->toDateString(); } catch (\Throwable $e) { return null; }
     }
 
+    /** Tampilkan transaksi yang dibatalkan (asli + jurnal baliknya)? Default disembunyikan; pilihan diingat selama sesi. */
+    public static function showVoided(Request $request): bool
+    {
+        if ($request->has('void')) {
+            $on = $request->boolean('void');
+            if ($request->hasSession()) $request->session()->put('ledger_show_void', $on);
+
+            return $on;
+        }
+
+        return $request->hasSession() ? (bool) $request->session()->get('ledger_show_void', false) : false;
+    }
+
+    /** Id jurnal yang dibatalkan beserta jurnal baliknya yang bertanggal sama (saling meniadakan). */
+    public static function cancelledPairIds(int $companyId): array
+    {
+        $pairs = \Illuminate\Support\Facades\DB::table('journals as r')->join('journals as o', 'o.id', '=', 'r.reverses_journal_id')
+            ->where('r.company_id', $companyId)->whereColumn('o.transaction_date', 'r.transaction_date')
+            ->select('r.id as rid', 'o.id as oid')->get();
+
+        return $pairs->pluck('rid')->merge($pairs->pluck('oid'))->unique()->values()->all();
+    }
+
     private static function base(Account $account)
     {
         return JournalDetail::where('journal_details.account_id', $account->id)
@@ -87,9 +110,12 @@ class LedgerPeriod
     }
 
     /** Mutasi dalam periode, urut tanggal lalu id (menaik). */
-    public static function mutations(Account $account, ?string $from, ?string $to)
+    public static function mutations(Account $account, ?string $from, ?string $to, bool $includeVoided = true)
     {
         $q = self::base($account)->with('journal');
+        if (! $includeVoided && ($hide = self::cancelledPairIds((int) $account->company_id))) {
+            $q->whereNotIn('journals.id', $hide);
+        }
         if ($from) $q->where('journals.transaction_date', '>=', $from);
         if ($to) $q->where('journals.transaction_date', '<=', $to);
 
@@ -98,8 +124,13 @@ class LedgerPeriod
     }
 
     /** Ada mutasi di luar periode yang sedang ditampilkan? (untuk petunjuk) */
-    public static function totalCount(Account $account): int
+    public static function totalCount(Account $account, bool $includeVoided = true): int
     {
-        return (int) self::base($account)->count();
+        $q = self::base($account);
+        if (! $includeVoided && ($hide = self::cancelledPairIds((int) $account->company_id))) {
+            $q->whereNotIn('journals.id', $hide);
+        }
+
+        return (int) $q->count();
     }
 }
