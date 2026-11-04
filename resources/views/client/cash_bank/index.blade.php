@@ -2,12 +2,6 @@
     @section('title', 'Kas & Bank')
     @section('subtitle', 'Pusat pengelolaan uang tunai dan rekening bank perusahaan')
 
-    @if(session('success'))
-        <div class="mb-3 bg-green-500/10 border-l-3 border-green-500 p-3 text-green-400 rounded-r-lg text-xs">
-            {{ session('success') }}
-        </div>
-    @endif
-
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">
         @forelse($accounts as $account)
             <div class="acct-card" style="background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 16px; transition: all 0.2s; position: relative; overflow: hidden;">

@@ -5,33 +5,33 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Form Tambah --}}
         <div class="lg:col-span-1">
-            <div class="bg-[#1E293B] border border-gray-800 rounded-2xl shadow-2xl p-6">
-                <h3 class="text-lg font-semibold text-white mb-4">Tambah Gudang Baru</h3>
+            <div class="doc-card doc-pad">
+                <h3 class="doc-section-title mb-4">Tambah Gudang Baru</h3>
                 <form action="{{ route('client.inventory.warehouses.store') }}" method="POST" class="space-y-4">
                     @csrf
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Kode <span class="text-red-400">*</span></label>
-                        <input type="text" name="code" value="{{ old('code') }}" required placeholder="GDG-01" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Kode <span class="req">*</span></label>
+                        <input type="text" name="code" value="{{ old('code') }}" required placeholder="GDG-01">
                         <x-input-error :messages="$errors->get('code')" class="mt-1" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Nama Gudang <span class="text-red-400">*</span></label>
-                        <input type="text" name="name" value="{{ old('name') }}" required placeholder="Gudang Utama" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Nama Gudang <span class="req">*</span></label>
+                        <input type="text" name="name" value="{{ old('name') }}" required placeholder="Gudang Utama">
                         <x-input-error :messages="$errors->get('name')" class="mt-1" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Alamat</label>
-                        <input type="text" name="address" value="{{ old('address') }}" placeholder="Alamat lokasi..." class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Alamat</label>
+                        <input type="text" name="address" value="{{ old('address') }}" placeholder="Alamat lokasi...">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Telepon</label>
-                        <input type="text" name="phone" value="{{ old('phone') }}" placeholder="08xxx" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Telepon</label>
+                        <input type="text" name="phone" value="{{ old('phone') }}" placeholder="08xxx">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Penanggung Jawab</label>
-                        <input type="text" name="person_in_charge" value="{{ old('person_in_charge') }}" placeholder="Nama PIC" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Penanggung Jawab</label>
+                        <input type="text" name="person_in_charge" value="{{ old('person_in_charge') }}" placeholder="Nama PIC">
                     </div>
-                    <button type="submit" class="w-full px-4 py-2.5 bg-trusta-teal hover:bg-teal-400 text-navy-900 font-bold rounded-lg text-sm transition-colors">Tambah Gudang</button>
+                    <button type="submit" class="btn-primary w-full">Tambah Gudang</button>
                 </form>
             </div>
         </div>

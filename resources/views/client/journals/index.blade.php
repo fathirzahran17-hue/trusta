@@ -15,41 +15,30 @@
             <div class="flex items-center ml-2">
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari (Find)..." class="bg-gray-800 border-gray-700 text-white focus:ring-trusta-teal rounded-lg text-sm w-40 sm:w-48 placeholder-gray-500">
             </div>
-            <button type="submit" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg text-sm transition-colors">
+            <button type="submit" class="btn-secondary">
                 Terapkan
             </button>
         </form>
 
         <div class="flex space-x-2">
-            <button type="submit" form="filterForm" name="export" value="excel" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg text-sm transition-colors flex items-center shadow-lg shadow-emerald-900/50">
+            <button type="submit" form="filterForm" name="export" value="excel" class="rpt-btn excel">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 Excel
             </button>
-            <button type="submit" form="filterForm" name="export" value="csv" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg text-sm transition-colors flex items-center shadow-lg shadow-blue-900/50">
+            <button type="submit" form="filterForm" name="export" value="csv" class="rpt-btn">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 CSV
             </button>
-            <button type="submit" form="filterForm" formtarget="_blank" name="export" value="pdf" class="px-3 py-2 bg-gray-800 border border-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center shadow-lg">
+            <button type="submit" form="filterForm" formtarget="_blank" name="export" value="pdf" class="rpt-btn pdf">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                 PDF
             </button>
-            <a href="{{ route('client.journals.create') }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50 flex items-center ml-2">
+            <a href="{{ route('client.journals.create') }}" class="btn-primary ml-2">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                 Buat Jurnal Baru
             </a>
         </div>
     </div>
-
-    @if(session('error'))
-        <div class="mb-4 bg-red-500/10 border-l-4 border-red-500 p-4 text-red-400 rounded-r-lg">
-            {{ session('error') }}
-        </div>
-    @endif
-    @if(session('success'))
-        <div class="mb-4 bg-green-500/10 border-l-4 border-green-500 p-4 text-green-400 rounded-r-lg">
-            {{ session('success') }}
-        </div>
-    @endif
 
     <div class="bg-gray-800/40 border border-gray-700/50 rounded-2xl overflow-hidden">
         <div class="overflow-x-auto">

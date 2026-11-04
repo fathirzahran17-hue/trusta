@@ -4,26 +4,26 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1">
-            <div class="bg-[#1E293B] border border-gray-800 rounded-2xl shadow-2xl p-6">
-                <h3 class="text-lg font-semibold text-white mb-4">Tambah Syarat Baru</h3>
+            <div class="doc-card doc-pad">
+                <h3 class="doc-section-title mb-4">Tambah Syarat Baru</h3>
                 <form action="{{ route('client.settings.payment_terms.store') }}" method="POST" class="space-y-4">
                     @csrf
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Nama <span class="text-red-400">*</span></label>
-                        <input type="text" name="name" value="{{ old('name') }}" required placeholder="Misal: Net 30, COD, Net 60" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Nama <span class="req">*</span></label>
+                        <input type="text" name="name" value="{{ old('name') }}" required placeholder="Misal: Net 30, COD, Net 60">
                         <x-input-error :messages="$errors->get('name')" class="mt-1" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Jatuh Tempo (Hari) <span class="text-red-400">*</span></label>
-                        <input type="number" name="days" value="{{ old('days', 0) }}" required min="0" placeholder="30" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Jatuh Tempo (Hari) <span class="req">*</span></label>
+                        <input type="number" name="days" value="{{ old('days', 0) }}" required min="0" placeholder="30">
                         <p class="text-xs text-gray-500 mt-1">0 = bayar langsung (COD)</p>
                         <x-input-error :messages="$errors->get('days')" class="mt-1" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Deskripsi</label>
-                        <input type="text" name="description" value="{{ old('description') }}" placeholder="Keterangan..." class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Deskripsi</label>
+                        <input type="text" name="description" value="{{ old('description') }}" placeholder="Keterangan...">
                     </div>
-                    <button type="submit" class="w-full px-4 py-2.5 bg-trusta-teal hover:bg-teal-400 text-navy-900 font-bold rounded-lg text-sm transition-colors">Tambah Syarat</button>
+                    <button type="submit" class="btn-primary w-full">Tambah Syarat</button>
                 </form>
             </div>
         </div>

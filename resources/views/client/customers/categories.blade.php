@@ -4,20 +4,20 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1">
-            <div class="bg-[#1E293B] border border-gray-800 rounded-2xl shadow-2xl p-6">
-                <h3 class="text-lg font-semibold text-white mb-4">Tambah Kategori</h3>
+            <div class="doc-card doc-pad">
+                <h3 class="doc-section-title mb-4">Tambah Kategori</h3>
                 <form action="{{ route('client.customers.categories.store') }}" method="POST" class="space-y-4">
                     @csrf
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Nama Kategori <span class="text-red-400">*</span></label>
-                        <input type="text" name="name" value="{{ old('name') }}" required placeholder="Misal: Grosir, Retail, Corporate" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Nama Kategori <span class="req">*</span></label>
+                        <input type="text" name="name" value="{{ old('name') }}" required placeholder="Misal: Grosir, Retail, Corporate">
                         <x-input-error :messages="$errors->get('name')" class="mt-1" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Deskripsi</label>
-                        <input type="text" name="description" value="{{ old('description') }}" placeholder="Keterangan..." class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Deskripsi</label>
+                        <input type="text" name="description" value="{{ old('description') }}" placeholder="Keterangan...">
                     </div>
-                    <button type="submit" class="w-full px-4 py-2.5 bg-trusta-teal hover:bg-teal-400 text-navy-900 font-bold rounded-lg text-sm transition-colors">Tambah Kategori</button>
+                    <button type="submit" class="btn-primary w-full">Tambah Kategori</button>
                 </form>
             </div>
         </div>

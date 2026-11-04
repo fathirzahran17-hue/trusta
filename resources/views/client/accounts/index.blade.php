@@ -4,12 +4,12 @@
 
     <div class="flex justify-between items-center mb-6">
         <div>
-            <a href="{{ route('client.accounts.beginning_balance') }}" class="px-4 py-2 bg-gray-700 text-white font-medium rounded-lg text-sm hover:bg-gray-600 transition-colors flex items-center">
+            <a href="{{ route('client.accounts.beginning_balance') }}" class="btn-secondary">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                 Setup Saldo Awal
             </a>
         </div>
-        <a href="{{ route('client.accounts.create') }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50 flex items-center">
+        <a href="{{ route('client.accounts.create') }}" class="btn-primary">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
             Tambah Akun
         </a>

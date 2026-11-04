@@ -70,7 +70,7 @@
                 <input type="text" inputmode="decimal" autocomplete="off" class="money-in" name="amount" id="dp_amount" value="{{ number_format(min((float) $invoice->amount_due, (float) $availableDps->first()->remaining), 2, ',', '.') }}" required>
             </div>
             <div>
-                <button type="submit" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors">Pakai Uang Muka</button>
+                <button type="submit" class="btn-primary">Pakai Uang Muka</button>
             </div>
         </form>
         @endif
@@ -100,7 +100,7 @@
             </div>
             @include('partials.payment-split', ['deductionAccounts' => $deductionAccounts, 'sales' => $isSales, 'totalInput' => '#pay_amount'])
             <div>
-                <button type="submit" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors">{{ $isSales ? 'Terima Pembayaran' : 'Catat Pembayaran' }}</button>
+                <button type="submit" class="btn-primary">{{ $isSales ? 'Terima Pembayaran' : 'Catat Pembayaran' }}</button>
             </div>
         </form>
         <script>

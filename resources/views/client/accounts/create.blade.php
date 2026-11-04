@@ -9,16 +9,15 @@
         </a>
     </div>
 
-    <div class="bg-[#1E293B] border border-gray-800 shadow-2xl rounded-2xl overflow-hidden max-w-3xl">
+    <div class="doc-card doc-card-narrow">
         <form action="{{ route('client.accounts.store') }}" method="POST">
             @csrf
             
-            <div class="p-8 space-y-6">
+            <div class="doc-section doc-stack">
                 <!-- Akun Induk -->
                 <div>
-                    <label for="parent_id" class="block text-sm font-medium text-gray-300 mb-2">Akun Induk (Sub-Akun dari)</label>
-                    <select name="parent_id" id="parent_id"
-                        class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                    <label for="parent_id" class="block">Akun Induk (Sub-Akun dari)</label>
+                    <select name="parent_id" id="parent_id">
                         <option value="">-- Tidak ada (Ini adalah Akun Master) --</option>
                         @foreach($parents as $parent)
                             <option value="{{ $parent->id }}" {{ old('parent_id') == $parent->id ? 'selected' : '' }}>
@@ -26,31 +25,29 @@
                             </option>
                         @endforeach
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">Pilih jika akun ini adalah turunan dari akun lain.</p>
+                    <p class="field-hint">Pilih jika akun ini adalah turunan dari akun lain.</p>
                     @error('parent_id')
-                        <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                        <p class="field-msg">{{ $message }}</p>
                     @enderror
                 </div>
 
                 <!-- Kode & Nama Akun -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="code" class="block text-sm font-medium text-gray-300 mb-2">Kode Akun <span class="text-red-400">*</span></label>
+                        <label for="code" class="block">Kode Akun <span class="req">*</span></label>
                         <input type="text" name="code" id="code" value="{{ old('code') }}" required
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm"
                             placeholder="Contoh: 1-10005">
                         @error('code')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
                     
                     <div>
-                        <label for="name" class="block text-sm font-medium text-gray-300 mb-2">Nama Akun <span class="text-red-400">*</span></label>
+                        <label for="name" class="block">Nama Akun <span class="req">*</span></label>
                         <input type="text" name="name" id="name" value="{{ old('name') }}" required
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm"
                             placeholder="Contoh: Kas Kecil">
                         @error('name')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
@@ -58,9 +55,8 @@
                 <!-- Tipe & Saldo Normal -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="type" class="block text-sm font-medium text-gray-300 mb-2">Kategori (Tipe Akun) <span class="text-red-400">*</span></label>
-                        <select name="type" id="type" required
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="type" class="block">Kategori (Tipe Akun) <span class="req">*</span></label>
+                        <select name="type" id="type" required>
                             <option value="">-- Pilih Kategori --</option>
                             <option value="asset" {{ old('type') == 'asset' ? 'selected' : '' }}>Asset (Harta)</option>
                             <option value="liability" {{ old('type') == 'liability' ? 'selected' : '' }}>Liability (Kewajiban)</option>
@@ -72,19 +68,18 @@
                             <option value="other_expense" {{ old('type') == 'other_expense' ? 'selected' : '' }}>Other Expense (Beban Lain-lain)</option>
                         </select>
                         @error('type')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div>
-                        <label for="normal_balance" class="block text-sm font-medium text-gray-300 mb-2">Saldo Normal <span class="text-red-400">*</span></label>
-                        <select name="normal_balance" id="normal_balance" required
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="normal_balance" class="block">Saldo Normal <span class="req">*</span></label>
+                        <select name="normal_balance" id="normal_balance" required>
                             <option value="debit" {{ old('normal_balance') == 'debit' ? 'selected' : '' }}>Debit</option>
                             <option value="credit" {{ old('normal_balance') == 'credit' ? 'selected' : '' }}>Kredit</option>
                         </select>
                         @error('normal_balance')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
@@ -92,7 +87,7 @@
                 <!-- Saldo Awal & Status -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="opening_balance" class="block text-sm font-medium text-gray-300 mb-2">Saldo Awal</label>
+                        <label for="opening_balance" class="block">Saldo Awal</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <span class="text-gray-500 sm:text-sm">Rp</span>
@@ -103,9 +98,9 @@
                                 class="w-full pl-10 bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm"
                                 placeholder="0">
                         </div>
-                        <p class="mt-1 text-xs text-gray-500">Isi jika ini adalah akun neraca dengan saldo bawaan.</p>
+                        <p class="field-hint">Isi jika ini adalah akun neraca dengan saldo bawaan.</p>
                         @error('opening_balance')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -139,11 +134,11 @@
             </div>
 
             <!-- Footer Buttons -->
-            <div class="px-8 py-4 bg-gray-800/50 border-t border-gray-700/50 flex justify-end space-x-3">
-                <a href="{{ route('client.accounts.index') }}" class="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm font-medium">
+            <div class="doc-actions doc-actions-end">
+                <a href="{{ route('client.accounts.index') }}" class="btn-secondary">
                     Batal
                 </a>
-                <button type="submit" class="px-6 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50">
+                <button type="submit" class="btn-primary">
                     Simpan Akun
                 </button>
             </div>

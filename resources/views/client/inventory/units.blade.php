@@ -5,21 +5,21 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Form Tambah --}}
         <div class="lg:col-span-1">
-            <div class="bg-[#1E293B] border border-gray-800 rounded-2xl shadow-2xl p-6">
-                <h3 class="text-lg font-semibold text-white mb-4">Tambah Satuan Baru</h3>
+            <div class="doc-card doc-pad">
+                <h3 class="doc-section-title mb-4">Tambah Satuan Baru</h3>
                 <form action="{{ route('client.inventory.units.store') }}" method="POST" class="space-y-4">
                     @csrf
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Nama Satuan <span class="text-red-400">*</span></label>
-                        <input type="text" name="name" value="{{ old('name') }}" required placeholder="Misal: Pieces, Kilogram, Lusin" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Nama Satuan <span class="req">*</span></label>
+                        <input type="text" name="name" value="{{ old('name') }}" required placeholder="Misal: Pieces, Kilogram, Lusin">
                         <x-input-error :messages="$errors->get('name')" class="mt-1" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Singkatan / Kode <span class="text-red-400">*</span></label>
-                        <input type="text" name="abbreviation" value="{{ old('abbreviation') }}" required placeholder="PCS, KG, LSN" maxlength="10" class="w-full bg-gray-800 border-gray-700 text-white rounded-lg">
+                        <label class="block">Singkatan / Kode <span class="req">*</span></label>
+                        <input type="text" name="abbreviation" value="{{ old('abbreviation') }}" required placeholder="PCS, KG, LSN" maxlength="10">
                         <x-input-error :messages="$errors->get('abbreviation')" class="mt-1" />
                     </div>
-                    <button type="submit" class="w-full px-4 py-2.5 bg-trusta-teal hover:bg-teal-400 text-navy-900 font-bold rounded-lg text-sm transition-colors">Tambah Satuan</button>
+                    <button type="submit" class="btn-primary w-full">Tambah Satuan</button>
                 </form>
             </div>
         </div>

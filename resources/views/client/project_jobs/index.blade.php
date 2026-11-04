@@ -4,22 +4,11 @@
 
     <div class="mb-6 flex justify-between items-center">
         <div></div>
-        <a href="{{ route('client.project-jobs.create') }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50 flex items-center">
+        <a href="{{ route('client.project-jobs.create') }}" class="btn-primary">
             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
             Tambah Job
         </a>
     </div>
-
-    @if(session('success'))
-        <div class="mb-4 bg-green-500/10 border-l-4 border-green-500 p-4 text-green-400 rounded-r-lg">
-            {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="mb-4 bg-red-500/10 border-l-4 border-red-500 p-4 text-red-400 rounded-r-lg">
-            {{ session('error') }}
-        </div>
-    @endif
 
     <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-xl overflow-hidden">
         <div class="p-6">

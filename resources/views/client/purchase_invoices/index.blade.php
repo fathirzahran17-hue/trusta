@@ -13,7 +13,7 @@
         </button>
         <a href="{{ route('client.purchases.settlement') }}" class="rpt-btn">Status Pelunasan</a>
         <a href="{{ route('client.purchase-invoices.create', ['mode' => 'biaya']) }}" class="rpt-btn">Catat Biaya (tanpa produk)</a>
-        <a href="{{ route('client.purchase-invoices.create') }}" class="px-4 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50 flex items-center">
+        <a href="{{ route('client.purchase-invoices.create') }}" class="btn-primary">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
             Catat Tagihan Baru
         </a>
@@ -31,12 +31,6 @@
             a.click();
         }
     </script>
-
-    @if(session('success'))
-        <div class="mb-4 bg-green-500/10 border-l-4 border-green-500 p-4 text-green-400 rounded-r-lg">
-            {{ session('success') }}
-        </div>
-    @endif
 
     <div class="bg-gray-800/40 border border-gray-700/50 rounded-2xl overflow-hidden">
         <div class="overflow-x-auto">

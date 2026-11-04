@@ -5,7 +5,7 @@
     <div class="mb-6 flex flex-wrap gap-3 justify-between items-center no-print">
         <a href="{{ $backUrl }}" class="text-trusta-teal hover:underline flex items-center text-sm">&larr; Kembali ke {{ $backLabel }}</a>
         <div class="flex flex-wrap gap-2">
-            <button type="button" onclick="window.print()" class="px-4 py-2 border border-gray-600 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors">Cetak</button>
+            <button type="button" onclick="window.print()" class="btn-secondary">Cetak</button>
             @foreach($actions as $a)
                 @if(!empty($a['method']))
                     <form method="POST" action="{{ $a['url'] }}" class="inline" @if(!empty($a['confirm'])) onsubmit="return confirm(@js($a['confirm']))" @endif>

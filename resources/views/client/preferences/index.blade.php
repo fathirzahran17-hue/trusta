@@ -254,7 +254,7 @@
                     </div>
                     
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Info</button>
+                        <button type="submit" class="btn-primary">Simpan Info</button>
                     </div>
                 </form>
 
@@ -266,7 +266,7 @@
                     </div>
                     
                     <div style="margin-top: 20px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Alamat</button>
+                        <button type="submit" class="btn-primary">Simpan Alamat</button>
                     </div>
                 </form>
 
@@ -348,7 +348,7 @@
                 </div>
                 
                 <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                    <button class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pemetaan</button>
+                    <button class="btn-primary">Simpan Pemetaan</button>
                 </div>
             </div>
         </template>
@@ -371,7 +371,7 @@
                         </select>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan Pajak</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan Pajak</button>
                     </div>
                 </div>
             </form>
@@ -397,7 +397,7 @@
                         </label>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -432,7 +432,7 @@
                         <p style="font-size: 0.8rem; color: #9ca3af; margin-top: 5px;">*Perubahan metode ini akan mempengaruhi perhitungan HPP di setiap faktur penjualan ke depan.</p>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -455,7 +455,7 @@
                         <input type="date" name="closing_date" value="{{ old('closing_date', $company->closing_date) }}" class="pref-input" style="max-width: 150px;" />
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -475,7 +475,7 @@
                         </label>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -495,7 +495,7 @@
                         <input type="text" name="allowed_attachment_types" class="pref-input" value="{{ old('allowed_attachment_types', $company->allowed_attachment_types) }}" />
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -516,7 +516,7 @@
                         <input type="text" name="custom_item_attr_1" class="pref-input" value="{{ old('custom_item_attr_1', $company->custom_item_attr_1) }}" placeholder="Misal: Nomor Rak" />
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -542,7 +542,7 @@
                         </select>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>

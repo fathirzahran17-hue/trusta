@@ -24,7 +24,7 @@
                 Apakah Anda yakin ingin menghapus akun ini?
             </h2>
 
-            <p class="mt-1 text-sm text-gray-400">
+            <p class="field-hint">
                 Setelah akun Anda dihapus, semua sumber daya dan data akan dihapus secara permanen. Masukkan password Anda untuk mengonfirmasi bahwa Anda ingin menghapus akun ini secara permanen.
             </p>
 
@@ -39,7 +39,7 @@
             </div>
 
             <div class="mt-6 flex justify-end space-x-3">
-                <button type="button" x-on:click="$dispatch('close')" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors border border-gray-700">
+                <button type="button" x-on:click="$dispatch('close')" class="btn-secondary">
                     Batal
                 </button>
 

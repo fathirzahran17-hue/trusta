@@ -4,7 +4,7 @@
 
     <div class="mb-6 flex justify-between items-center">
         <a href="{{ route('client.project-jobs.index') }}" class="text-trusta-teal hover:underline text-sm">&larr; Kembali ke Kartu Job</a>
-        <a href="{{ route('client.project-jobs.edit', $projectJob) }}" class="px-4 py-2 border border-gray-600 rounded-lg text-sm text-gray-300 hover:bg-gray-700">Edit</a>
+        <a href="{{ route('client.project-jobs.edit', $projectJob) }}" class="btn-secondary">Edit</a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

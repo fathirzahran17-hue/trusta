@@ -14,67 +14,61 @@
             @csrf
             @method('PUT')
             
-            <div class="p-8 space-y-6">
-                <h3 class="text-lg font-medium text-white mb-4 border-b border-gray-700 pb-2">Informasi Dasar</h3>
+            <div class="doc-section doc-stack">
+                <h3 class="form-heading">Informasi Dasar</h3>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="name" class="block text-sm font-medium text-gray-300 mb-2">Nama Pelanggan / Perusahaan <span class="text-red-400">*</span></label>
-                        <input type="text" name="name" id="name" value="{{ old('name', $customer->name) }}" required
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="name" class="block">Nama Pelanggan / Perusahaan <span class="req">*</span></label>
+                        <input type="text" name="name" id="name" value="{{ old('name', $customer->name) }}" required>
                         @error('name')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="email" class="block text-sm font-medium text-gray-300 mb-2">Email</label>
-                        <input type="email" name="email" id="email" value="{{ old('email', $customer->email) }}"
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="email" class="block">Email</label>
+                        <input type="email" name="email" id="email" value="{{ old('email', $customer->email) }}">
                         @error('email')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
                     
                     <div>
-                        <label for="phone" class="block text-sm font-medium text-gray-300 mb-2">Nomor Telepon / WhatsApp</label>
-                        <input type="text" name="phone" id="phone" value="{{ old('phone', $customer->phone) }}"
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="phone" class="block">Nomor Telepon / WhatsApp</label>
+                        <input type="text" name="phone" id="phone" value="{{ old('phone', $customer->phone) }}">
                         @error('phone')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
 
-                <h3 class="text-lg font-medium text-white mb-4 mt-8 border-b border-gray-700 pb-2">Informasi Tambahan</h3>
+                <h3 class="form-heading">Informasi Tambahan</h3>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="md:col-span-2">
-                        <label for="address" class="block text-sm font-medium text-gray-300 mb-2">Alamat Lengkap</label>
-                        <textarea name="address" id="address" rows="3"
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">{{ old('address', $customer->address) }}</textarea>
+                        <label for="address" class="block">Alamat Lengkap</label>
+                        <textarea name="address" id="address" rows="3">{{ old('address', $customer->address) }}</textarea>
                         @error('address')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div>
-                        <label for="npwp" class="block text-sm font-medium text-gray-300 mb-2">NPWP</label>
-                        <input type="text" name="npwp" id="npwp" value="{{ old('npwp', $customer->npwp) }}"
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="npwp" class="block">NPWP</label>
+                        <input type="text" name="npwp" id="npwp" value="{{ old('npwp', $customer->npwp) }}">
                         @error('npwp')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div>
-                        <label for="default_term_days" class="block text-sm font-medium text-gray-300 mb-2">Jangka Waktu Pembayaran (Hari)</label>
-                        <input type="number" name="default_term_days" id="default_term_days" value="{{ old('default_term_days', $customer->default_term_days ?? 30) }}" min="0"
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="default_term_days" class="block">Jangka Waktu Pembayaran (Hari)</label>
+                        <input type="number" name="default_term_days" id="default_term_days" value="{{ old('default_term_days', $customer->default_term_days ?? 30) }}" min="0">
                         @error('default_term_days')
-                            <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                            <p class="field-msg">{{ $message }}</p>
                         @enderror
                     </div>
                     
@@ -89,11 +83,11 @@
             </div>
 
             <!-- Footer Buttons -->
-            <div class="px-8 py-4 bg-gray-800/50 border-t border-gray-700/50 flex justify-end space-x-3">
-                <a href="{{ route('client.customers.index') }}" class="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm font-medium">
+            <div class="doc-actions doc-actions-end">
+                <a href="{{ route('client.customers.index') }}" class="btn-secondary">
                     Batal
                 </a>
-                <button type="submit" class="px-6 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50">
+                <button type="submit" class="btn-primary">
                     Simpan Perubahan
                 </button>
             </div>
