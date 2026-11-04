@@ -60,7 +60,9 @@
         @unless($isService)
         <div class="pay-field">
             <label for="buy_price">Harga Beli (Rp)</label>
-            <input type="number" step="0.01" min="0" name="buy_price" id="buy_price" value="{{ $val('buy_price', 0) }}">
+            <input type="number" step="0.01" min="0" name="buy_price" id="buy_price" value="{{ $val('buy_price', 0) }}" @readonly($costLocked ?? false)>
+            <x-input-error :messages="$errors->get('buy_price')" class="mt-1" />
+            @if($costLocked ?? false)<div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Terkunci karena masih ada stok. Harga pokok mengikuti pembelian dan produksi.</div>@endif
             <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Harga pokok akan dihitung otomatis (rata-rata) dari pembelian.</div>
         </div>
         @endunless
@@ -108,7 +110,7 @@
 @else
 <div class="pay-card">
     @php $invSel = old('inventory_account_id', $p->inventory_account_id ?? ''); @endphp
-    <details {{ $errors->has('expense_account_id') || $errors->has('inventory_account_id') || $invSel || $inventoryAccounts->count() > 1 ? 'open' : '' }}>
+    <details {{ $errors->has('expense_account_id') || $errors->has('inventory_account_id') || $invSel || $inventoryAccounts->count() > 1 || ($inventoryRequired ?? false) ? 'open' : '' }}>
         <summary style="cursor:pointer;padding:13px 18px;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-strong)">Pengaturan akun lanjutan <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--text-dim)">(sudah otomatis)</span></summary>
         <div class="pay-form-grid" style="padding-top:0">
             <div class="pay-field" style="grid-column: span 2">
@@ -120,11 +122,12 @@
             </div>
             <div class="pay-field" style="grid-column: span 2">
                 <label for="inventory_account_id">Akun Persediaan</label>
-                <select name="inventory_account_id" id="inventory_account_id">
-                    <option value="">Otomatis ({{ optional($defaultInventory)->name ?? 'Persediaan' }})</option>
+                <select name="inventory_account_id" id="inventory_account_id" @required($inventoryRequired ?? false)>
+                    <option value="">{{ ($inventoryRequired ?? false) ? '-- Pilih akun persediaan --' : 'Otomatis (' . (optional($defaultInventory)->name ?? 'Persediaan') . ')' }}</option>
                     @foreach($inventoryAccounts as $a)<option value="{{ $a->id }}" @selected($invSel == $a->id)>{{ $a->code }} - {{ $a->name }}</option>@endforeach
                 </select>
-                <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Manufaktur: pilih <b>Bahan Baku</b> untuk bahan, <b>Barang Jadi</b> untuk hasil produksi.</div>
+                <x-input-error :messages="$errors->get('inventory_account_id')" class="mt-1" />
+                <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Manufaktur: pilih <b>Bahan Baku</b> untuk bahan, <b>Barang Jadi</b> untuk hasil produksi. Bila diganti saat masih ada stok, nilainya otomatis dipindahkan lewat jurnal.</div>
             </div>
         </div>
     </details>

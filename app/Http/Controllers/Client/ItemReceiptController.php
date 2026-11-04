@@ -112,6 +112,8 @@ class ItemReceiptController extends Controller
             'products.*' => 'required|exists:products,id',
             'quantities' => 'required|array|min:1',
             'quantities.*' => 'required|numeric|min:0.01',
+            'prices' => 'nullable|array',
+            'prices.*' => 'nullable|numeric|min:0',
         ]);
 
         $companyId = auth()->user()->company_id;
@@ -120,6 +122,16 @@ class ItemReceiptController extends Controller
             [$rowOrders, $orders] = \App\Services\FulfilmentSources::resolve('purchase', $request, (int) $companyId, (int) $request->supplier_id, $request->status == 'received');
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        // Barang tanpa harga tidak boleh masuk stok: nilainya akan tetap 0 sampai ke produksi dan HPP.
+        if ($request->status == 'received') {
+            foreach ($request->products as $index => $productId) {
+                $product = Product::find($productId);
+                if ($product && $product->type === 'goods' && empty($rowOrders[$index]) && $this->rowCost($request, $index, $product, null) <= 0) {
+                    return back()->withInput()->with('error', "Harga beli {$product->name} belum diisi. Isi kolom Harga Beli pada baris tersebut, atau terima barang lewat Pesanan Pembelian.");
+                }
+            }
         }
 
         try {
@@ -163,15 +175,8 @@ class ItemReceiptController extends Controller
                 foreach ($request->products as $index => $productId) {
                     $qty = floatval($request->quantities[$index]);
                     $product = Product::find($productId);
-                    // Harga perolehan mengikuti Pesanan Pembelian (setelah diskon baris); tanpa PO pakai harga beli master
-                    $price = (float) $product->buy_price;
                     $po = ($rowOrders[$index] ?? null) ? $orders[$rowOrders[$index]] : null;
-                    if ($po) {
-                        $poItem = $po->items()->where('product_id', $productId)->first();
-                        if ($poItem) {
-                            $price = (float) $poItem->unit_price * (1 - (float) $poItem->discount_percent / 100);
-                        }
-                    }
+                    $price = $this->rowCost($request, $index, $product, $po);
 
                     if ($product->type === 'goods') {
                         // 1. Moving Average Calculation
@@ -185,7 +190,7 @@ class ItemReceiptController extends Controller
                             $product->save();
                         }
 
-                        \App\Models\InventoryMovement::create([
+                        $movement = \App\Models\InventoryMovement::create([
                             'company_id' => $companyId,
                             'product_id' => $product->id,
                             'warehouse_id' => $request->warehouse_id,
@@ -199,6 +204,9 @@ class ItemReceiptController extends Controller
                             'notes' => 'Penerimaan Barang ' . $itemReceipt->receipt_number,
                             'created_by' => auth()->id(),
                         ]);
+                        if ($po) {
+                            \App\Services\PurchaseCostAdjuster::applyReceipt($movement, $po->id);
+                        }
                     }
                 }
             }
@@ -212,6 +220,17 @@ class ItemReceiptController extends Controller
             DB::rollBack();
             return back()->withInput()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
+    }
+
+    /** Harga perolehan satu baris: mengikuti PO (setelah diskon baris); tanpa PO pakai harga di form, lalu harga beli master. */
+    private function rowCost(Request $request, int $index, Product $product, ?PurchaseOrder $po): float
+    {
+        $poItem = $po?->items()->where('product_id', $product->id)->first();
+        if ($poItem) {
+            return (float) $poItem->unit_price * (1 - (float) $poItem->discount_percent / 100);
+        }
+
+        return (float) ($request->input('prices.' . $index) ?: $product->buy_price);
     }
 
     public function cancel(ItemReceipt $itemReceipt)

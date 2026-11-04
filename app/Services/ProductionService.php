@@ -66,6 +66,11 @@ class ProductionService
             if ((float) $p->stock + 0.0001 < $q) {
                 throw new \DomainException("Stok {$p->name} tidak cukup (tersedia " . (float) $p->stock . ", dibutuhkan {$q}).");
             }
+            $onDate = (float) InventoryMovement::where('product_id', $pid)->where('type', 'in')->whereDate('date', '<=', $d['date'])->sum('quantity')
+                - (float) InventoryMovement::where('product_id', $pid)->where('type', 'out')->whereDate('date', '<=', $d['date'])->sum('quantity');
+            if ($onDate + 0.0001 < $q) {
+                throw new \DomainException("Pada tanggal produksi stok {$p->name} baru " . (float) $onDate . ", padahal dibutuhkan {$q}. Gunakan tanggal setelah bahan diterima.");
+            }
         }
         $allowedCost = self::costAccounts($cid)->pluck('id')->all();
         $costs = [];
@@ -95,6 +100,9 @@ class ProductionService
             foreach ($need as $pid => $q) {
                 $p = $components[$pid];
                 $cost = InventoryAccounting::consumeCost($cid, $p, $q);
+                if ($cost <= 0.004) {
+                    throw new \DomainException("Harga pokok {$p->name} masih Rp 0, sehingga biaya produksi tidak bisa dihitung. Catat dulu harga belinya lewat Penerimaan Barang atau Faktur Pembelian.");
+                }
                 $material += $cost;
                 $acc = AccountResolver::inventoryFor($p, $cid);
                 if (! $acc) throw new \DomainException('Akun Persediaan bahan belum ada.');
@@ -102,7 +110,7 @@ class ProductionService
                 $order->items()->create(['product_id' => $pid, 'quantity' => $q, 'unit_cost' => $q > 0 ? $cost / $q : 0, 'total' => $cost]);
                 InventoryMovement::create([
                     'company_id' => $cid, 'product_id' => $pid, 'date' => $date, 'type' => 'out', 'quantity' => $q,
-                    'unit_cost' => $q > 0 ? round($cost / $q, 2) : 0, 'remaining_qty' => 0,
+                    'unit_cost' => $q > 0 ? round($cost / $q, 4) : 0, 'remaining_qty' => 0,
                     'reference_type' => 'production', 'reference_id' => $order->id,
                     'notes' => 'Bahan produksi ' . $order->number, 'created_by' => $userId,
                 ]);
@@ -125,7 +133,7 @@ class ProductionService
             }
             InventoryMovement::create([
                 'company_id' => $cid, 'product_id' => $product->id, 'date' => $date, 'type' => 'in', 'quantity' => $qty,
-                'unit_cost' => round($unit, 2), 'remaining_qty' => $qty,
+                'unit_cost' => round($unit, 4), 'remaining_qty' => $qty,
                 'reference_type' => 'production', 'reference_id' => $order->id,
                 'notes' => 'Hasil produksi ' . $order->number, 'created_by' => $userId,
             ]);
@@ -184,13 +192,20 @@ class ProductionService
                     $product->save();
                 }
                 InventoryMovement::create(['company_id' => $order->company_id, 'product_id' => $product->id, 'date' => $today, 'type' => 'out',
-                    'quantity' => $order->quantity, 'unit_cost' => round((float) $order->unit_cost, 2), 'remaining_qty' => 0,
+                    'quantity' => $order->quantity, 'unit_cost' => round((float) $order->unit_cost, 4), 'remaining_qty' => 0,
                     'reference_type' => 'void_production', 'reference_id' => $order->id, 'notes' => 'Pembatalan hasil produksi ' . $order->number, 'created_by' => $userId]);
                 InventoryMovement::where('reference_type', 'production')->where('reference_id', $order->id)->where('type', 'in')->update(['remaining_qty' => 0]);
             }
             foreach ($order->items as $it) {
+                // Bahan kembali dengan nilai saat dipakai; harga rata-rata dihitung ulang agar nilai stok tetap sama dengan saldo Persediaan.
+                $material = Product::find($it->product_id);
+                if ($material) {
+                    $stockBefore = max(0, (float) $material->stock);
+                    $material->buy_price = round(($stockBefore * (float) $material->buy_price + (float) $it->total) / ($stockBefore + (float) $it->quantity), 2);
+                    $material->save();
+                }
                 InventoryMovement::create(['company_id' => $order->company_id, 'product_id' => $it->product_id, 'date' => $today, 'type' => 'in',
-                    'quantity' => $it->quantity, 'unit_cost' => round((float) $it->unit_cost, 2), 'remaining_qty' => $it->quantity,
+                    'quantity' => $it->quantity, 'unit_cost' => round((float) $it->unit_cost, 4), 'remaining_qty' => $it->quantity,
                     'reference_type' => 'void_production', 'reference_id' => $order->id, 'notes' => 'Bahan kembali dari pembatalan ' . $order->number, 'created_by' => $userId]);
             }
             $order->voided_at = now();

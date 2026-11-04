@@ -289,6 +289,8 @@ class PurchaseInvoiceController extends Controller
                 // Note: Mutasi stok fisik (InventoryMovement) sekarang HANYA ditangani oleh Penerimaan Barang (Item Receipt).
             }
 
+            \App\Services\PurchaseCostAdjuster::applyInvoice($invoice, $journal);
+
             \App\Services\JournalGuard::assertBalanced($journal);
 
             DB::commit();

@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'client' => \App\Http\Middleware\ClientMiddleware::class,
             'client_admin' => \App\Http\Middleware\ClientAdminMiddleware::class,
             'premium' => \App\Http\Middleware\CheckPremium::class,
+            'production' => \App\Http\Middleware\RequiresProduction::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

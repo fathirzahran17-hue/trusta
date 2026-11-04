@@ -39,8 +39,8 @@
                         </select>
                     </div>
                     <div>
-                        <label for="sales_invoice_id">Faktur Terkait (Opsional)</label>
-                        <select name="sales_invoice_id" id="sales_invoice_id">
+                        <label for="sales_invoice_id">Faktur Terkait <span style="color:var(--danger)">*</span></label>
+                        <select name="sales_invoice_id" id="sales_invoice_id" required>
                             <option value="">-- Pilih Faktur --</option>
                             @foreach($invoices as $inv)
                                 <option value="{{ $inv->id }}" {{ old('sales_invoice_id') == $inv->id ? 'selected' : '' }}>{{ $inv->invoice_number }}</option>

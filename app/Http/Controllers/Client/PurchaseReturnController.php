@@ -76,7 +76,7 @@ class PurchaseReturnController extends Controller
         $request->validate([
             'return_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('purchase_returns', 'return_number')],
             'supplier_id' => 'required|exists:suppliers,id',
-            'purchase_invoice_id' => 'nullable|exists:purchase_invoices,id',
+            'purchase_invoice_id' => 'required|exists:purchase_invoices,id',
             'return_date' => 'required|date',
             'products' => 'required|array|min:1',
             'products.*' => 'nullable|exists:products,id',
@@ -84,7 +84,7 @@ class PurchaseReturnController extends Controller
             'quantities.*' => 'required|numeric|min:0.01',
             'prices' => 'required|array|min:1',
             'prices.*' => 'required|numeric|min:0',
-        ]);
+        ], ['purchase_invoice_id.required' => 'Pilih Faktur Pembelian yang diretur.']);
 
         try {
             DB::beginTransaction();

@@ -287,6 +287,9 @@ class InvoicePaymentService
             if ($orig) {
                 self::reverseJournal($orig, 'Pembatalan faktur ' . $inv->invoice_number, $userId);
             }
+            if ($kind === 'purchase') {
+                PurchaseCostAdjuster::revertInvoice($inv);
+            }
             $inv->status = 'void';
             $inv->amount_due = 0;
             $inv->save();

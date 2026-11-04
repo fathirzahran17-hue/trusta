@@ -78,6 +78,25 @@ class AccountResolver
             'normal_balance' => 'debit', 'parent_id' => $parent->id, 'is_system' => false, 'is_active' => true]);
     }
 
+    /** Akun untuk selisih harga faktur atas barang yang sudah terpakai; dibuat otomatis bila belum ada. */
+    public static function purchaseVariance(int $companyId): ?Account
+    {
+        if ($a = self::find($companyId, 'cost_of_sales', ['%Selisih Harga%'])) {
+            return $a;
+        }
+        $parent = Account::where('company_id', $companyId)->where('type', 'cost_of_sales')->whereNull('parent_id')->orderBy('code')->first();
+        if (!$parent) {
+            return self::cogs($companyId);
+        }
+        $code = '5-0006';
+        while (Account::where('company_id', $companyId)->where('code', $code)->exists()) {
+            $code = '5-' . str_pad((int) substr($code, 2) + 1, 4, '0', STR_PAD_LEFT);
+        }
+
+        return Account::create(['company_id' => $companyId, 'code' => $code, 'name' => 'Selisih Harga Pembelian', 'type' => 'cost_of_sales',
+            'normal_balance' => 'debit', 'parent_id' => $parent->id, 'is_system' => false, 'is_active' => true]);
+    }
+
     public static function cogs(int $companyId): ?Account
     {
         return self::find($companyId, 'cost_of_sales', ['HPP%Barang Dagang%', 'HPP%Barang Jadi%', 'HPP%', 'Harga Pokok%']);

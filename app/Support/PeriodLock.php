@@ -11,6 +11,17 @@ use Carbon\Carbon;
  */
 class PeriodLock
 {
+    /** Nama dokumen untuk pesan kepada pengguna. */
+    public static function label(string $model): string
+    {
+        return [
+            'ProductionOrder' => 'Perintah Produksi', 'Journal' => 'Jurnal', 'SalesInvoice' => 'Faktur Penjualan', 'PurchaseInvoice' => 'Faktur Pembelian',
+            'SalesOrder' => 'Pesanan Penjualan', 'PurchaseOrder' => 'Pesanan Pembelian', 'DeliveryOrder' => 'Pengiriman Barang', 'ItemReceipt' => 'Penerimaan Barang',
+            'SalesReturn' => 'Retur Penjualan', 'PurchaseReturn' => 'Retur Pembelian', 'CashTransaction' => 'Transaksi Kas', 'InvoicePayment' => 'Pembayaran',
+            'DownPayment' => 'Uang Muka', 'InventoryMovement' => 'Mutasi Stok', 'FixedAsset' => 'Aset Tetap', 'DepreciationEntry' => 'Penyusutan',
+        ][$model] ?? 'Transaksi';
+    }
+
     public static function closingDate(): ?Carbon
     {
         if (!auth()->check()) return null;

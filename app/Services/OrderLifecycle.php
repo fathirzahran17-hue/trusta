@@ -90,6 +90,9 @@ class OrderLifecycle
                 if (!$p) {
                     continue;
                 }
+                if (\App\Models\PurchaseCostAdjustment::where('inventory_movement_id', $m->id)->exists()) {
+                    throw new \DomainException("Barang {$p->name} dari penerimaan ini sudah masuk Faktur Pembelian. Batalkan fakturnya dulu.");
+                }
                 if ($p->stock + 0.0001 < (float) $m->quantity || (float) $m->remaining_qty + 0.0001 < (float) $m->quantity) {
                     throw new \DomainException("Barang {$p->name} dari penerimaan ini sudah terpakai (terjual/dikirim), sehingga penerimaan tidak bisa dibatalkan. Buat retur pembelian atau penyesuaian persediaan.");
                 }

@@ -52,7 +52,7 @@ class SalesReturnController extends Controller
         $request->validate([
             'return_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('sales_returns', 'return_number')],
             'customer_id' => 'required|exists:customers,id',
-            'sales_invoice_id' => 'nullable|exists:sales_invoices,id',
+            'sales_invoice_id' => 'required|exists:sales_invoices,id',
             'return_date' => 'required|date',
             'products' => 'required|array|min:1',
             'products.*' => 'required|exists:products,id',
@@ -60,7 +60,7 @@ class SalesReturnController extends Controller
             'quantities.*' => 'required|numeric|min:0.01',
             'prices' => 'required|array|min:1',
             'prices.*' => 'required|numeric|min:0',
-        ]);
+        ], ['sales_invoice_id.required' => 'Pilih Faktur Penjualan yang diretur.']);
 
         try {
             DB::beginTransaction();

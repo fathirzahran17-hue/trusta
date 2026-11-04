@@ -516,12 +516,13 @@ class ReportBuilder
     {
         $products = Product::where('company_id', $this->companyId)->where('type', 'goods')->with('category')->orderBy('name')->get();
         $rows = []; $tv = 0; $low = 0;
+        $method = optional(\App\Models\Company::find($this->companyId))->inventory_costing_method ?? 'average';
         foreach ($products as $p) {
             $stock = (float) $p->stock;
-            $val = $stock * (float) $p->buy_price;
+            $val = \App\Services\InventoryAccounting::stockValue($p, $method);
             $tv += $val;
             if ($stock <= 5) $low++;
-            $rows[] = $this->row([$p->sku, $p->name, $p->category?->name ?? '-', $p->unit ?? '-', $stock, (float) $p->buy_price, $val]);
+            $rows[] = $this->row([$p->sku, $p->name, $p->category?->name ?? '-', $p->unit ?? '-', $stock, $stock > 0 ? $val / $stock : (float) $p->buy_price, $val]);
         }
         $rows[] = ['type' => 'grand', 'cells' => ['', 'TOTAL NILAI PERSEDIAAN', '', '', '', '', $tv]];
 
@@ -534,7 +535,7 @@ class ReportBuilder
                 ['key' => 'cat', 'label' => 'Kategori', 'width' => 20],
                 ['key' => 'unit', 'label' => 'Satuan', 'width' => 10],
                 ['key' => 'stock', 'label' => 'Stok', 'width' => 12, 'align' => 'right', 'format' => 'qty'],
-                ['key' => 'cost', 'label' => 'Harga Beli (Rp)', 'width' => 18, 'align' => 'right', 'format' => 'money'],
+                ['key' => 'cost', 'label' => 'Harga Pokok (Rp)', 'width' => 18, 'align' => 'right', 'format' => 'money'],
                 ['key' => 'val', 'label' => 'Nilai (Rp)', 'width' => 20, 'align' => 'right', 'format' => 'money'],
             ],
             'rows' => $rows, 'empty' => 'Belum ada barang.',

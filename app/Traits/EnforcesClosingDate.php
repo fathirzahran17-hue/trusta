@@ -31,7 +31,7 @@ trait EnforcesClosingDate
         }
 
         $field = $this->getDateField();
-        $label = class_basename($this);
+        $label = \App\Support\PeriodLock::label(class_basename($this));
 
         if ($deleting || !$this->exists) {
             PeriodLock::assertOpen($this->{$field} ?? null, $label);
