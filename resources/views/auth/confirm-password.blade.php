@@ -7,13 +7,18 @@
         @csrf
 
         <!-- Password -->
-        <div>
+        <div x-data="{ show: false }">
             <x-input-label for="password" :value="__('Password')" />
 
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
+            <div class="auth-input-wrap">
+                <x-text-input id="password" class="block mt-1 w-full"
+                                type="password"
+                                ::type="show ? 'text' : 'password'"
+                                name="password"
+                                style="padding-right: 44px;"
+                                required autocomplete="current-password" />
+                <x-password-toggle />
+            </div>
 
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>

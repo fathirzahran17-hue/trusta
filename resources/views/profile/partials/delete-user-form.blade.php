@@ -30,13 +30,10 @@
 
             <div class="mt-6">
                 <label for="password" class="sr-only">Password</label>
-                <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    class="mt-1 block w-3/4 bg-gray-800 border-gray-700 text-white focus:border-red-500 focus:ring-red-500 rounded-lg shadow-sm"
-                    placeholder="Password Anda"
-                />
+                <div class="auth-input-wrap w-3/4" x-data="{ show: false }">
+                    <input id="password" name="password" type="password" :type="show ? 'text' : 'password'" class="mt-1 block w-full bg-gray-800 border-gray-700 text-white focus:border-red-500 focus:ring-red-500 rounded-lg shadow-sm" style="padding-right: 44px;" placeholder="Password Anda" />
+                    <x-password-toggle />
+                </div>
 
                 <x-input-error :messages="$errors->userDeletion->get('password')" class="mt-2 text-red-400" />
             </div>

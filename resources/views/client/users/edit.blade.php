@@ -11,7 +11,7 @@
 </div>
 
 <div class="bg-[#1E293B] border border-gray-800 rounded-2xl shadow-2xl p-6 max-w-2xl">
-    <form action="{{ route('client.users.update', $user) }}" method="POST">
+    <form action="{{ route('client.users.update', $user) }}" method="POST" x-data="{ pw: '', pw2: '' }">
         @csrf
         @method('PUT')
         
@@ -45,7 +45,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-1">Password Baru</label>
                         <div class="relative" x-data="{ show: false }">
-                            <input :type="show ? 'text' : 'password'" name="password"
+                            <input :type="show ? 'text' : 'password'" name="password" x-model="pw"
                                 class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg pr-10 focus:ring-trusta-teal focus:border-trusta-teal">
                             <button type="button" @click="show = !show"
                                 class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-trusta-teal transition-colors">
@@ -53,12 +53,13 @@
                                 <svg x-show="show" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
                             </button>
                         </div>
+                        <x-password-rules />
                         @error('password') <span class="text-red-400 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-1">Konfirmasi Password Baru</label>
                         <div class="relative" x-data="{ show: false }">
-                            <input :type="show ? 'text' : 'password'" name="password_confirmation"
+                            <input :type="show ? 'text' : 'password'" name="password_confirmation" x-model="pw2"
                                 class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg pr-10 focus:ring-trusta-teal focus:border-trusta-teal">
                             <button type="button" @click="show = !show"
                                 class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-trusta-teal transition-colors">
@@ -66,6 +67,7 @@
                                 <svg x-show="show" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
                             </button>
                         </div>
+<x-password-match />
                     </div>
                 </div>
             </div>

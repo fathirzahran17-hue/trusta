@@ -1572,6 +1572,17 @@ html.dark .bg-yellow-600 { background-color: #a16207; }
 .auth-eye { position: absolute; inset: 0 0 0 auto; width: 42px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); background: transparent; border: none; cursor: pointer; }
 .auth-eye:hover { color: var(--text-strong); }
 .auth-eye svg { width: 19px; height: 19px; }
+.pw-rules { margin-top: 8px; padding: 10px 12px; font-size: 0.78rem; color: var(--text-dim); background: var(--surface-2, transparent); border: 1px solid var(--border); border-radius: 10px; }
+.pw-rules ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.pw-rules li { display: flex; align-items: center; gap: 7px; }
+.pw-rules li svg { flex: none; width: 14px; height: 14px; }
+.pw-rules li.is-ok { color: var(--accent); font-weight: 500; }
+.pw-rules li.is-bad { color: var(--danger); }
+.pw-rules-title { margin: 0 0 6px; font-weight: 600; color: var(--text-muted); }
+.pw-rules-note { margin: 8px 0 0; font-size: 0.72rem; line-height: 1.4; }
+.pw-match { margin: 6px 0 0; font-size: 0.78rem; font-weight: 500; }
+.pw-match.is-ok { color: var(--accent); }
+.pw-match.is-bad { color: var(--danger); }
 .auth-hint { margin-top: 6px; font-size: 0.74rem; color: var(--text-dim); }
 .auth-error, .auth-card ul.text-red-600 { margin: 6px 0 0; padding: 0; list-style: none; font-size: 0.78rem; color: var(--danger); }
 .auth-status { margin-bottom: 16px; padding: 10px 12px; font-size: 0.82rem; border-radius: 10px; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-border); }
