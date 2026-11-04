@@ -19,7 +19,8 @@ class SalesOrderDetail extends Model
         'discount_percent',
         'discount_amount',
         'tax_amount',
-        'subtotal'
+        'subtotal',
+        'is_taxable',
     ];
 
     public function salesOrder()

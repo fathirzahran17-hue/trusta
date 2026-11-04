@@ -44,6 +44,16 @@ class DownPaymentApplicationController extends Controller
 
     public function applyPurchase(Request $request, PurchaseInvoice $purchase_invoice) { return $this->run($request, $purchase_invoice, 'purchase'); }
 
+    /** Nomor Faktur Pajak uang muka bisa menyusul. Mengisinya tidak mengubah jurnal. */
+    public function updateTaxNumber(Request $request, DownPayment $down_payment)
+    {
+        abort_if((int) $down_payment->company_id !== (int) auth()->user()->company_id, 403);
+        $data = $request->validate(['tax_invoice_number' => \App\Services\DocumentTax::numberRules()], \App\Services\DocumentTax::NUMBER_MESSAGES);
+        $down_payment->update(['tax_invoice_number' => $data['tax_invoice_number'] ?? null]);
+
+        return back()->with('success', 'No. Faktur Pajak disimpan.');
+    }
+
     public function void(DownPaymentApplication $application)
     {
         abort_if((int) $application->company_id !== (int) auth()->user()->company_id, 403);

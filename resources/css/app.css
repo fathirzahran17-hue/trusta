@@ -2195,3 +2195,25 @@ input.input-lg { min-height: 52px; font-size: 1.25rem !important; font-weight: 7
 
 /* Pengaturan lanjutan yang bisa dibuka */
 .pay-card > details > summary { padding: 15px 22px !important; font-size: 0.9rem !important; font-weight: 600 !important; letter-spacing: 0 !important; text-transform: none !important; }
+
+/* PPN per baris dan No. Faktur Pajak */
+.line-items .col-tax { width: 52px; text-align: center; }
+.line-items tbody .col-tax { padding-top: 20px !important; }
+.line-items[data-tax="off"] .col-tax { display: none; }
+.line-items .row-taxable { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--accent); }
+.doc-total-row[hidden] { display: none; }
+.fp-field { margin-top: 14px; }
+.fp-panel { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; margin-bottom: 16px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.fp-panel-field { flex: 1 1 260px; min-width: 0; }
+.fp-panel .field-hint { flex: 1 0 100%; margin-top: 0; }
+.fp-inline { margin-top: 6px; --ctl-h: 32px; --ctl-fs: 0.78rem; --ctl-py: 4px; }
+.fp-inline input { width: 170px; max-width: 100%; text-align: right; }
+@media (max-width: 768px) {
+    .line-items .col-tax { width: auto; }
+    .line-items[data-tax="on"] .col-tax::before { content: "Kena PPN"; white-space: nowrap; }
+    .line-items tr.item-row td.col-tax { text-align: left; padding-top: 10px !important; }
+}
+
+.rpt-table td.nowrap { white-space: nowrap; }
+.rpt-note.info { background: var(--surface-2); color: var(--text-muted); font-weight: 500; }
+.form-grid .fp-field { margin-top: 0; }

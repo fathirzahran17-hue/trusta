@@ -6,7 +6,7 @@
         $rows = [];
         foreach (array_values($oldProducts) as $i => $productId) {
             $rows[] = ['product_id' => $productId ?? '', 'quantity' => old("quantities.$i", 1), 'price' => old("prices.$i", 0), 'discount' => old("discounts.$i", 0),
-                'description' => old("row_descriptions.$i"), 'order_id' => old("row_orders.$i"), 'doc_id' => old("row_docs.$i")];
+                'description' => old("row_descriptions.$i"), 'order_id' => old("row_orders.$i"), 'doc_id' => old("row_docs.$i"), 'taxable' => old("taxable.$i")];
         }
     }
 @endphp
@@ -49,6 +49,7 @@
             }
             var disc = tr.querySelector('.input-discount');
             if (disc && r.discount !== undefined && r.discount !== null) { disc.value = r.discount; disc.dispatchEvent(new Event('input', { bubbles: true })); }
+            if (r.taxable !== undefined && r.taxable !== null && window.LineTax) window.LineTax.set(tr, r.taxable);
         });
         if (typeof window.calculateTotals === 'function') window.calculateTotals();
     });

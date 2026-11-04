@@ -233,7 +233,8 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::get('reports/purchase-report', [\App\Http\Controllers\Client\ReportController::class, 'purchaseReport'])->name('reports.purchase-report');
     Route::get('reports/inventory-stock', [\App\Http\Controllers\Client\ReportController::class, 'inventoryStock'])->name('reports.inventory-stock');
     Route::get('reports/production-cost', [\App\Http\Controllers\Client\ReportController::class, 'productionCost'])->middleware('production')->name('reports.production-cost');
-    Route::get('reports/spt-ppn', [\App\Http\Controllers\Client\ReportController::class, 'sptPpn'])->name('reports.spt_ppn');
+    Route::get('reports/ppn', [\App\Http\Controllers\Client\ReportController::class, 'vat'])->name('reports.vat');
+    Route::get('reports/spt-ppn', fn () => redirect()->route('client.reports.vat')); // alamat lama yang mungkin masih tersimpan di tab atau bookmark
     Route::get('reports/tax-calculator', [\App\Http\Controllers\Client\ReportController::class, 'taxCalculator'])->name('reports.tax_calculator');
 
     // Penjualan
@@ -264,6 +265,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::post('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'store'])->name('sales.returns.store');
     Route::get('search', [\App\Http\Controllers\Client\SearchController::class, 'index'])->middleware('throttle:120,1')->name('search');
     Route::post('sales-invoices/{sales_invoice}/payments', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'storeSales'])->name('sales-invoices.payments.store');
+    Route::post('sales-invoices/{sales_invoice}/tax-number', [\App\Http\Controllers\Client\SalesInvoiceController::class, 'updateTaxNumber'])->name('sales-invoices.tax-number');
+    Route::post('purchase-invoices/{purchase_invoice}/tax-number', [\App\Http\Controllers\Client\PurchaseInvoiceController::class, 'updateTaxNumber'])->name('purchase-invoices.tax-number');
+    Route::post('down-payments/{down_payment}/tax-number', [\App\Http\Controllers\Client\DownPaymentApplicationController::class, 'updateTaxNumber'])->name('down-payments.tax-number');
     Route::post('sales-invoices/{sales_invoice}/void', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'voidSales'])->name('sales-invoices.void');
     Route::post('purchase-invoices/{purchase_invoice}/payments', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'storePurchase'])->name('purchase-invoices.payments.store');
     Route::post('purchase-invoices/{purchase_invoice}/void', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'voidPurchase'])->name('purchase-invoices.void');

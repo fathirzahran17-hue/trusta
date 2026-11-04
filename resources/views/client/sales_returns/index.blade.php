@@ -28,7 +28,7 @@
                                 {{ $ret->return_number }}
                             </td>
                             <td class="px-6 py-4">
-                                <div class="text-white">{{ $ret->customer->name ?? '-' }}</div>
+                                <div class="text-white">{{ $ret->salesInvoice->customer->name ?? '-' }}</div>
                             </td>
                             <td class="px-6 py-4">
                                 {{ $ret->return_date->format('d M Y') }}

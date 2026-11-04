@@ -14,7 +14,7 @@ class PurchaseInvoice extends Model
     protected $fillable = [
         'company_id', 'invoice_number', 'supplier_invoice_no', 'supplier_id', 'po_id',
         'invoice_date', 'due_date', 'status', 'subtotal',
-        'discount_percent', 'discount_amount', 'tax_id', 'tax_percent', 'tax_amount',
+        'discount_percent', 'discount_amount', 'tax_id', 'tax_percent', 'tax_base', 'tax_invoice_number', 'tax_amount',
         'total', 'amount_paid', 'amount_due', 'notes', 'journal_id', 'created_by'
     ];
 

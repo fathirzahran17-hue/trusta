@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
  * Memakai uang muka untuk melunasi faktur.
  * Penjualan : Debit Uang Muka Penjualan (kewajiban), Kredit Piutang.
  * Pembelian : Debit Hutang Usaha, Kredit Uang Muka Pembelian (aset).
+ * Bila uang muka ber-PPN, bagian PPN-nya ikut dibalik karena faktur sudah mencatat PPN atas seluruh nilainya,
+ * sehingga total PPN transaksi tetap sebesar PPN faktur.
  */
 class DownPaymentService
 {
@@ -46,12 +48,10 @@ class DownPaymentService
             if ($kind === 'sales') {
                 $advance = AccountResolver::salesAdvance($cid);
                 $other = AccountResolver::receivable($cid);
-                $debit = $advance; $credit = $other;
                 $label = 'Pemakaian uang muka penjualan ' . $dp->payment_number . ' untuk ' . $invoice->invoice_number;
             } else {
                 $advance = AccountResolver::purchaseAdvance($cid);
                 $other = AccountResolver::payable($cid);
-                $debit = $other; $credit = $advance;
                 $label = 'Pemakaian uang muka pembelian ' . $dp->payment_number . ' untuk ' . $invoice->invoice_number;
             }
             if (! $advance || ! $other) {
@@ -67,8 +67,36 @@ class DownPaymentService
                 'status' => 'posted',
                 'created_by' => $userId,
             ]);
-            JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $debit->id, 'debit' => $amount, 'credit' => 0, 'description' => $label]);
-            JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $credit->id, 'debit' => 0, 'credit' => $amount, 'description' => $label]);
+            // Bagian PPN mengikuti proporsi pemakaian. Pemakaian terakhir mengambil sisanya supaya tidak ada selisih pembulatan.
+            $taxPart = 0.0;
+            if ((float) $dp->tax_amount > 0) {
+                $usedTax = (float) $dp->applications()->sum('tax_amount');
+                $taxPart = abs($amount - $dp->remaining) < 0.005
+                    ? round((float) $dp->tax_amount - $usedTax, 2)
+                    : round($amount * (float) $dp->tax_amount / (float) $dp->amount, 2);
+            }
+            $advancePart = round($amount - $taxPart, 2);
+            $taxAccount = null;
+            if ($taxPart > 0) {
+                $taxAccount = $kind === 'sales' ? AccountResolver::outputTax($cid, $dp->tax) : AccountResolver::inputTax($cid, $dp->tax);
+                if (! $taxAccount) {
+                    throw new \DomainException('Akun PPN untuk uang muka ini belum diatur. Atur di menu Pajak.');
+                }
+            }
+
+            if ($kind === 'sales') {
+                JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $advance->id, 'debit' => $advancePart, 'credit' => 0, 'description' => $label]);
+                if ($taxAccount) {
+                    JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $taxAccount->id, 'debit' => $taxPart, 'credit' => 0, 'description' => 'Pengurang Pajak Keluaran: ' . $label]);
+                }
+                JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $other->id, 'debit' => 0, 'credit' => $amount, 'description' => $label]);
+            } else {
+                JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $other->id, 'debit' => $amount, 'credit' => 0, 'description' => $label]);
+                JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $advance->id, 'debit' => 0, 'credit' => $advancePart, 'description' => $label]);
+                if ($taxAccount) {
+                    JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $taxAccount->id, 'debit' => 0, 'credit' => $taxPart, 'description' => 'Pengurang Pajak Masukan: ' . $label]);
+                }
+            }
             JournalGuard::assertBalanced($journal);
 
             InvoicePaymentService::applyPaid($invoice, $amount);
@@ -77,7 +105,7 @@ class DownPaymentService
                 'company_id' => $cid, 'down_payment_id' => $dp->id,
                 'sales_invoice_id' => $kind === 'sales' ? $invoice->id : null,
                 'purchase_invoice_id' => $kind === 'purchase' ? $invoice->id : null,
-                'amount' => $amount, 'applied_date' => $date, 'journal_id' => $journal->id, 'created_by' => $userId,
+                'amount' => $amount, 'tax_amount' => $taxPart, 'applied_date' => $date, 'journal_id' => $journal->id, 'created_by' => $userId,
             ]);
         });
     }

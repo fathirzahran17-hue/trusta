@@ -78,8 +78,11 @@ class SalesInvoiceController extends Controller
             'discounts.*' => 'nullable|numeric|min:0|max:100',
             'discount_percent' => 'nullable|numeric|min:0|max:100',
             'tax_id' => 'nullable|exists:taxes,id',
+            'taxable' => 'nullable|array',
+            'taxable.*' => 'nullable|boolean',
+            'tax_invoice_number' => \App\Services\DocumentTax::numberRules('sales_invoices'),
             'notes' => 'nullable|string',
-        ]);
+        ], \App\Services\DocumentTax::NUMBER_MESSAGES);
 
         try {
             [$rowOrders, $orders] = \App\Services\InvoiceSources::resolve('sales', $request, (int) auth()->user()->company_id, (int) $request->customer_id);
@@ -114,6 +117,7 @@ class SalesInvoiceController extends Controller
                     'unit_price' => $price,
                     'discount_percent' => $lineDiscPct,
                     'total' => $total,
+                    'is_taxable' => \App\Services\DocumentTax::lineFlag($request->taxable[$index] ?? null, Product::find($productId)),
                     'description' => $request->row_descriptions[$index] ?? null,
                 ];
             }
@@ -123,18 +127,11 @@ class SalesInvoiceController extends Controller
             $overallDiscAmt = $subtotal * ($overallDiscPct / 100);
             $afterDiscount = $subtotal - $overallDiscAmt;
 
-            // 3. Calculate Tax (on after-discount amount)
-            $taxAmount = 0;
-            $taxPercent = 0;
-            $taxModel = null;
-            
-            if ($request->filled('tax_id')) {
-                $taxModel = Tax::find($request->tax_id);
-                if ($taxModel) {
-                    $taxPercent = $taxModel->rate;
-                    $taxAmount = $afterDiscount * ($taxPercent / 100);
-                }
-            }
+            // 3. PPN: hanya baris kena pajak yang masuk DPP
+            $taxModel = $request->filled('tax_id') ? Tax::find($request->tax_id) : null;
+            $tax = \App\Services\DocumentTax::compute($items, $overallDiscPct, (float) ($taxModel?->rate ?? 0), auth()->user()->company?->tax_rounding);
+            $taxPercent = $tax['percent'];
+            $taxAmount = $tax['amount'];
 
             $grandTotal = $afterDiscount + $taxAmount;
 
@@ -228,9 +225,11 @@ class SalesInvoiceController extends Controller
                 'subtotal' => $subtotal,
                 'discount_percent' => $overallDiscPct,
                 'discount_amount' => $overallDiscAmt,
-                'tax_id' => $request->tax_id,
+                'tax_id' => $taxModel?->id,
                 'tax_percent' => $taxPercent,
+                'tax_base' => $tax['base'],
                 'tax_amount' => $taxAmount,
+                'tax_invoice_number' => $request->tax_invoice_number,
                 'total' => $grandTotal,
                 'amount_due' => $grandTotal,
                 'notes' => $request->notes,
@@ -348,6 +347,16 @@ class SalesInvoiceController extends Controller
         
         $sales_invoice->load(['customer', 'items.product', 'tax', 'journal']);
         return view('client.sales_invoices.show', compact('sales_invoice'));
+    }
+
+    /** Nomor Faktur Pajak biasanya terbit setelah faktur dibuat. Mengisinya tidak mengubah jurnal, jadi tetap boleh setelah tutup buku. */
+    public function updateTaxNumber(Request $request, SalesInvoice $sales_invoice)
+    {
+        if ((int) $sales_invoice->company_id !== (int) auth()->user()->company_id) abort(403);
+        $data = $request->validate(['tax_invoice_number' => \App\Services\DocumentTax::numberRules('sales_invoices', $sales_invoice->id)], \App\Services\DocumentTax::NUMBER_MESSAGES);
+        $sales_invoice->update(['tax_invoice_number' => $data['tax_invoice_number'] ?? null]);
+
+        return back()->with('success', 'No. Faktur Pajak disimpan.');
     }
 
 }

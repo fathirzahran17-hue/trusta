@@ -15,15 +15,8 @@
     .calc-header {
         padding: 30px 40px;
         border-bottom: 1px solid var(--border);
-        background: url('https://static.pajak.go.id/assets/media/bg/background-kalkulator.jpg') center/cover no-repeat;
+        background: var(--surface);
         position: relative;
-        border-radius: 12px 12px 0 0;
-    }
-    .calc-header::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: color-mix(in srgb, var(--surface) 88%, transparent); /* Overlay mengikuti tema */
         border-radius: 12px 12px 0 0;
     }
     .calc-header-content {
@@ -196,6 +189,34 @@
         font-size: 24px;
         color: #10b981;
     }
+    .calc-note {
+        margin-top: 14px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-dim);
+    }
+    .calc-sources {
+        padding: 18px 40px 26px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--text-dim);
+        border-top: 1px solid var(--border);
+    }
+    .result-section {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 2px dashed var(--border-strong);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+    @media (max-width: 640px) {
+        .calc-header, .calc-body, .calc-sources { padding-left: 18px; padding-right: 18px; }
+        .calc-tabs { padding: 0 8px; overflow-x: auto; }
+        .calc-tab { padding: 14px 12px; white-space: nowrap; }
+        .result-panel { padding: 18px; }
+        .result-row { flex-wrap: wrap; gap: 2px 12px; }
+    }
 </style>
 
 <div class="mb-6 flex items-center px-2">
@@ -213,7 +234,7 @@
             </div>
             <div class="calc-title">
                 <h1>Kalkulator Pajak</h1>
-                <p>Simulasi penghitungan pajak sesuai dengan standar Direktorat Jenderal Pajak (DJP)</p>
+                <p>Simulasi untuk perkiraan. Hasilnya tidak menggantikan perhitungan resmi di Coretax.</p>
             </div>
         </div>
     </div>
@@ -229,74 +250,93 @@
         <!-- PPh 21 Tab -->
         <div x-show="activeTab === 'pph21'">
             <div class="row" style="display: flex; gap: 40px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 300px;">
+                <div style="flex: 1; min-width: 280px;">
                     <div class="calc-form-group">
                         <label>Penghasilan Bruto (Sebulan)</label>
                         <div class="input-group">
                             <span class="input-prefix">Rp</span>
-                            <input type="text" x-model="pph21.bruto" @input="formatCurrency('pph21', 'bruto')" placeholder="0">
+                            <input type="text" inputmode="numeric" x-model="pph21.bruto" @input="formatCurrency('pph21', 'bruto')" placeholder="0">
                         </div>
                     </div>
                     
                     <div class="calc-form-group">
                         <label>Status PTKP</label>
                         <select x-model="pph21.ptkp">
-                            <option value="54000000">TK/0 - Tidak Kawin, 0 Tanggungan (Rp 54.000.000)</option>
-                            <option value="58500000">TK/1 atau K/0 - Kawin/Tidak Kawin, 1 Tanggungan (Rp 58.500.000)</option>
-                            <option value="63000000">TK/2 atau K/1 - Kawin/Tidak Kawin, 2 Tanggungan (Rp 63.000.000)</option>
-                            <option value="67500000">TK/3 atau K/2 - Kawin/Tidak Kawin, 3 Tanggungan (Rp 67.500.000)</option>
-                            <option value="72000000">K/3 - Kawin, 3 Tanggungan (Rp 72.000.000)</option>
+                            <option value="TK/0">TK/0: Tidak kawin, 0 tanggungan (Rp 54.000.000)</option>
+                            <option value="TK/1">TK/1: Tidak kawin, 1 tanggungan (Rp 58.500.000)</option>
+                            <option value="K/0">K/0: Kawin, 0 tanggungan (Rp 58.500.000)</option>
+                            <option value="TK/2">TK/2: Tidak kawin, 2 tanggungan (Rp 63.000.000)</option>
+                            <option value="K/1">K/1: Kawin, 1 tanggungan (Rp 63.000.000)</option>
+                            <option value="TK/3">TK/3: Tidak kawin, 3 tanggungan (Rp 67.500.000)</option>
+                            <option value="K/2">K/2: Kawin, 2 tanggungan (Rp 67.500.000)</option>
+                            <option value="K/3">K/3: Kawin, 3 tanggungan (Rp 72.000.000)</option>
                         </select>
                     </div>
                     
                     <div class="calc-form-group">
-                        <label>Metode Pemotongan</label>
+                        <label>Siapa yang Menanggung Pajak</label>
                         <select x-model="pph21.metode">
-                            <option value="gross">Nett / Gross (Pajak ditanggung karyawan)</option>
-                            <option value="grossup">Gross Up (Tunjangan pajak dari perusahaan)</option>
+                            <option value="gross">Karyawan (Gross)</option>
+                            <option value="net">Perusahaan, bukan sebagai tunjangan (Net)</option>
+                            <option value="grossup">Perusahaan, sebagai tunjangan pajak (Gross Up)</option>
                         </select>
                     </div>
                     
-                    <button class="btn-calculate" @click="calculatePph21()">
+                    <button type="button" class="btn-calculate" @click="calculatePph21()">
                         <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                         Hitung PPh 21
                     </button>
+                    <p class="calc-note">Mengasumsikan penghasilan sama setiap bulan selama setahun penuh, tanpa bonus dan tanpa iuran pensiun atau BPJS yang menjadi pengurang.</p>
                 </div>
                 
-                <div style="flex: 1; min-width: 300px;">
+                <div style="flex: 1; min-width: 280px;">
                     <div class="result-panel" :class="{'show': hasResult && activeTab === 'pph21'}">
                         <div class="result-title">
                             <svg style="width: 24px; height: 24px; color: #10b981;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             Hasil Perhitungan PPh 21
                         </div>
-                        
+
+                        <div class="result-row" x-show="result.pph21.tunjangan > 0">
+                            <span class="result-label">Tunjangan Pajak per Bulan</span>
+                            <span class="result-value" x-text="formatToRp(result.pph21.tunjangan)"></span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label">Kategori dan Tarif TER</span>
+                            <span class="result-value" x-text="'TER ' + result.pph21.kategori + ', ' + formatPercent(result.pph21.tarifTer)"></span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label">PPh 21 Januari sampai November</span>
+                            <span class="result-value result-final" x-text="formatToRp(result.pph21.pajakBulanan)"></span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label">Diterima Karyawan per Bulan</span>
+                            <span class="result-value" style="color: #0ea5e9;" x-text="formatToRp(result.pph21.thp)"></span>
+                        </div>
+
+                        <div class="result-section">Perhitungan setahun untuk masa Desember (Pasal 17)</div>
                         <div class="result-row">
                             <span class="result-label">Penghasilan Bruto Setahun</span>
                             <span class="result-value" x-text="formatToRp(result.pph21.brutoSetahun)"></span>
                         </div>
                         <div class="result-row">
-                            <span class="result-label">Biaya Jabatan (Maks 6Jt/thn)</span>
+                            <span class="result-label">Biaya Jabatan (Maks 6 Juta per Tahun)</span>
                             <span class="result-value" x-text="formatToRp(result.pph21.biayaJabatan)"></span>
                         </div>
                         <div class="result-row">
-                            <span class="result-label">Penghasilan Neto Setahun</span>
-                            <span class="result-value" x-text="formatToRp(result.pph21.netoSetahun)"></span>
-                        </div>
-                        <div class="result-row">
                             <span class="result-label">PTKP</span>
-                            <span class="result-value text-red-400" x-text="'- ' + formatToRp(result.pph21.ptkp)"></span>
+                            <span class="result-value" x-text="formatToRp(result.pph21.ptkp)"></span>
                         </div>
                         <div class="result-row">
-                            <span class="result-label">PKP (Penghasilan Kena Pajak)</span>
-                            <span class="result-value text-amber-400" x-text="formatToRp(result.pph21.pkp)"></span>
-                        </div>
-                        <div class="result-row" style="margin-top: 15px; border-top: 2px dashed #475569; padding-top: 15px;">
-                            <span class="result-label">PPh 21 Sebulan</span>
-                            <span class="result-value result-final" x-text="formatToRp(result.pph21.pajakSebulan)"></span>
+                            <span class="result-label">Penghasilan Kena Pajak</span>
+                            <span class="result-value" x-text="formatToRp(result.pph21.pkp)"></span>
                         </div>
                         <div class="result-row">
-                            <span class="result-label">Take Home Pay (THP)</span>
-                            <span class="result-value" style="color: #0ea5e9; font-size: 20px;" x-text="formatToRp(result.pph21.thp)"></span>
+                            <span class="result-label">PPh 21 Setahun</span>
+                            <span class="result-value" x-text="formatToRp(result.pph21.pajakSetahun)"></span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label" x-text="result.pph21.pajakDesember >= 0 ? 'PPh 21 Masa Desember' : 'Lebih Potong Masa Desember'"></span>
+                            <span class="result-value result-final" x-text="formatToRp(Math.abs(result.pph21.pajakDesember))"></span>
                         </div>
                     </div>
                 </div>
@@ -311,16 +351,16 @@
                         <label>Dasar Pengenaan Pajak (DPP / Nilai Transaksi)</label>
                         <div class="input-group">
                             <span class="input-prefix">Rp</span>
-                            <input type="text" x-model="pph23.dpp" @input="formatCurrency('pph23', 'dpp')" placeholder="0">
+                            <input type="text" inputmode="numeric" x-model="pph23.dpp" @input="formatCurrency('pph23', 'dpp')" placeholder="0">
                         </div>
                     </div>
                     
                     <div class="calc-form-group">
                         <label>Jenis Penghasilan (Objek Pajak)</label>
                         <select x-model="pph23.jenis">
-                            <option value="2">Jasa Teknik, Manajemen, Konsultan, Jasa Lain (2%)</option>
-                            <option value="2_sewa">Sewa & Penghasilan Lain dari Penggunaan Harta (2%)</option>
-                            <option value="15">Dividen, Bunga, Royalti, Hadiah (15%)</option>
+                            <option value="jasa">Jasa Teknik, Manajemen, Konsultan, Jasa Lain (2%)</option>
+                            <option value="sewa">Sewa dan Penghasilan Lain dari Penggunaan Harta (2%)</option>
+                            <option value="modal">Dividen, Bunga, Royalti, Hadiah (15%)</option>
                         </select>
                     </div>
                     
@@ -332,7 +372,7 @@
                         </select>
                     </div>
                     
-                    <button class="btn-calculate" @click="calculatePph23()">
+                    <button type="button" class="btn-calculate" @click="calculatePph23()">
                         <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                         Hitung PPh 23
                     </button>
@@ -351,7 +391,7 @@
                         </div>
                         <div class="result-row">
                             <span class="result-label">Tarif Efektif</span>
-                            <span class="result-value" x-text="result.pph23.tarif + '%'"></span>
+                            <span class="result-value" x-text="formatPercent(result.pph23.tarif)"></span>
                         </div>
                         <div class="result-row" style="margin-top: 15px; border-top: 2px dashed #475569; padding-top: 15px;">
                             <span class="result-label">Nilai Pajak (PPh 23) dipotong</span>
@@ -369,38 +409,39 @@
         <!-- PPN Tab -->
         <div x-show="activeTab === 'ppn'">
             <div class="row" style="display: flex; gap: 40px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 300px;">
+                <div style="flex: 1; min-width: 280px;">
                     <div class="calc-form-group">
                         <label>Nilai Transaksi</label>
                         <div class="input-group">
                             <span class="input-prefix">Rp</span>
-                            <input type="text" x-model="ppn.nilai" @input="formatCurrency('ppn', 'nilai')" placeholder="0">
+                            <input type="text" inputmode="numeric" x-model="ppn.nilai" @input="formatCurrency('ppn', 'nilai')" placeholder="0">
                         </div>
                     </div>
                     
                     <div class="calc-form-group">
-                        <label>Sifat Perhitungan</label>
+                        <label>Nilai di Atas</label>
                         <select x-model="ppn.sifat">
-                            <option value="exclude">Belum Termasuk PPN (Exclude)</option>
-                            <option value="include">Sudah Termasuk PPN (Include)</option>
+                            <option value="exclude">Belum termasuk PPN</option>
+                            <option value="include">Sudah termasuk PPN</option>
                         </select>
                     </div>
                     
                     <div class="calc-form-group">
-                        <label>Tarif PPN</label>
-                        <select x-model="ppn.tarif">
-                            <option value="11">11% (Berlaku saat ini)</option>
-                            <option value="12">12% (Masa depan UU HPP)</option>
+                        <label>Jenis Barang atau Jasa</label>
+                        <select x-model="ppn.jenis">
+                            <option value="umum">Bukan barang mewah: 12% x DPP nilai lain (11/12), setara 11%</option>
+                            <option value="mewah">Barang mewah: 12% x harga jual</option>
                         </select>
                     </div>
                     
-                    <button class="btn-calculate" @click="calculatePpn()">
+                    <button type="button" class="btn-calculate" @click="calculatePpn()">
                         <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                         Hitung PPN
                     </button>
+                    <p class="calc-note">Berlaku sejak 1 Januari 2025. Barang dan jasa dengan besaran tertentu punya perhitungan sendiri dan tidak tercakup di sini.</p>
                 </div>
                 
-                <div style="flex: 1; min-width: 300px;">
+                <div style="flex: 1; min-width: 280px;">
                     <div class="result-panel" :class="{'show': hasResult && activeTab === 'ppn'}">
                         <div class="result-title">
                             <svg style="width: 24px; height: 24px; color: #10b981;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -408,16 +449,20 @@
                         </div>
                         
                         <div class="result-row">
-                            <span class="result-label">Dasar Pengenaan Pajak (DPP)</span>
-                            <span class="result-value" x-text="formatToRp(result.ppn.dpp)"></span>
+                            <span class="result-label">Harga Jual / Penggantian</span>
+                            <span class="result-value" x-text="formatToRp(result.ppn.harga)"></span>
+                        </div>
+                        <div class="result-row" x-show="result.ppn.dppLain > 0">
+                            <span class="result-label">DPP Nilai Lain (11/12)</span>
+                            <span class="result-value" x-text="formatToRp(result.ppn.dppLain)"></span>
                         </div>
                         <div class="result-row">
-                            <span class="result-label">Nilai PPN</span>
-                            <span class="result-value text-amber-400" x-text="'+ ' + formatToRp(result.ppn.pajak)"></span>
+                            <span class="result-label">PPN</span>
+                            <span class="result-value result-final" x-text="formatToRp(result.ppn.pajak)"></span>
                         </div>
-                        <div class="result-row" style="margin-top: 15px; border-top: 2px dashed #475569; padding-top: 15px;">
-                            <span class="result-label">Total Dibayar (DPP + PPN)</span>
-                            <span class="result-value result-final" x-text="formatToRp(result.ppn.total)"></span>
+                        <div class="result-row">
+                            <span class="result-label">Total Dibayar</span>
+                            <span class="result-value" style="color: #0ea5e9; font-size: 20px;" x-text="formatToRp(result.ppn.total)"></span>
                         </div>
                     </div>
                 </div>
@@ -432,20 +477,34 @@
                         <label>Dasar Pengenaan Pajak (Nilai Transaksi)</label>
                         <div class="input-group">
                             <span class="input-prefix">Rp</span>
-                            <input type="text" x-model="pph42.dpp" @input="formatCurrency('pph42', 'dpp')" placeholder="0">
+                            <input type="text" inputmode="numeric" x-model="pph42.dpp" @input="formatCurrency('pph42', 'dpp')" placeholder="0">
                         </div>
                     </div>
                     
                     <div class="calc-form-group">
                         <label>Objek Pajak (Sifat Final)</label>
                         <select x-model="pph42.jenis">
-                            <option value="10">Sewa Tanah dan/atau Bangunan (10%)</option>
-                            <option value="1">Jasa Konstruksi - Pelaksana Kualifikasi Kecil (1.75% / 1%)</option>
-                            <option value="0.5">UMKM (Peredaran Bruto Tertentu PP 23) (0.5%)</option>
+                            <optgroup label="Umum">
+                                <option value="sewa">Sewa Tanah dan/atau Bangunan (10%)</option>
+                                <option value="umkm">UMKM, Peredaran Bruto Tertentu (0,5%)</option>
+                            </optgroup>
+                            <optgroup label="Pekerjaan Konstruksi">
+                                <option value="kecil">Kualifikasi kecil atau perseorangan bersertifikat (1,75%)</option>
+                                <option value="lain">Kualifikasi menengah, besar, atau spesialis (2,65%)</option>
+                                <option value="tanpa">Tanpa sertifikat (4%)</option>
+                            </optgroup>
+                            <optgroup label="Pekerjaan Konstruksi Terintegrasi">
+                                <option value="int">Bersertifikat badan usaha (2,65%)</option>
+                                <option value="int_tanpa">Tanpa sertifikat (4%)</option>
+                            </optgroup>
+                            <optgroup label="Konsultansi Konstruksi">
+                                <option value="kons">Bersertifikat (3,5%)</option>
+                                <option value="kons_tanpa">Tanpa sertifikat (6%)</option>
+                            </optgroup>
                         </select>
                     </div>
                     
-                    <button class="btn-calculate" @click="calculatePph42()">
+                    <button type="button" class="btn-calculate" @click="calculatePph42()">
                         <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                         Hitung PPh 4(2)
                     </button>
@@ -464,7 +523,7 @@
                         </div>
                         <div class="result-row">
                             <span class="result-label">Tarif Final</span>
-                            <span class="result-value" x-text="result.pph42.tarif + '%'"></span>
+                            <span class="result-value" x-text="formatPercent(result.pph42.tarif)"></span>
                         </div>
                         <div class="result-row" style="margin-top: 15px; border-top: 2px dashed #475569; padding-top: 15px;">
                             <span class="result-label">PPh 4(2) Dipotong</span>
@@ -480,42 +539,87 @@
         </div>
 
     </div>
+    <div class="calc-sources">
+        Dasar perhitungan: PP 58/2023 dan PMK 168/2023 (TER PPh 21), Pasal 17 UU PPh (tarif tahunan), PMK 131/2024 (PPN), Pasal 23 UU PPh, PP 34/2017 (sewa tanah dan bangunan), PP 55/2022 (UMKM), PP 9/2022 (jasa konstruksi). Periksa aturan terbaru sebelum dipakai untuk pelaporan.
+    </div>
 </div>
 
 <script>
+// Tabel TER bulanan PP 58/2023: [batas atas lapisan, tarif %]. Baris terakhir tanpa batas atas.
+const TER_BULANAN = {"A":[[5400000,0.0],[5650000,0.25],[5950000,0.5],[6300000,0.75],[6750000,1.0],[7500000,1.25],[8550000,1.5],[9650000,1.75],[10050000,2.0],[10350000,2.25],[10700000,2.5],[11050000,3.0],[11600000,3.5],[12500000,4.0],[13750000,5.0],[15100000,6.0],[16950000,7.0],[19750000,8.0],[24150000,9.0],[26450000,10.0],[28000000,11.0],[30050000,12.0],[32400000,13.0],[35400000,14.0],[39100000,15.0],[43850000,16.0],[47800000,17.0],[51400000,18.0],[56300000,19.0],[62200000,20.0],[68600000,21.0],[77500000,22.0],[89000000,23.0],[103000000,24.0],[125000000,25.0],[157000000,26.0],[206000000,27.0],[337000000,28.0],[454000000,29.0],[550000000,30.0],[695000000,31.0],[910000000,32.0],[1400000000,33.0],[null,34.0]],"B":[[6200000,0.0],[6500000,0.25],[6850000,0.5],[7300000,0.75],[9200000,1.0],[10750000,1.5],[11250000,2.0],[11600000,2.5],[12600000,3.0],[13600000,4.0],[14950000,5.0],[16400000,6.0],[18450000,7.0],[21850000,8.0],[26000000,9.0],[27700000,10.0],[29350000,11.0],[31450000,12.0],[33950000,13.0],[37100000,14.0],[41100000,15.0],[45800000,16.0],[49500000,17.0],[53800000,18.0],[58500000,19.0],[64000000,20.0],[71000000,21.0],[80000000,22.0],[93000000,23.0],[109000000,24.0],[129000000,25.0],[163000000,26.0],[211000000,27.0],[374000000,28.0],[459000000,29.0],[555000000,30.0],[704000000,31.0],[957000000,32.0],[1405000000,33.0],[null,34.0]],"C":[[6600000,0.0],[6950000,0.25],[7350000,0.5],[7800000,0.75],[8850000,1.0],[9800000,1.25],[10950000,1.5],[11200000,1.75],[12050000,2.0],[12950000,3.0],[14150000,4.0],[15550000,5.0],[17050000,6.0],[19500000,7.0],[22700000,8.0],[26600000,9.0],[28100000,10.0],[30100000,11.0],[32600000,12.0],[35400000,13.0],[38900000,14.0],[43000000,15.0],[47400000,16.0],[51200000,17.0],[55800000,18.0],[60400000,19.0],[66700000,20.0],[74500000,21.0],[83200000,22.0],[95600000,23.0],[110000000,24.0],[134000000,25.0],[169000000,26.0],[221000000,27.0],[390000000,28.0],[463000000,29.0],[561000000,30.0],[709000000,31.0],[965000000,32.0],[1419000000,33.0],[null,34.0]]};
+const PTKP = { 'TK/0': [54000000, 'A'], 'TK/1': [58500000, 'A'], 'K/0': [58500000, 'A'], 'TK/2': [63000000, 'B'], 'K/1': [63000000, 'B'], 'TK/3': [67500000, 'B'], 'K/2': [67500000, 'B'], 'K/3': [72000000, 'C'] };
+const TARIF_PPH23 = { jasa: 2, sewa: 2, modal: 15 };
+const TARIF_PPH42 = { sewa: 10, umkm: 0.5, kecil: 1.75, lain: 2.65, tanpa: 4, int: 2.65, int_tanpa: 4, kons: 3.5, kons_tanpa: 6 };
+
+function tarifTer(kategori, bruto) {
+    return TER_BULANAN[kategori].find((r) => r[0] === null || bruto <= r[0])[1];
+}
+
+/** PPh 21 setahun dengan tarif Pasal 17, dari penghasilan bruto setahun. */
+function pph21Setahun(brutoSetahun, ptkp) {
+    const biayaJabatan = Math.min(brutoSetahun * 0.05, 6000000);
+    const pkp = Math.max(0, Math.floor((brutoSetahun - biayaJabatan - ptkp) / 1000) * 1000);
+    let sisa = pkp, pajak = 0;
+    for (const [lebar, tarif] of [[60000000, 0.05], [190000000, 0.15], [250000000, 0.25], [4500000000, 0.30], [Infinity, 0.35]]) {
+        const kena = Math.min(sisa, lebar);
+        pajak += kena * tarif;
+        sisa -= kena;
+    }
+    return { biayaJabatan, pkp, pajak };
+}
+
+/** Gross Up TER: tunjangan sebesar pajaknya sendiri, jadi dicari lapisan tempat bruto setelah tunjangan benar-benar jatuh. */
+function tunjanganTer(kategori, bruto) {
+    let bawah = 0;
+    for (const [atas, tarif] of TER_BULANAN[kategori]) {
+        const total = Math.max(bruto / (1 - tarif / 100), bawah);
+        if (atas === null || total <= atas) return total - bruto;
+        bawah = atas + 1;
+    }
+    return 0;
+}
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('taxCalculator', () => ({
         activeTab: 'pph21',
         hasResult: false,
         
-        pph21: { bruto: '', ptkp: '54000000', metode: 'gross' },
-        pph23: { dpp: '', jenis: '2', npwp: '1' },
-        ppn: { nilai: '', sifat: 'exclude', tarif: '11' },
-        pph42: { dpp: '', jenis: '10' },
+        pph21: { bruto: '', ptkp: 'TK/0', metode: 'gross' },
+        pph23: { dpp: '', jenis: 'jasa', npwp: '1' },
+        ppn: { nilai: '', sifat: 'exclude', jenis: 'umum' },
+        pph42: { dpp: '', jenis: 'sewa' },
         
         result: {
-            pph21: { brutoSetahun: 0, biayaJabatan: 0, netoSetahun: 0, ptkp: 0, pkp: 0, pajakSetahun: 0, pajakSebulan: 0, thp: 0 },
+            pph21: { kategori: 'A', tarifTer: 0, tunjangan: 0, pajakBulanan: 0, thp: 0, brutoSetahun: 0, biayaJabatan: 0, ptkp: 0, pkp: 0, pajakSetahun: 0, pajakDesember: 0 },
             pph23: { dpp: 0, tarif: 0, pajak: 0, bersih: 0 },
-            ppn: { dpp: 0, pajak: 0, total: 0 },
+            ppn: { harga: 0, dppLain: 0, pajak: 0, total: 0 },
             pph42: { dpp: 0, tarif: 0, pajak: 0, bersih: 0 }
         },
         
+        // Titik pemisah ribuan, koma desimal. Yang di belakang koma tidak boleh tergabung ke angka ribuannya.
         parseNumber(val) {
             if(!val) return 0;
-            return parseFloat(val.toString().replace(/[^0-9]/g, '')) || 0;
+            const [bulat, desimal] = val.toString().split(',');
+            return parseFloat(bulat.replace(/[^0-9]/g, '') + (desimal ? '.' + desimal.replace(/[^0-9]/g, '') : '')) || 0;
         },
         
         formatCurrency(obj, field) {
-            let val = this.parseNumber(this[obj][field]);
-            if(val === 0) {
+            const [bulat, ...desimal] = this[obj][field].toString().split(',');
+            const angka = bulat.replace(/[^0-9]/g, '');
+            if(!angka) {
                 this[obj][field] = '';
                 return;
             }
-            this[obj][field] = val.toLocaleString('id-ID');
+            const teks = parseInt(angka, 10).toLocaleString('id-ID');
+            this[obj][field] = desimal.length ? teks + ',' + desimal.join('').replace(/[^0-9]/g, '').slice(0, 2) : teks;
         },
         
         formatToRp(val) {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+        },
+
+        formatPercent(val) {
+            return val.toLocaleString('id-ID', { maximumFractionDigits: 2 }) + '%';
         },
         
         resetResult() {
@@ -523,58 +627,34 @@ document.addEventListener('alpine:init', () => {
         },
         
         calculatePph21() {
-            const brutoSebulan = this.parseNumber(this.pph21.bruto);
-            if(brutoSebulan <= 0) return;
-            
-            const brutoSetahun = brutoSebulan * 12;
-            let biayaJabatan = brutoSetahun * 0.05;
-            if (biayaJabatan > 6000000) biayaJabatan = 6000000;
-            
-            const netoSetahun = brutoSetahun - biayaJabatan;
-            const ptkp = parseInt(this.pph21.ptkp);
-            
-            let pkp = Math.floor((netoSetahun - ptkp) / 1000) * 1000;
-            if (pkp < 0) pkp = 0;
-            
-            // Tarif Progresif
-            let pajakSetahun = 0;
-            let sisaPkp = pkp;
-            
-            if (sisaPkp > 0) {
-                const tier1 = Math.min(sisaPkp, 60000000);
-                pajakSetahun += tier1 * 0.05;
-                sisaPkp -= tier1;
-            }
-            if (sisaPkp > 0) {
-                const tier2 = Math.min(sisaPkp, 190000000); // 250jt - 60jt
-                pajakSetahun += tier2 * 0.15;
-                sisaPkp -= tier2;
-            }
-            if (sisaPkp > 0) {
-                const tier3 = Math.min(sisaPkp, 250000000); // 500jt - 250jt
-                pajakSetahun += tier3 * 0.25;
-                sisaPkp -= tier3;
-            }
-            if (sisaPkp > 0) {
-                const tier4 = Math.min(sisaPkp, 4500000000); // 5M - 500jt
-                pajakSetahun += tier4 * 0.30;
-                sisaPkp -= tier4;
-            }
-            if (sisaPkp > 0) {
-                pajakSetahun += sisaPkp * 0.35; // Di atas 5M
-            }
-            
-            let pajakSebulan = pajakSetahun / 12;
-            let thp = brutoSebulan;
-            
-            if(this.pph21.metode === 'gross') {
-                thp = brutoSebulan - pajakSebulan;
+            const bruto = this.parseNumber(this.pph21.bruto);
+            if(bruto <= 0) return;
+
+            const [ptkp, kategori] = PTKP[this.pph21.ptkp];
+            let tunjangan = 0, brutoBulanan = bruto, brutoSetahun = bruto * 12, pajakBulanan, setahun, pajakDesember;
+
+            if (this.pph21.metode === 'grossup') {
+                tunjangan = tunjanganTer(kategori, bruto);
+                brutoBulanan = bruto + tunjangan;
+                pajakBulanan = tunjangan;
+                // Masa Desember: tunjangan bulan itu ikut menjadi penghasilan setahun, jadi dihitung berulang sampai stabil
+                pajakDesember = 0;
+                for (let i = 0; i < 100; i++) {
+                    brutoSetahun = 12 * bruto + 11 * tunjangan + Math.max(pajakDesember, 0);
+                    setahun = pph21Setahun(brutoSetahun, ptkp);
+                    pajakDesember = setahun.pajak - 11 * tunjangan;
+                }
             } else {
-                // Gross up kasar
-                thp = brutoSebulan;
+                pajakBulanan = bruto * tarifTer(kategori, bruto) / 100;
+                setahun = pph21Setahun(brutoSetahun, ptkp);
+                pajakDesember = setahun.pajak - 11 * pajakBulanan;
             }
-            
-            this.result.pph21 = { brutoSetahun, biayaJabatan, netoSetahun, ptkp, pkp, pajakSetahun, pajakSebulan, thp };
+
+            this.result.pph21 = {
+                kategori, tarifTer: tarifTer(kategori, brutoBulanan), tunjangan, pajakBulanan,
+                thp: this.pph21.metode === 'gross' ? bruto - pajakBulanan : bruto,
+                brutoSetahun, biayaJabatan: setahun.biayaJabatan, ptkp, pkp: setahun.pkp, pajakSetahun: setahun.pajak, pajakDesember,
+            };
             this.hasResult = true;
         },
         
@@ -582,7 +662,7 @@ document.addEventListener('alpine:init', () => {
             const dpp = this.parseNumber(this.pph23.dpp);
             if(dpp <= 0) return;
             
-            let tarifDasar = parseFloat(this.pph23.jenis);
+            let tarifDasar = TARIF_PPH23[this.pph23.jenis];
             if(this.pph23.npwp === '2') {
                 tarifDasar *= 2; // +100% jika tidak punya NPWP
             }
@@ -596,21 +676,14 @@ document.addEventListener('alpine:init', () => {
         calculatePpn() {
             const nilai = this.parseNumber(this.ppn.nilai);
             if(nilai <= 0) return;
-            
-            const tarifRate = parseInt(this.ppn.tarif);
-            let dpp, pajak, total;
-            
-            if(this.ppn.sifat === 'include') {
-                dpp = nilai * (100 / (100 + tarifRate));
-                pajak = nilai - dpp;
-                total = nilai;
-            } else {
-                dpp = nilai;
-                pajak = dpp * (tarifRate / 100);
-                total = dpp + pajak;
-            }
-            
-            this.result.ppn = { dpp, pajak, total };
+
+            // Bukan barang mewah: 12% x (11/12 x harga) setara 11% dari harga
+            const umum = this.ppn.jenis === 'umum';
+            const tarif = umum ? 11 : 12;
+            const harga = this.ppn.sifat === 'include' ? nilai * 100 / (100 + tarif) : nilai;
+            const pajak = harga * tarif / 100;
+
+            this.result.ppn = { harga, dppLain: umum ? harga * 11 / 12 : 0, pajak, total: harga + pajak };
             this.hasResult = true;
         },
         
@@ -618,7 +691,7 @@ document.addEventListener('alpine:init', () => {
             const dpp = this.parseNumber(this.pph42.dpp);
             if(dpp <= 0) return;
             
-            const tarifDasar = parseFloat(this.pph42.jenis);
+            const tarifDasar = TARIF_PPH42[this.pph42.jenis];
             const pajak = dpp * (tarifDasar / 100);
             
             this.result.pph42 = { dpp, tarif: tarifDasar, pajak, bersih: dpp - pajak };

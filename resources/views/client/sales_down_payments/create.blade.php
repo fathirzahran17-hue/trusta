@@ -65,6 +65,8 @@
                     <input type="text" id="amount_display" class="input-lg" required placeholder="0" onkeyup="formatRupiah(this, document.getElementById('amount'))" value="{{ old('amount') }}">
                 </div>
 
+                @include('partials.down-payment-tax', ['taxes' => $taxes, 'hint' => 'Faktur Pajak uang muka dari Coretax. Bisa diisi nanti di daftar uang muka.'])
+
                 <div>
                     <label for="notes">Keterangan Tambahan</label>
                     <textarea name="notes" id="notes" rows="2" placeholder="Catatan pembayaran...">{{ old('notes') }}</textarea>
@@ -73,7 +75,7 @@
 
             <div class="doc-actions">
                 <div class="doc-actions-info">
-                    Akan menjurnal Debit Kas/Bank dan Kredit Piutang Usaha.
+                    Akan menjurnal Debit Kas/Bank dan Kredit Uang Muka Penjualan, serta Pajak Keluaran bila memakai PPN.
                 </div>
                 <div class="doc-actions-buttons">
                     <a href="{{ route('client.sales.down_payments') }}" class="btn-secondary">

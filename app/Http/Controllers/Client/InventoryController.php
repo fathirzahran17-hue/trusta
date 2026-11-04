@@ -132,6 +132,7 @@ class InventoryController extends Controller
             'inventory_account_id' => ['nullable', $accountRule()],
             'item_kind' => [count($itemKinds) > 1 ? 'required' : 'nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\ItemKind::TYPES))],
             'is_subcontract' => 'nullable',
+            'is_taxable' => 'nullable|boolean',
         ], ['sku.unique' => 'Kode ini sudah dipakai produk lain.',
             'item_kind.required' => 'Pilih Jenis Barang: Bahan untuk yang dibeli dan diolah, Barang Jadi untuk hasil produksi.']);
 
@@ -146,6 +147,9 @@ class InventoryController extends Controller
             'sell_price' => $v['sell_price'] ?? 0,
             'revenue_account_id' => $v['revenue_account_id'] ?? null,
         ];
+        if ($request->exists('is_taxable')) {
+            $data['is_taxable'] = $request->boolean('is_taxable');
+        }
 
         // Akun pendapatan otomatis bila tidak dipilih
         if (!$data['revenue_account_id']) {

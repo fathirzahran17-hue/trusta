@@ -119,10 +119,13 @@ class PurchaseInvoiceController extends Controller
             'discounts.*' => 'nullable|numeric|min:0|max:100',
             'discount_percent' => 'nullable|numeric|min:0|max:100',
             'tax_id' => 'nullable|exists:taxes,id',
+            'taxable' => 'nullable|array',
+            'taxable.*' => 'nullable|boolean',
+            'tax_invoice_number' => \App\Services\DocumentTax::numberRules(),
             'notes' => 'nullable|string',
             'received_now' => 'nullable|boolean',
             'warehouse_id' => 'nullable|integer',
-        ]);
+        ], \App\Services\DocumentTax::NUMBER_MESSAGES);
 
         try {
             [$rowOrders, $orders] = \App\Services\InvoiceSources::resolve('purchase', $request, (int) auth()->user()->company_id, (int) $request->supplier_id);
@@ -158,6 +161,7 @@ class PurchaseInvoiceController extends Controller
                     'unit_price' => $price,
                     'discount_percent' => $lineDiscPct,
                     'total' => $total,
+                    'is_taxable' => \App\Services\DocumentTax::lineFlag($request->taxable[$index] ?? null, $productId ? Product::find($productId) : null),
                     'description' => ($request->row_descriptions[$index] ?? null) ?: (isset($rowAccounts[$index]) ? Account::find($rowAccounts[$index])?->name : null),
                 ];
             }
@@ -167,18 +171,11 @@ class PurchaseInvoiceController extends Controller
             $overallDiscAmt = $subtotal * ($overallDiscPct / 100);
             $afterDiscount = $subtotal - $overallDiscAmt;
 
-            // 3. Calculate Tax (on after-discount amount)
-            $taxAmount = 0;
-            $taxPercent = 0;
-            $taxModel = null;
-            
-            if ($request->filled('tax_id')) {
-                $taxModel = Tax::find($request->tax_id);
-                if ($taxModel) {
-                    $taxPercent = $taxModel->rate;
-                    $taxAmount = $afterDiscount * ($taxPercent / 100);
-                }
-            }
+            // 3. PPN: hanya baris kena pajak yang masuk DPP
+            $taxModel = $request->filled('tax_id') ? Tax::find($request->tax_id) : null;
+            $tax = \App\Services\DocumentTax::compute($items, $overallDiscPct, (float) ($taxModel?->rate ?? 0), auth()->user()->company?->tax_rounding);
+            $taxPercent = $tax['percent'];
+            $taxAmount = $tax['amount'];
 
             $grandTotal = $afterDiscount + $taxAmount;
 
@@ -283,9 +280,11 @@ class PurchaseInvoiceController extends Controller
                 'subtotal' => $subtotal,
                 'discount_percent' => $overallDiscPct,
                 'discount_amount' => $overallDiscAmt,
-                'tax_id' => $request->tax_id,
+                'tax_id' => $taxModel?->id,
                 'tax_percent' => $taxPercent,
+                'tax_base' => $tax['base'],
                 'tax_amount' => $taxAmount,
+                'tax_invoice_number' => $request->tax_invoice_number,
                 'total' => $grandTotal,
                 'amount_due' => $grandTotal,
                 'notes' => $request->notes,
@@ -322,6 +321,16 @@ class PurchaseInvoiceController extends Controller
         
         $purchase_invoice->load(['supplier', 'items.product', 'tax', 'journal']);
         return view('client.purchase_invoices.show', compact('purchase_invoice'));
+    }
+
+    /** Faktur Pajak dari pemasok sering datang belakangan. Mengisinya tidak mengubah jurnal, jadi tetap boleh setelah tutup buku. */
+    public function updateTaxNumber(Request $request, PurchaseInvoice $purchase_invoice)
+    {
+        if ((int) $purchase_invoice->company_id !== (int) auth()->user()->company_id) abort(403);
+        $data = $request->validate(['tax_invoice_number' => \App\Services\DocumentTax::numberRules()], \App\Services\DocumentTax::NUMBER_MESSAGES);
+        $purchase_invoice->update(['tax_invoice_number' => $data['tax_invoice_number'] ?? null]);
+
+        return back()->with('success', 'No. Faktur Pajak disimpan.');
     }
 
 }

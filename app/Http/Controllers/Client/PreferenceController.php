@@ -10,7 +10,10 @@ class PreferenceController extends Controller
     public function index()
     {
         $company = auth()->user()->company;
-        return view('client.preferences.index', compact('company'));
+        // Metode penilaian hanya boleh diganti sebelum ada mutasi stok
+        $costingLocked = \App\Models\InventoryMovement::where('company_id', $company->id)->exists();
+
+        return view('client.preferences.index', compact('company', 'costingLocked'));
     }
 
     /** Ganti bidang usaha: menu menyesuaikan dan akun standar bidang itu yang belum ada ditambahkan. */
@@ -36,7 +39,8 @@ class PreferenceController extends Controller
         $company = auth()->user()->company;
         
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            // Tiap tab menyimpan kolomnya sendiri, jadi nama perusahaan hanya wajib di tab yang memuatnya
+            'name' => 'sometimes|required|string|max:255',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
             'npwp' => 'nullable|string|max:30',
@@ -44,13 +48,12 @@ class PreferenceController extends Controller
             'fiscal_year_start' => 'nullable|integer|between:1,12',
             'address' => 'nullable|string',
             'default_tax_rate' => 'nullable|numeric|min:0|max:100',
-            'tax_rounding' => 'nullable|string',
+            'tax_rounding' => ['nullable', \Illuminate\Validation\Rule::in([\App\Services\DocumentTax::ROUND_NORMAL, \App\Services\DocumentTax::ROUND_UP, \App\Services\DocumentTax::ROUND_DOWN])],
             'default_sales_term' => 'nullable|string',
             'warn_below_cost' => 'nullable|boolean',
             'default_purchase_term' => 'nullable|string',
             'prevent_over_receive' => 'nullable|boolean',
             'prevent_prior_transactions' => 'nullable|boolean',
-            'closing_date' => 'nullable|date',
             'notify_approver' => 'nullable|boolean',
             'max_attachment_size' => 'nullable|integer|min:1',
             'allowed_attachment_types' => 'nullable|string',
@@ -60,6 +63,12 @@ class PreferenceController extends Controller
             'default_language' => 'nullable|string',
             'inventory_costing_method' => 'nullable|in:average,fifo',
         ]);
+
+        // Nilai persediaan dan HPP yang sudah tercatat memakai metode lama: mengganti metode di tengah jalan membuat stok tidak lagi cocok dengan Buku Besar
+        if (isset($validated['inventory_costing_method']) && $validated['inventory_costing_method'] !== ($company->inventory_costing_method ?? 'average')
+            && \App\Models\InventoryMovement::where('company_id', $company->id)->exists()) {
+            return back()->withInput()->withErrors(['inventory_costing_method' => 'Metode penilaian tidak bisa diubah setelah ada mutasi stok, karena nilai persediaan dan HPP yang sudah tercatat memakai metode lama.']);
+        }
 
         // Checkbox mengirim hidden 0 + 1, jadi hanya form yang memuatnya yang mengubah nilai boolean
         foreach (['warn_below_cost', 'prevent_over_receive', 'prevent_prior_transactions', 'notify_approver'] as $flag) {

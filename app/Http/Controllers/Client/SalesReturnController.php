@@ -18,7 +18,7 @@ class SalesReturnController extends Controller
 {
     public function index()
     {
-        $returns = SalesReturn::with(['customer', 'salesInvoice'])
+        $returns = SalesReturn::with('salesInvoice.customer')
             ->where('company_id', auth()->user()->company_id)
             ->orderBy('return_date', 'desc')
             ->paginate(20);
@@ -31,7 +31,7 @@ class SalesReturnController extends Controller
         $companyId = auth()->user()->company_id;
         $customers = Customer::where('company_id', $companyId)->orderBy('name')->get();
         
-        $invoices = SalesInvoice::where('company_id', $companyId)
+        $invoices = SalesInvoice::with('items')->where('company_id', $companyId)
             ->whereIn('status', ['unpaid', 'paid'])
             ->orderBy('invoice_date', 'desc')
             ->get();
@@ -95,6 +95,7 @@ class SalesReturnController extends Controller
                 $subtotal += $total;
                 $items[] = [
                     'product_id' => $productId, 'quantity' => $qty, 'unit_price' => $price, 'total' => $total,
+                    'is_taxable' => $invoice ? \App\Services\DocumentTax::invoiceLineFlag($invoice->items, $productId) : true,
                     'description' => $request->row_descriptions[$index] ?? null,
                 ];
             }
@@ -102,14 +103,14 @@ class SalesReturnController extends Controller
             // Retur mengikuti diskon & pajak pada faktur asal
             $discPct = (float) ($invoice?->discount_percent ?? 0);
             $net = $subtotal * (1 - $discPct / 100);
-            $taxPct = (float) ($invoice?->tax_percent ?? 0);
-            $taxAmount = $net * $taxPct / 100;
+            $tax = \App\Services\DocumentTax::compute($items, $discPct, (float) ($invoice?->tax_percent ?? 0), auth()->user()->company?->tax_rounding);
+            $taxAmount = $tax['amount'];
             $grand = $net + $taxAmount;
 
             $salesReturn = SalesReturn::create([
                 'company_id' => $companyId, 'customer_id' => $request->customer_id, 'sales_invoice_id' => $invoice?->id,
                 'return_number' => $request->return_number, 'return_date' => $request->return_date, 'status' => 'approved',
-                'subtotal' => $subtotal, 'total' => $grand, 'notes' => $request->notes, 'created_by' => auth()->id(),
+                'subtotal' => $subtotal, 'total' => $grand, 'tax_base' => $tax['base'], 'tax_amount' => $taxAmount, 'reason' => $request->notes ? mb_substr($request->notes, 0, 255) : null, 'created_by' => auth()->id(),
             ]);
 
             $totalHpp = 0;

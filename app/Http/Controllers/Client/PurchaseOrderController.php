@@ -127,6 +127,7 @@ class PurchaseOrderController extends Controller
                     'unit_price' => $price,
                     'discount_percent' => $lineDiscPct,
                     'total' => $total,
+                    'is_taxable' => \App\Services\DocumentTax::lineFlag($request->taxable[$index] ?? null, Product::find($productId)),
                     'description' => $request->row_descriptions[$index] ?? null,
                 ];
             }
@@ -135,13 +136,8 @@ class PurchaseOrderController extends Controller
             $overallDiscAmt = $subtotal * ($overallDiscPct / 100);
             $afterDiscount = $subtotal - $overallDiscAmt;
             
-            $taxAmount = 0;
-            if ($request->tax_id) {
-                $tax = Tax::find($request->tax_id);
-                if ($tax) {
-                    $taxAmount = $afterDiscount * ($tax->rate / 100);
-                }
-            }
+            $tax = $request->tax_id ? Tax::find($request->tax_id) : null;
+            $taxAmount = \App\Services\DocumentTax::compute($items, $overallDiscPct, (float) ($tax?->rate ?? 0), auth()->user()->company?->tax_rounding)['amount'];
             
             $grandTotal = $afterDiscount + $taxAmount;
 
@@ -155,6 +151,7 @@ class PurchaseOrderController extends Controller
                 'subtotal' => $subtotal,
                 'discount_percent' => $overallDiscPct,
                 'discount_amount' => $overallDiscAmt,
+                'tax_id' => $tax?->id,
                 'tax_amount' => $taxAmount,
                 'total' => $grandTotal,
                 'notes' => $request->notes,
@@ -224,12 +221,13 @@ class PurchaseOrderController extends Controller
         $orderNumber = $purchaseOrder->po_number;
         $prefillRows = $purchaseOrder->items->map(fn ($i) => [
             'product_id' => $i->product_id, 'description' => $i->description, 'quantity' => (float) $i->quantity,
-            'price' => (float) $i->unit_price, 'discount' => (float) ($i->discount_percent ?? 0),
+            'price' => (float) $i->unit_price, 'discount' => (float) ($i->discount_percent ?? 0), 'taxable' => (bool) $i->is_taxable,
         ])->values()->all();
         $editDiscPct = (float) $purchaseOrder->discount_percent;
+        // Pesanan lama belum menyimpan pajaknya: dicari dari perbandingan nilai PPN dan nilai pesanan
         $after = (float) $purchaseOrder->subtotal - (float) $purchaseOrder->discount_amount;
         $rate = $after > 0 ? round((float) $purchaseOrder->tax_amount / $after * 100, 2) : 0;
-        $editTaxId = $rate > 0 ? optional($taxes->first(fn ($t) => abs((float) $t->rate - $rate) < 0.05))->id : null;
+        $editTaxId = $purchaseOrder->tax_id ?: ($rate > 0 ? optional($taxes->first(fn ($t) => abs((float) $t->rate - $rate) < 0.05))->id : null);
 
         return view('client.purchase_orders.create', compact('suppliers', 'products', 'taxes', 'order', 'orderNumber', 'prefillRows', 'editDiscPct', 'editTaxId'));
     }
@@ -270,20 +268,19 @@ class PurchaseOrderController extends Controller
                 $total = $gross - $gross * ($pct / 100);
                 $subtotal += $total;
                 $items[] = ['product_id' => $productId, 'quantity' => $qty, 'unit_price' => $price, 'discount_percent' => $pct, 'total' => $total,
+                    'is_taxable' => \App\Services\DocumentTax::lineFlag($request->taxable[$i] ?? null, Product::find($productId)),
                     'description' => $request->row_descriptions[$i] ?? null];
             }
             $overallPct = (float) ($request->discount_percent ?? 0);
             $overallDiscAmt = $subtotal * ($overallPct / 100);
             $after = $subtotal - $overallDiscAmt;
-            $taxAmount = 0;
-            if ($request->tax_id && ($tax = Tax::find($request->tax_id))) {
-                $taxAmount = $after * ($tax->rate / 100);
-            }
+            $tax = $request->tax_id ? Tax::find($request->tax_id) : null;
+            $taxAmount = \App\Services\DocumentTax::compute($items, $overallPct, (float) ($tax?->rate ?? 0), auth()->user()->company?->tax_rounding)['amount'];
 
             $purchaseOrder->update([
                 'supplier_id' => $request->supplier_id, 'po_number' => $request->po_number, 'order_date' => $request->order_date,
                 'expected_date' => $request->expected_date, 'subtotal' => $subtotal, 'discount_percent' => $overallPct,
-                'discount_amount' => $overallDiscAmt, 'tax_amount' => $taxAmount, 'total' => $after + $taxAmount, 'notes' => $request->notes,
+                'discount_amount' => $overallDiscAmt, 'tax_id' => $tax?->id, 'tax_amount' => $taxAmount, 'total' => $after + $taxAmount, 'notes' => $request->notes,
             ]);
             PurchaseOrderItem::where('purchase_order_id', $purchaseOrder->id)->delete();
             foreach ($items as $item) {

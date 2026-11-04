@@ -22,7 +22,7 @@
     .title { font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; margin-top: 8px; color: #0f766e; }
     .period { font-size: 10px; color: #334155; margin-top: 2px; }
     .sum { display: flex; gap: 8px; margin: 0 0 10px; }
-    .sum div { flex: 1; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 8px; }
+    .sum > div { flex: 1; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 8px; }
     .sum .l { font-size: 7.5px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: .05em; }
     .sum .v { font-size: 11px; font-weight: 800; margin-top: 1px; }
     .sum .bad .v { color: #b91c1c; } .sum .good .v { color: #047857; }
@@ -33,6 +33,7 @@
     th.r, td.r { text-align: right; } td.r { font-variant-numeric: tabular-nums; white-space: nowrap; }
     td { padding: 3.5px 6px; border-bottom: .5px solid #cbd5e1; vertical-align: top; }
     td.neg { color: #b91c1c; }
+    td.nowrap { white-space: nowrap; }
     tr.section td { background: #e2e8f0; font-weight: 800; padding: 5px 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; break-after: avoid; }
     tr.subtotal td, tr.total td { font-weight: 800; border-top: .8px solid #475569; }
     tr.total td { background: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -41,7 +42,7 @@
     tr.italic td { font-style: italic; color: #64748b; }
     .rpt-empty { text-align: center; padding: 20px; color: #64748b; }
     .rpt-note { margin-top: 10px; padding: 6px 10px; border-radius: 4px; font-weight: 700; font-size: 9px; }
-    .rpt-note.good { background: #ecfdf5; color: #047857; } .rpt-note.bad { background: #fef2f2; color: #b91c1c; }
+    .rpt-note.good { background: #ecfdf5; color: #047857; } .rpt-note.bad { background: #fef2f2; color: #b91c1c; } .rpt-note.info { background: #f1f5f9; color: #475569; font-weight: 500; }
     .foot { margin-top: 14px; font-size: 8px; color: #94a3b8; text-align: right; }
     @media print {
         body { background: #fff; } .bar { display: none; }

@@ -106,7 +106,7 @@
                         <label for="notes">Keterangan Retur (Opsional)</label>
                     <textarea name="notes" id="notes" rows="2" placeholder="Alasan pengembalian barang ke pemasok...">{{ old('notes') }}</textarea>
                     </div>
-                    @include('partials.doc-totals', ['label' => 'Total Retur'])
+                    @include('partials.doc-totals', ['label' => 'Total Retur', 'returnTax' => true])
                 </div>
             </div>
 
@@ -127,28 +127,45 @@
         </div>
     </form>
 
+    @php
+        // Diskon, tarif, dan status PPN baris faktur, supaya total di layar sama dengan yang dijurnal
+        $returnDocs = $invoices->mapWithKeys(fn ($i) => [$i->id => ['disc' => (float) $i->discount_percent, 'rate' => (float) $i->tax_percent,
+            'lines' => $i->items->reverse()->mapWithKeys(fn ($l) => [($l->product_id ?: 'a' . ($l->account_id ?? '')) => (bool) $l->is_taxable])]]);
+    @endphp
     <script>
 
         document.addEventListener('DOMContentLoaded', function() {
             const tableBody = document.getElementById('itemsBody');
             const btnAddRow = document.getElementById('btnAddRow');
             const displayGrandTotal = document.getElementById('displayGrandTotal');
+            const invoiceSelect = document.getElementById('purchase_invoice_id');
+            const returnDocs = @json($returnDocs);
 
             const productOptions = `<optgroup label="Barang / Jasa">@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach</optgroup><optgroup label="Akun Biaya / Akun Lawan">@foreach($expenseAccounts as $acc)<option value="a{{ $acc->id }}" data-price="0">{{ $acc->code }} - {{ $acc->name }}</option>@endforeach</optgroup>`;
 
             window.calculateTotals = function() {
-                let subtotal = 0;
+                let subtotal = 0, taxable = 0;
+                const doc = returnDocs[invoiceSelect.value] || { disc: 0, rate: 0, lines: {} };
+                const fmt = (n) => n.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 
                 document.querySelectorAll('.item-row').forEach(row => {
                     const qty = parseFloat(row.querySelector('.input-qty').value) || 0;
                     const price = parseFloat(row.querySelector('.input-price').value) || 0;
                     const lineTotal = qty * price;
                     
-                    row.querySelector('.row-total').textContent = lineTotal.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    row.querySelector('.row-total').textContent = fmt(lineTotal);
                     subtotal += lineTotal;
+                    if (doc.lines[row.querySelector('.product-select').value] !== false) taxable += lineTotal;
                 });
 
-                displayGrandTotal.textContent = subtotal.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                const factor = 1 - doc.disc / 100;
+                const tax = doc.rate > 0 ? window.LineTax.amount(taxable * factor, doc.rate) : 0;
+                document.getElementById('displaySubtotal').textContent = fmt(subtotal);
+                document.getElementById('displayDiscount').textContent = '-' + fmt(subtotal - subtotal * factor);
+                document.getElementById('displayTax').textContent = fmt(tax);
+                document.getElementById('rowReturnDiscount').hidden = doc.disc <= 0;
+                document.getElementById('rowReturnTax').hidden = doc.rate <= 0;
+                displayGrandTotal.textContent = fmt(subtotal * factor + tax);
             }
 
             btnAddRow.addEventListener('click', function() {
@@ -225,6 +242,8 @@
             }
 
             document.querySelectorAll('.item-row').forEach(row => attachRowListeners(row));
+            invoiceSelect.addEventListener('change', calculateTotals);
+            calculateTotals();
             updateRemoveButtons();
         });
     </script>

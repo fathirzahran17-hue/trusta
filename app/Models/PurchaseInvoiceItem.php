@@ -11,7 +11,7 @@ class PurchaseInvoiceItem extends Model
 
     protected $fillable = [
         'purchase_invoice_id', 'po_id', 'item_receipt_id', 'product_id', 'account_id', 'description', 'quantity',
-        'unit_price', 'discount_percent', 'total'
+        'unit_price', 'discount_percent', 'total', 'is_taxable'
     ];
 
     protected $casts = [

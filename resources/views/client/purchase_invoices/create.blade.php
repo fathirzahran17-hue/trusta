@@ -84,6 +84,7 @@
                                 <th class="c" style="width: 54px;">Satuan</th>
                                 <th class="r" style="width: 156px; min-width: 156px;">Harga Satuan</th>
                                 <th class="r" style="width: 84px; min-width: 84px;">Disk (%)</th>
+                                <th class="col-tax c" style="width: 52px;" title="Centang bila baris ini kena PPN">PPN</th>
                                 <th class="r" style="width: 124px;">Jumlah</th>
                                 <th style="width: 40px;"></th>
                             </tr>
@@ -110,6 +111,7 @@
                                 <td class="col-disc">
                                     <input type="number" step="0.01" name="discounts[]" class="input-discount" value="0" min="0" max="100">
                                 </td>
+                                @include('partials.line-tax-cell')
                                 <td class="col-total row-total">
                                     0.00
                                 </td>
@@ -142,8 +144,9 @@
                 @endif
                         <label for="notes">Catatan Tambahan (Opsional)</label>
                         <textarea name="notes" id="notes" rows="3" placeholder="Catatan internal terkait pembelian ini">{{ old('notes') }}</textarea>
+                        @include('partials.tax-number-field', ['label' => 'No. Faktur Pajak Pemasok', 'hint' => 'Sesuai Faktur Pajak dari pemasok. Bisa diisi nanti dari halaman detail faktur.'])
                     </div>
-                    @include('partials.doc-totals', ['taxes' => $taxes])
+                    @include('partials.doc-totals', ['taxes' => $taxes, 'editTaxId' => $prefill['tax_id'] ?? null, 'taxFromSource' => !empty($prefill['rows'])])
                 </div>
             </div>
 
@@ -177,7 +180,7 @@
 
 
             window.calculateTotals = function() {
-                let subtotal = 0;
+                let subtotal = 0, taxableSubtotal = 0;
                 
                 document.querySelectorAll('.item-row').forEach(row => {
                     const qty = parseFloat(row.querySelector('.input-qty').value) || 0;
@@ -189,6 +192,7 @@
                     
                     row.querySelector('.row-total').textContent = total.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     subtotal += total;
+                    if (window.LineTax.isTaxable(row)) taxableSubtotal += total;
                 });
 
                 const overallDiscPct = parseFloat(discountInput.value) || 0;
@@ -197,7 +201,7 @@
 
                 const selectedTax = taxSelect.options[taxSelect.selectedIndex];
                 const taxRate = selectedTax ? parseFloat(selectedTax.dataset.rate) || 0 : 0;
-                const taxAmount = afterDiscount * (taxRate / 100);
+                const taxAmount = window.LineTax.apply(taxableSubtotal * (1 - overallDiscPct / 100), taxRate, afterDiscount);
                 
                 const grandTotal = afterDiscount + taxAmount;
 
@@ -231,6 +235,7 @@
                     <td class="col-disc">
                         <input type="number" step="0.01" name="discounts[]" class="input-discount" value="0" min="0" max="100">
                     </td>
+                    @include('partials.line-tax-cell')
                     <td class="col-total row-total">
                         0.00
                     </td>

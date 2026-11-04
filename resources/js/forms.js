@@ -144,16 +144,17 @@ function initUnsavedGuard() {
 
 /** Pengisian dengan keyboard: Enter pindah ke kolom berikutnya di form transaksi, angka langsung terpilih saat kolomnya dibuka. */
 function initKeyboardComfort() {
-    const isField = (x) => ['INPUT', 'SELECT', 'TEXTAREA'].includes(x.tagName) && !x.disabled && !x.readOnly && x.type !== 'hidden' && x.tabIndex >= 0 && x.offsetParent !== null;
+    // Kotak Kena PPN dilewati: jarang diubah, dan Enter pada kotak centang bisa langsung mengirim form
+    const isField = (x) => ['INPUT', 'SELECT', 'TEXTAREA'].includes(x.tagName) && !x.disabled && !x.readOnly && x.type !== 'hidden' && x.tabIndex >= 0 && x.offsetParent !== null && !x.classList.contains('row-taxable');
 
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' || e.isComposing || e.shiftKey || e.ctrlKey || e.metaKey) return;
         const el = e.target;
-        if (el.tagName !== 'INPUT' || ['checkbox', 'radio', 'submit', 'button', 'file'].includes(el.type)) return;
+        if (el.tagName !== 'INPUT' || ['radio', 'submit', 'button', 'file'].includes(el.type) || (el.type === 'checkbox' && !el.classList.contains('row-taxable'))) return;
         if (el.closest('.ts-control') || !el.form || !el.form.querySelector('.line-items, .doc-card')) return;
         e.preventDefault();
-        const fields = [...el.form.elements].filter(isField);
-        const next = fields[fields.indexOf(el) + 1];
+        const all = [...el.form.elements];
+        const next = all.slice(all.indexOf(el) + 1).find(isField);
         if (next) next.focus();
     });
 
@@ -234,11 +235,70 @@ function initSearchableSelects() {
     });
 }
 
+/**
+ * Status PPN tiap baris dokumen dan hitungan PPN di layar.
+ * Harus sama dengan aturan di app/Services/DocumentTax.php, karena yang tersimpan adalah hasil hitungan server.
+ */
+function initLineTax() {
+    const on = (v) => v === true || v === 1 || v === '1';
+    const LineTax = {
+        isTaxable(row) {
+            const hidden = row.querySelector('.input-taxable');
+            return !hidden || hidden.value !== '0';
+        },
+        set(row, value) {
+            const hidden = row.querySelector('.input-taxable'), box = row.querySelector('.row-taxable');
+            if (hidden) hidden.value = on(value) ? '1' : '0';
+            if (box) box.checked = on(value);
+        },
+        amount(base, rate) {
+            const holder = document.querySelector('[data-rounding]');
+            const mode = holder ? holder.dataset.rounding : '';
+            // Membuang galat pecahan dulu, supaya 110.000,00 tidak terbaca sedikit di atasnya lalu naik sendiri
+            const raw = Math.round((base * rate / 100) * 10000) / 10000;
+            if (mode === 'Pembulatan Ke Atas') return Math.ceil(raw);
+            if (mode === 'Pembulatan Ke Bawah') return Math.floor(raw);
+            return Math.round(raw * 100) / 100;
+        },
+        /** Dipanggil dari calculateTotals: menampilkan kolom PPN dan DPP sesuai keadaan, lalu mengembalikan nilai PPN. */
+        apply(base, rate, afterDiscount) {
+            const table = document.getElementById('itemsTable');
+            if (table) table.dataset.tax = rate > 0 ? 'on' : 'off';
+            const row = document.getElementById('rowTaxBase'), out = document.getElementById('displayTaxBase');
+            if (row && out) {
+                row.hidden = !(rate > 0 && Math.abs(base - afterDiscount) > 0.004);
+                out.textContent = base.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            return rate > 0 ? LineTax.amount(base, rate) : 0;
+        },
+    };
+    window.LineTax = LineTax;
+
+    const recalc = () => { if (typeof window.calculateTotals === 'function') window.calculateTotals(); };
+    document.addEventListener('change', (e) => {
+        const el = e.target;
+        if (!el.classList) return;
+        if (el.classList.contains('row-taxable')) {
+            const row = el.closest('.item-row');
+            if (row) LineTax.set(row, el.checked);
+            recalc();
+        } else if (el.classList.contains('product-select')) {
+            // Barang baru dipilih: status PPN mengikuti data barang. Baris akun langsung dianggap kena PPN.
+            const row = el.closest('.item-row');
+            if (!row || !row.querySelector('.input-taxable')) return;
+            const option = el.options[el.selectedIndex];
+            LineTax.set(row, !option || option.dataset.taxable !== '0');
+            recalc();
+        }
+    });
+}
+
 export function initForms() {
     initValidation();
     initSubmitGuard();
     initUnsavedGuard();
     initKeyboardComfort();
     initSearchableSelects();
+    initLineTax();
     document.addEventListener('DOMContentLoaded', initTotalMirror);
 }

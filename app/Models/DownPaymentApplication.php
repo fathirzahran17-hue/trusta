@@ -9,9 +9,19 @@ class DownPaymentApplication extends Model
 {
     use \App\Models\Concerns\BelongsToCompany;
 
-    protected $fillable = ['company_id', 'down_payment_id', 'sales_invoice_id', 'purchase_invoice_id', 'amount', 'applied_date', 'journal_id', 'created_by', 'voided_at'];
+    protected $fillable = ['company_id', 'down_payment_id', 'sales_invoice_id', 'purchase_invoice_id', 'amount', 'tax_amount', 'applied_date', 'journal_id', 'created_by', 'voided_at'];
 
     protected $casts = ['amount' => 'decimal:2', 'applied_date' => 'date', 'voided_at' => 'datetime'];
+
+    public function salesInvoice()
+    {
+        return $this->belongsTo(SalesInvoice::class);
+    }
+
+    public function purchaseInvoice()
+    {
+        return $this->belongsTo(PurchaseInvoice::class);
+    }
 
     public function downPayment() { return $this->belongsTo(DownPayment::class); }
     public function journal() { return $this->belongsTo(Journal::class); }

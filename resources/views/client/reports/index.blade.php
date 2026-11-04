@@ -40,8 +40,8 @@
                 ...(\App\Support\BusinessType::hasProduction(\App\Support\BusinessType::current()) ? [['client.reports.production-cost', 'Harga Pokok Produksi', 'Bahan, tenaga kerja, overhead, dan hasil produksi pada periode.', 'box', true]] : []),
             ]],
             ['Pajak', [
-                ['client.reports.spt_ppn', 'SPT PPN / PPNBM', 'Ringkasan PPN keluaran dan masukan.', 'doc', false],
-                ['client.reports.tax_calculator', 'Kalkulator Pajak', 'Hitung PPN, PPh 21, 22, 23, dan lainnya.', 'calc', false],
+                ['client.reports.vat', 'Laporan PPN', 'Pajak Keluaran dan Masukan per masa pajak, kurang atau lebih bayar.', 'doc', true],
+                ['client.reports.tax_calculator', 'Kalkulator Pajak', 'Simulasi PPN, PPh 21, PPh 23, dan PPh 4(2).', 'calc', false],
             ]],
         ];
     @endphp
