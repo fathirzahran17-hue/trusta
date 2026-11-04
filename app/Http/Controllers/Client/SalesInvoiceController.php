@@ -53,7 +53,12 @@ class SalesInvoiceController extends Controller
             ->where('status', 'open')->orderByDesc('id')->get()
             ->map(fn ($o) => ['id' => $o->id, 'param' => 'sales_order_id', 'group' => 'Pesanan Penjualan (SO)', 'party_id' => $o->customer_id, 'text' => $o->order_number . ' — ' . optional($o->customer)->name])->all();
 
-        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'deliveries', 'checked'));
+        $hasStock = \App\Support\BusinessType::hasStock(\App\Support\BusinessType::current());
+        $layouts = ($hasStock ? ['barang' => 'Barang'] : []) + ['jasa' => 'Jasa'];
+        $layout = isset($layouts[request('layout')]) ? request('layout') : array_key_first($layouts);
+        $stockMap = \App\Support\ItemKind::stockMap((int) $cid);
+
+        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'deliveries', 'checked', 'layouts', 'layout', 'stockMap'));
     }
 
     public function store(Request $request)
@@ -236,6 +241,7 @@ class SalesInvoiceController extends Controller
             // 5. Create Invoice Items
             $totalCogs = 0;
             $cogsByInv = [];
+            $cogsByHpp = [];
             foreach ($items as $item) {
                 $invoice->items()->create($item);
 
@@ -278,7 +284,9 @@ class SalesInvoiceController extends Controller
 
                     $totalCogs += $itemCogs;
                     $invAccId = optional(\App\Services\AccountResolver::inventoryFor($prod, (int) auth()->user()->company_id))->id;
-                    $cogsByInv[$invAccId] = ($cogsByInv[$invAccId] ?? 0) + $itemCogs;
+                    $hppAccId = optional(\App\Services\AccountResolver::cogsFor($prod, (int) auth()->user()->company_id))->id;
+                    $cogsByInv[$invAccId] = ($cogsByInv[$invAccId] ?? 0) + round($itemCogs, 2);
+                    $cogsByHpp[$hppAccId] = ($cogsByHpp[$hppAccId] ?? 0) + round($itemCogs, 2);
 
                     // Faktur langsung (tanpa Pesanan/Pengiriman): barang keluar saat faktur dibuat.
                     // Baris dari Pesanan atau Pengiriman: stok dikurangi oleh Pengiriman (jangan dua kali).
@@ -297,16 +305,17 @@ class SalesInvoiceController extends Controller
 
             // 6. Jurnal HPP (Jika ada barang dagang)
             if ($totalCogs > 0) {
-                $hppAccount = \App\Services\AccountResolver::cogs(auth()->user()->company_id);
-                if ($hppAccount && !array_key_exists('', $cogsByInv)) {
-                    // Debit HPP
-                    \App\Models\JournalDetail::create([
-                        'journal_id' => $journal->id,
-                        'account_id' => $hppAccount->id,
-                        'debit' => array_sum(array_map(fn ($v) => round($v, 2), $cogsByInv)),
-                        'credit' => 0,
-                        'description' => 'HPP Penjualan ' . $invoiceNumber,
-                    ]);
+                if (!array_key_exists('', $cogsByInv) && !array_key_exists('', $cogsByHpp)) {
+                    // Debit HPP (per akun HPP barang)
+                    foreach ($cogsByHpp as $hppAccId => $amt) {
+                        \App\Models\JournalDetail::create([
+                            'journal_id' => $journal->id,
+                            'account_id' => $hppAccId,
+                            'debit' => round($amt, 2),
+                            'credit' => 0,
+                            'description' => 'HPP Penjualan ' . $invoiceNumber,
+                        ]);
+                    }
 
                     // Kredit Persediaan (per akun persediaan barang, mis. Barang Jadi / Barang Dagang)
                     foreach ($cogsByInv as $invAccId => $amt) {

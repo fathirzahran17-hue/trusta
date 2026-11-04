@@ -97,6 +97,7 @@ class InvoiceJournalRebuilder
             }
             JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $ap->id, 'debit' => 0, 'credit' => $total,
                 'description' => 'Hutang Pembelian ' . $inv->invoice_number]);
+            PurchaseCostAdjuster::journalExpensed($journal, $inv, PurchaseCostAdjuster::expensedByAccount($inv));
             JournalGuard::assertBalanced($journal);
 
             $inv->journal_id = $journal->id;

@@ -178,15 +178,18 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::get('inventory/adjustments', [\App\Http\Controllers\Client\InventoryController::class, 'adjustments'])->name('inventory.adjustments');
     Route::post('inventory/adjustments', [\App\Http\Controllers\Client\InventoryController::class, 'storeAdjustment'])->name('inventory.adjustments.store');
     // Produksi / perakitan (manufaktur)
-    Route::get('production/boms', [\App\Http\Controllers\Client\ProductionController::class, 'boms'])->name('production.boms');
-    Route::post('production/boms', [\App\Http\Controllers\Client\ProductionController::class, 'storeBom'])->name('production.boms.store');
-    Route::get('production/boms/{bom}/edit', [\App\Http\Controllers\Client\ProductionController::class, 'editBom'])->whereNumber('bom')->name('production.boms.edit');
-    Route::put('production/boms/{bom}', [\App\Http\Controllers\Client\ProductionController::class, 'updateBom'])->whereNumber('bom')->name('production.boms.update');
-    Route::delete('production/boms/{bom}', [\App\Http\Controllers\Client\ProductionController::class, 'destroyBom'])->whereNumber('bom')->name('production.boms.destroy');
-    Route::get('production/orders', [\App\Http\Controllers\Client\ProductionController::class, 'orders'])->name('production.orders');
-    Route::post('production/orders', [\App\Http\Controllers\Client\ProductionController::class, 'storeOrder'])->name('production.orders.store');
-    Route::get('production/orders/{order}', [\App\Http\Controllers\Client\ProductionController::class, 'showOrder'])->whereNumber('order')->name('production.orders.show');
-    Route::post('production/orders/{order}/cancel', [\App\Http\Controllers\Client\ProductionController::class, 'cancelOrder'])->whereNumber('order')->name('production.orders.cancel');
+    Route::middleware('production')->group(function () {
+        Route::get('production/boms', [\App\Http\Controllers\Client\ProductionController::class, 'boms'])->name('production.boms');
+        Route::post('production/boms', [\App\Http\Controllers\Client\ProductionController::class, 'storeBom'])->name('production.boms.store');
+        Route::get('production/boms/{bom}/edit', [\App\Http\Controllers\Client\ProductionController::class, 'editBom'])->whereNumber('bom')->name('production.boms.edit');
+        Route::put('production/boms/{bom}', [\App\Http\Controllers\Client\ProductionController::class, 'updateBom'])->whereNumber('bom')->name('production.boms.update');
+        Route::delete('production/boms/{bom}', [\App\Http\Controllers\Client\ProductionController::class, 'destroyBom'])->whereNumber('bom')->name('production.boms.destroy');
+        Route::get('production/requirements', [\App\Http\Controllers\Client\ProductionController::class, 'requirements'])->name('production.requirements');
+        Route::get('production/orders', [\App\Http\Controllers\Client\ProductionController::class, 'orders'])->name('production.orders');
+        Route::post('production/orders', [\App\Http\Controllers\Client\ProductionController::class, 'storeOrder'])->name('production.orders.store');
+        Route::get('production/orders/{order}', [\App\Http\Controllers\Client\ProductionController::class, 'showOrder'])->whereNumber('order')->name('production.orders.show');
+        Route::post('production/orders/{order}/cancel', [\App\Http\Controllers\Client\ProductionController::class, 'cancelOrder'])->whereNumber('order')->name('production.orders.cancel');
+    });
     Route::get('inventory/stock-opname', [\App\Http\Controllers\Client\InventoryController::class, 'stockOpname'])->name('inventory.stock_opname');
     Route::post('inventory/stock-opname', [\App\Http\Controllers\Client\InventoryController::class, 'storeStockOpname'])->name('inventory.stock_opname.store');
     Route::post('inventory/movements/{movement}/cancel', [\App\Http\Controllers\Client\InventoryController::class, 'cancelMovement'])->whereNumber('movement')->name('inventory.movements.cancel');
@@ -229,6 +232,7 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::get('reports/payable-summary', [\App\Http\Controllers\Client\ReportController::class, 'payableSummary'])->name('reports.payable-summary');
     Route::get('reports/purchase-report', [\App\Http\Controllers\Client\ReportController::class, 'purchaseReport'])->name('reports.purchase-report');
     Route::get('reports/inventory-stock', [\App\Http\Controllers\Client\ReportController::class, 'inventoryStock'])->name('reports.inventory-stock');
+    Route::get('reports/production-cost', [\App\Http\Controllers\Client\ReportController::class, 'productionCost'])->middleware('production')->name('reports.production-cost');
     Route::get('reports/spt-ppn', [\App\Http\Controllers\Client\ReportController::class, 'sptPpn'])->name('reports.spt_ppn');
     Route::get('reports/tax-calculator', [\App\Http\Controllers\Client\ReportController::class, 'taxCalculator'])->name('reports.tax_calculator');
 

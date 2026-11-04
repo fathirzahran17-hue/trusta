@@ -21,7 +21,8 @@ class ItemReceipt extends Model
         'status',
         'journal_id',
         'notes',
-        'created_by'
+        'created_by',
+        'source_invoice_id'
     ];
 
     protected $casts = [

@@ -52,7 +52,7 @@ class SalesReturnController extends Controller
         $request->validate([
             'return_number' => ['required', 'string', 'max:100', \App\Services\DocumentNumber::rule('sales_returns', 'return_number')],
             'customer_id' => 'required|exists:customers,id',
-            'sales_invoice_id' => 'nullable|exists:sales_invoices,id',
+            'sales_invoice_id' => 'required|exists:sales_invoices,id',
             'return_date' => 'required|date',
             'products' => 'required|array|min:1',
             'products.*' => 'required|exists:products,id',
@@ -60,7 +60,7 @@ class SalesReturnController extends Controller
             'quantities.*' => 'required|numeric|min:0.01',
             'prices' => 'required|array|min:1',
             'prices.*' => 'required|numeric|min:0',
-        ]);
+        ], ['sales_invoice_id.required' => 'Pilih Faktur Penjualan yang diretur.']);
 
         try {
             DB::beginTransaction();
@@ -114,6 +114,7 @@ class SalesReturnController extends Controller
 
             $totalHpp = 0;
             $hppByInv = [];
+            $hppByAccount = [];
             foreach ($items as $item) {
                 $product = Product::find($item['product_id']);
                 SalesReturnItem::create(array_merge($item, ['sales_return_id' => $salesReturn->id]));
@@ -123,7 +124,9 @@ class SalesReturnController extends Controller
                     $cost = (float) $product->buy_price;
                     $totalHpp += $cost * $item['quantity'];
                     $ia = optional(\App\Services\AccountResolver::inventoryFor($product, (int) $companyId))->id;
-                    $hppByInv[$ia] = ($hppByInv[$ia] ?? 0) + $cost * $item['quantity'];
+                    $hppByInv[$ia] = ($hppByInv[$ia] ?? 0) + round($cost * $item['quantity'], 2);
+                    $ha = optional(\App\Services\AccountResolver::cogsFor($product, (int) $companyId))->id;
+                    $hppByAccount[$ha] = ($hppByAccount[$ha] ?? 0) + round($cost * $item['quantity'], 2);
                     \App\Models\InventoryMovement::create([
                         'company_id' => $companyId, 'product_id' => $product->id, 'date' => $request->return_date, 'type' => 'in',
                         'quantity' => $item['quantity'], 'unit_cost' => $cost, 'remaining_qty' => $item['quantity'],
@@ -166,14 +169,15 @@ class SalesReturnController extends Controller
 
             // Dr Persediaan / Cr HPP untuk barang yang kembali
             if ($totalHpp > 0) {
-                $hpp = \App\Services\AccountResolver::cogs($companyId);
-                if (!$hpp || array_key_exists('', $hppByInv)) throw new \Exception('Akun HPP / Persediaan belum disiapkan di Bagan Akun.');
+                if (array_key_exists('', $hppByAccount) || array_key_exists('', $hppByInv)) throw new \Exception('Akun HPP / Persediaan belum disiapkan di Bagan Akun.');
                 foreach ($hppByInv as $ia => $amt) {
                     JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $ia, 'debit' => round($amt, 2), 'credit' => 0,
                         'description' => 'Stok Retur ' . $salesReturn->return_number]);
                 }
-                JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $hpp->id, 'debit' => 0, 'credit' => array_sum(array_map(fn ($v) => round($v, 2), $hppByInv)),
-                    'description' => 'Koreksi HPP ' . $salesReturn->return_number]);
+                foreach ($hppByAccount as $ha => $amt) {
+                    JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $ha, 'debit' => 0, 'credit' => round($amt, 2),
+                        'description' => 'Koreksi HPP ' . $salesReturn->return_number]);
+                }
             }
             \App\Services\JournalGuard::assertBalanced($journal);
             $salesReturn->update(['journal_id' => $journal->id]);

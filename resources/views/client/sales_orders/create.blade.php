@@ -67,7 +67,7 @@
                                 <th style="padding: 6px 8px; width: 70px; text-align: right;">Qty</th>
                                 <th style="padding: 6px 8px; width: 50px; text-align: center;">Satuan</th>
                                 <th style="padding: 6px 8px; width: 120px; text-align: right;">Harga Satuan</th>
-                                <th style="padding: 6px 8px; width: 70px; text-align: right;">Disk (%)</th>
+                                <th style="padding: 6px 8px; width: 84px; min-width: 84px; text-align: right;">Disk (%)</th>
                                 <th style="padding: 6px 8px; width: 120px; text-align: right;">Jumlah</th>
                                 <th style="padding: 6px 8px; width: 36px;"></th>
                             </tr>
@@ -77,9 +77,7 @@
                                 <td style="padding: 4px 4px;">
                                     <select name="products[]" class="product-select" required style="width: 100%;">
                                         <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
-                                        @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}" data-price="{{ $prod->sell_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
-                                        @endforeach
+                                        @include('partials.product-options', ['products' => $products, 'context' => 'sales', 'priceField' => 'sell_price'])
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
@@ -192,7 +190,7 @@
             const displayTax = document.getElementById('displayTax');
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->sell_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            const productOptions = `@include('partials.product-options', ['products' => $products, 'context' => 'sales', 'priceField' => 'sell_price'])`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;
@@ -328,4 +326,5 @@
         });
     </script>
     @isset($prefillRows) @include('partials.prefill-rows', ['rows' => $prefillRows]) @endisset
+    @include('partials.material-sale-warning')
 </x-app-layout>

@@ -83,7 +83,7 @@
                         Status: 
                         <select name="status" style="padding: 2px 8px; border-radius: 4px; background: #1e293b; border: 1px solid #334155; color: #fff; font-size: 0.75rem;">
                             <option value="draft">Draft</option>
-                            <option value="received" selected>Diterima (Tambah Stok & Hutang)</option>
+                            <option value="received" selected>Diterima (Tambah Stok)</option>
                         </select>
                     </div>
                 </div>
@@ -92,9 +92,10 @@
                     <table class="w-full text-sm text-left">
                         <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
                             <tr>
-                                <th style="padding: 6px 8px; width: 40%;">Pilih Barang</th>
-                                <th style="padding: 6px 8px; width: 40%;">Keterangan</th>
+                                <th style="padding: 6px 8px; width: 34%;">Pilih Barang</th>
+                                <th style="padding: 6px 8px; width: 30%;">Keterangan</th>
                                 <th style="padding: 6px 8px; width: 100px; text-align: right;">Qty Terima</th>
+                                <th style="padding: 6px 8px; width: 140px; text-align: right;">Harga Beli (Rp)</th>
                                 <th style="padding: 6px 8px; width: 36px;"></th>
                             </tr>
                         </thead>
@@ -103,9 +104,7 @@
                                 <td style="padding: 4px 4px;">
                                     <select name="products[]" required style="width: 100%;">
                                         <option value="">-- Pilih Barang --</option>
-                                        @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
-                                        @endforeach
+                                        @include('partials.product-options', ['products' => $products, 'context' => 'purchase'])
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
@@ -113,6 +112,9 @@
                                 </td>
                                 <td style="padding: 4px 4px;">
                                     <input type="number" step="0.01" name="quantities[]" value="1" min="0.01" required style="width: 100%; text-align: right;">
+                                </td>
+                                <td style="padding: 4px 4px;">
+                                    <input type="number" step="0.01" min="0" name="prices[]" class="input-price" placeholder="0" style="width: 100%; text-align: right;">
                                 </td>
                                 <td style="padding: 4px 4px; text-align: center;">
                                     <button type="button" class="btn-remove-row" disabled style="color: #475569; background: none; border: none; cursor: pointer; padding: 2px; opacity: 0.5;">
@@ -123,7 +125,7 @@
                         </tbody>
                         <tfoot class="border-t border-gray-700 bg-gray-800/30">
                             <tr>
-                                <td colspan="4" style="padding: 8px;">
+                                <td colspan="5" style="padding: 8px;">
                                     <button type="button" id="btnAddRow" style="color: var(--trusta-teal); background: none; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
                                         <svg style="width: 12px; height: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                                         Tambah Baris
@@ -138,7 +140,7 @@
             {{-- Footer --}}
             <div style="padding: 10px 18px; background: rgba(30,41,59,0.4); border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center;">
                 <div style="font-size: 0.68rem; color: #475569;">
-                    <span style="color: var(--trusta-teal); font-weight: 600;">INFO:</span> Jika status diset ke 'Diterima', sistem akan menambah stok barang dan menjurnal Hutang Usaha / Persediaan.
+                    <span style="color: var(--trusta-teal); font-weight: 600;">INFO:</span> Status 'Diterima' menambah stok dengan harga di atas. Barang dari Pesanan Pembelian memakai harga pesanan. Jurnal persediaan dan hutang dibuat saat Faktur Pembelian dicatat.
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <a href="{{ route('client.purchases.receipts') }}" style="padding: 6px 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #94a3b8; font-size: 0.78rem; font-weight: 500; text-decoration: none;">
@@ -157,7 +159,21 @@
             const tableBody = document.getElementById('itemsBody');
             const btnAddRow = document.getElementById('btnAddRow');
 
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            // Harga beli terisi otomatis dari master barang; baris dari pesanan memakai harga pesanan (tidak bisa diubah di sini).
+            const buyPrices = @js($products->mapWithKeys(fn ($p) => [$p->id => (float) $p->buy_price]));
+            tableBody.addEventListener('change', function (e) {
+                if (!e.target.matches('select[name="products[]"]')) return;
+                const price = e.target.closest('tr').querySelector('.input-price');
+                if (price && !price.readOnly) price.value = buyPrices[e.target.value] || '';
+            });
+            setTimeout(function () {
+                document.querySelectorAll('.item-row').forEach(function (tr) {
+                    const order = tr.querySelector('.input-row-order'), price = tr.querySelector('.input-price');
+                    if (order && order.value && price) { price.readOnly = true; price.title = 'Mengikuti harga pada Pesanan Pembelian'; }
+                });
+            }, 0);
+
+            const productOptions = `@include('partials.product-options', ['products' => $products, 'context' => 'purchase'])`;
 
             btnAddRow.addEventListener('click', function() {
                 const tr = document.createElement('tr');
@@ -174,6 +190,9 @@
                     </td>
                     <td style="padding: 4px 4px;">
                         <input type="number" step="0.01" name="quantities[]" value="1" min="0.01" required style="width: 100%; text-align: right;">
+                    </td>
+                    <td style="padding: 4px 4px;">
+                        <input type="number" step="0.01" min="0" name="prices[]" class="input-price" placeholder="0" style="width: 100%; text-align: right;">
                     </td>
                     <td style="padding: 4px 4px; text-align: center;">
                         <button type="button" class="btn-remove-row" style="color: #64748b; background: none; border: none; cursor: pointer; padding: 2px;">

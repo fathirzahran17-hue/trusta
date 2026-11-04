@@ -512,18 +512,129 @@ class ReportBuilder
 
     /* ---------------------------------------------------------- persediaan */
 
+    /** Saldo gabungan beberapa akun sampai tanggal tertentu, termasuk saldo awal akun. */
+    private function balanceOf($accounts, string $to): float
+    {
+        $sums = $this->sums(null, $to);
+
+        return $accounts->sum(function ($a) use ($sums) {
+            [$d, $c] = $sums[$a->id] ?? [0, 0];
+
+            return (float) $a->opening_balance + $d - $c;
+        });
+    }
+
+    /** Mutasi (debit - kredit) akun tertentu pada jurnal yang disaring. */
+    private function movementOf($accounts, string $start, string $end, callable $filter): float
+    {
+        $q = JournalDetail::query()->join('journals', 'journals.id', '=', 'journal_details.journal_id')
+            ->where('journals.company_id', $this->companyId)->where('journals.status', 'posted')
+            ->whereDate('journals.transaction_date', '>=', $start)->whereDate('journals.transaction_date', '<=', $end)
+            ->whereIn('journal_details.account_id', $accounts->pluck('id'));
+        $filter($q);
+
+        return (float) $q->sum('journal_details.debit') - (float) $q->sum('journal_details.credit');
+    }
+
+    /** Harga Pokok Produksi: bahan terpakai + tenaga kerja & overhead, hasil tiap barang jadi, dan mutasi persediaannya. */
+    public function productionCost(Request $r): array
+    {
+        $start = $r->input('start_date', Carbon::now()->startOfMonth()->toDateString());
+        $end = $r->input('end_date', Carbon::now()->toDateString());
+        $orders = \App\Models\ProductionOrder::with(['product', 'items.product', 'costs.account'])->where('company_id', $this->companyId)->whereNull('voided_at')
+            ->whereDate('date', '>=', $start)->whereDate('date', '<=', $end)->get();
+        $journalIds = $orders->pluck('journal_id')->filter()->all();
+        $tot = fn (string $type, string $label, $amount) => $this->tot($type, $label, $amount, 4);
+
+        // Bahan terpakai per barang
+        $materials = $orders->flatMap->items->groupBy('product_id')->map(fn ($g) => ['p' => $g->first()->product, 'qty' => (float) $g->sum('quantity'), 'total' => (float) $g->sum('total')])
+            ->sortBy(fn ($m) => optional($m['p'])->name);
+        $materialTotal = (float) $materials->sum('total');
+        $rows = [$this->sec('BAHAN YANG DIPAKAI')];
+        foreach ($materials as $m) {
+            $rows[] = $this->row([optional($m['p'])->sku, optional($m['p'])->name, $m['qty'], $m['total']], 1);
+        }
+        $rows[] = $tot('subtotal', 'Total Bahan', $materialTotal);
+        $rows[] = ['type' => 'spacer'];
+
+        // Tenaga kerja & overhead yang dibebankan
+        $costs = $orders->flatMap->costs->groupBy('account_id')->map(fn ($g) => ['a' => $g->first()->account, 'total' => (float) $g->sum('amount')])
+            ->sortBy(fn ($c) => optional($c['a'])->code);
+        $costTotal = (float) $costs->sum('total');
+        $rows[] = $this->sec('TENAGA KERJA DAN OVERHEAD');
+        foreach ($costs as $c) {
+            $rows[] = $this->row([optional($c['a'])->code, optional($c['a'])->name, '', $c['total']], 1);
+        }
+        $rows[] = $tot('subtotal', 'Total Tenaga Kerja dan Overhead', $costTotal);
+        $rows[] = $tot('total', 'HARGA POKOK PRODUKSI', $materialTotal + $costTotal);
+        $rows[] = ['type' => 'spacer'];
+
+        // Hasil per barang jadi
+        $rows[] = $this->sec('HASIL PRODUKSI');
+        foreach ($orders->groupBy('product_id') as $g) {
+            $p = $g->first()->product;
+            $qty = (float) $g->sum('quantity');
+            $total = (float) $g->sum('total_cost');
+            $rows[] = $this->row([optional($p)->sku, trim(optional($p)->name . ' (@ ' . number_format($qty > 0 ? $total / $qty : 0, 2, ',', '.') . ' / ' . optional($p)->unit . ')'), $qty, $total], 1);
+        }
+        $rows[] = ['type' => 'spacer'];
+
+        // Mutasi persediaan dari Buku Besar
+        $inventory = \App\Services\AccountResolver::inventoryAccounts($this->companyId);
+        $before = Carbon::parse($start)->subDay()->toDateString();
+        $flow = function (string $title, $accounts, string $inLabel, float $in, string $outLabel, float $out) use ($before, $end, $tot) {
+            $open = $this->balanceOf($accounts, $before);
+            $close = $this->balanceOf($accounts, $end);
+            $other = $close - ($open + $in - $out);
+            $list = [$this->sec($title), $this->row(['', 'Persediaan awal', '', $open], 1), $this->row(['', $inLabel, '', $in], 1), $this->row(['', $outLabel, '', -$out], 1)];
+            if (abs($other) >= 0.01) {
+                $list[] = $this->row(['', 'Penyesuaian, retur, dan lainnya', '', $other], 1);
+            }
+            $list[] = $tot('subtotal', 'Persediaan akhir', $close);
+
+            return $list;
+        };
+        $materialAccounts = $inventory->filter(fn ($a) => \App\Support\ItemKind::isMaterial(\App\Support\ItemKind::fromAccountName($a->name)));
+        $finishedAccounts = $inventory->filter(fn ($a) => \App\Support\ItemKind::fromAccountName($a->name) === \App\Support\ItemKind::FINISHED);
+        $inOrders = fn ($q) => $q->whereIn('journals.id', $journalIds ?: [0]);
+        $ofType = fn (string $type) => fn ($q) => $q->where('journals.type', $type);
+        $rows = [...$rows, ...$flow('MUTASI PERSEDIAAN BAHAN', $materialAccounts, 'Pembelian', $this->movementOf($materialAccounts, $start, $end, $ofType('auto_purchase')),
+            'Dipakai produksi', -$this->movementOf($materialAccounts, $start, $end, $inOrders)), ['type' => 'spacer']];
+        $rows = [...$rows, ...$flow('MUTASI PERSEDIAAN BARANG JADI', $finishedAccounts, 'Hasil produksi', $this->movementOf($finishedAccounts, $start, $end, $inOrders),
+            'Terjual (HPP)', -$this->movementOf($finishedAccounts, $start, $end, $ofType('auto_sales')))];
+
+        return [
+            'key' => 'production-cost', 'title' => 'Laporan Harga Pokok Produksi', 'subtitle' => $this->period($start, $end),
+            'file' => "Harga_Pokok_Produksi_{$start}_sd_{$end}", 'filters' => $this->dateFilters($start, $end), 'indent_col' => 1,
+            'columns' => [
+                ['key' => 'code', 'label' => 'Kode', 'width' => 14],
+                ['key' => 'name', 'label' => 'Keterangan', 'width' => 46],
+                ['key' => 'qty', 'label' => 'Jumlah', 'width' => 14, 'align' => 'right', 'format' => 'qty'],
+                ['key' => 'amount', 'label' => 'Nilai (Rp)', 'width' => 22, 'align' => 'right', 'format' => 'money'],
+            ],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Bahan', 'value' => $materialTotal, 'format' => 'money'],
+                ['label' => 'Tenaga Kerja dan Overhead', 'value' => $costTotal, 'format' => 'money'],
+                ['label' => 'Harga Pokok Produksi', 'value' => $materialTotal + $costTotal, 'format' => 'money'],
+                ['label' => 'Perintah Produksi', 'value' => $orders->count(), 'format' => 'int'],
+            ],
+        ];
+    }
+
     public function inventoryStock(Request $r): array
     {
         $products = Product::where('company_id', $this->companyId)->where('type', 'goods')->with('category')->orderBy('name')->get();
         $rows = []; $tv = 0; $low = 0;
+        $method = optional(\App\Models\Company::find($this->companyId))->inventory_costing_method ?? 'average';
         foreach ($products as $p) {
             $stock = (float) $p->stock;
-            $val = $stock * (float) $p->buy_price;
+            $val = \App\Services\InventoryAccounting::stockValue($p, $method);
             $tv += $val;
             if ($stock <= 5) $low++;
-            $rows[] = $this->row([$p->sku, $p->name, $p->category?->name ?? '-', $p->unit ?? '-', $stock, (float) $p->buy_price, $val]);
+            $rows[] = $this->row([$p->sku, $p->name, \App\Support\ItemKind::label($p->item_kind) ?? '-', $p->category?->name ?? '-', $p->unit ?? '-', $stock, $stock > 0 ? $val / $stock : (float) $p->buy_price, $val]);
         }
-        $rows[] = ['type' => 'grand', 'cells' => ['', 'TOTAL NILAI PERSEDIAAN', '', '', '', '', $tv]];
+        $rows[] = ['type' => 'grand', 'cells' => ['', 'TOTAL NILAI PERSEDIAAN', '', '', '', '', '', $tv]];
 
         return [
             'key' => 'inventory-stock', 'title' => 'Laporan Stok Persediaan', 'subtitle' => 'Per ' . \App\Support\ReportFormat::date(now()),
@@ -531,10 +642,11 @@ class ReportBuilder
             'columns' => [
                 ['key' => 'sku', 'label' => 'SKU', 'width' => 16],
                 ['key' => 'name', 'label' => 'Nama Barang', 'width' => 36],
+                ['key' => 'kind', 'label' => 'Jenis', 'width' => 16],
                 ['key' => 'cat', 'label' => 'Kategori', 'width' => 20],
                 ['key' => 'unit', 'label' => 'Satuan', 'width' => 10],
                 ['key' => 'stock', 'label' => 'Stok', 'width' => 12, 'align' => 'right', 'format' => 'qty'],
-                ['key' => 'cost', 'label' => 'Harga Beli (Rp)', 'width' => 18, 'align' => 'right', 'format' => 'money'],
+                ['key' => 'cost', 'label' => 'Harga Pokok (Rp)', 'width' => 18, 'align' => 'right', 'format' => 'money'],
                 ['key' => 'val', 'label' => 'Nilai (Rp)', 'width' => 20, 'align' => 'right', 'format' => 'money'],
             ],
             'rows' => $rows, 'empty' => 'Belum ada barang.',

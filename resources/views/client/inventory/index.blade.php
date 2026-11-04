@@ -18,8 +18,16 @@
     <form method="GET" action="{{ $self }}" class="rpt-toolbar">
         <div class="rpt-filters">
             <div class="rpt-field"><label>Cari</label><input type="search" name="search" value="{{ request('search') }}" placeholder="Kode / nama"></div>
+            @if(count($itemKinds) > 1)
+                <div class="rpt-field"><label>Jenis</label>
+                    <select name="jenis" onchange="this.form.submit()">
+                        <option value="">Semua jenis</option>
+                        @foreach($itemKinds as $k => $acc)<option value="{{ $k }}" @selected(request('jenis') === $k)>{{ \App\Support\ItemKind::label($k) }}</option>@endforeach
+                    </select>
+                </div>
+            @endif
             <button class="rpt-btn primary" type="submit">Cari</button>
-            @if(request('search'))<a href="{{ $self }}" class="rpt-btn">Reset</a>@endif
+            @if(request('search') || request('jenis'))<a href="{{ $self }}" class="rpt-btn">Reset</a>@endif
         </div>
         <div class="rpt-actions">
             @if($isAll)<a href="{{ route('client.inventory.create') }}" class="rpt-btn">+ Barang</a><a href="{{ route('client.inventory.services.create') }}" class="rpt-btn primary">+ Jasa</a>
@@ -40,7 +48,7 @@
                 @forelse($products as $product)
                     <tr class="{{ $product->is_active ? '' : 'pay-void-row' }}">
                         <td class="num"><b>{{ $product->sku }}</b></td>
-                        <td class="wrap">{{ $product->name }}</td>
+                        <td class="wrap">{{ $product->name }}@if(count($itemKinds) > 1 && \App\Support\ItemKind::label($product->item_kind))<span class="kind-tag">{{ \App\Support\ItemKind::label($product->item_kind) }}</span>@endif</td>
                         @if($isAll)<td><span class="st {{ $product->type === 'service' ? 'st-unpaid' : 'st-paid' }}">{{ $product->type === 'service' ? 'Jasa' : 'Barang' }}</span></td>@endif
                         <td>{{ $product->category->name ?? '-' }}</td>
                         <td>{{ $product->unit ?: '-' }}</td>

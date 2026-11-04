@@ -66,6 +66,9 @@ class InventoryAccounting
         if ($out && (float) $product->stock + 0.0001 < $qty) {
             throw new \DomainException("Stok {$product->name} hanya " . (float) $product->stock . ', tidak bisa dikurangi ' . $qty . '.');
         }
+        if (! $out && (float) $product->buy_price <= 0) {
+            throw new \DomainException("Harga beli {$product->name} masih Rp 0, jadi stok yang ditambahkan tidak punya nilai. Isi Harga Beli di data barang dulu.");
+        }
         $meta = self::KINDS[$kind] ?? self::KINDS['adjustment'];
 
         return DB::transaction(function () use ($companyId, $product, $qty, $out, $date, $contraAccountId, $kind, $note, $userId, $inv, $meta) {
@@ -89,7 +92,7 @@ class InventoryAccounting
             return InventoryMovement::create([
                 'company_id' => $companyId, 'product_id' => $product->id, 'date' => $date,
                 'type' => $out ? 'out' : 'in', 'quantity' => $qty,
-                'unit_cost' => $qty > 0 ? round($cost / $qty, 2) : 0, 'remaining_qty' => $out ? 0 : $qty,
+                'unit_cost' => $qty > 0 ? round($cost / $qty, 4) : 0, 'remaining_qty' => $out ? 0 : $qty,
                 'reference_type' => $kind, 'journal_id' => $journal?->id,
                 'notes' => $note ?: $meta['label'], 'created_by' => $userId,
             ]);
@@ -127,6 +130,46 @@ class InventoryAccounting
             $m->voided_at = now();
             $m->save();
         });
+    }
+
+    /** Akun persediaan barang diganti saat masih ada stok: nilainya ikut dipindahkan ke akun baru. */
+    public static function reclassify(Product $product, int $oldAccountId, int $userId): void
+    {
+        $new = AccountResolver::inventoryFor($product, (int) $product->company_id);
+        $stock = (float) $product->stock;
+        if (! $new || $new->id === $oldAccountId || $stock <= 0) {
+            return;
+        }
+        // Barang yang diterima tapi belum ditagih belum ada di Buku Besar, jadi tidak ikut dipindahkan.
+        $received = (float) InventoryMovement::where('product_id', $product->id)->where('reference_type', 'item_receipt')->sum('quantity');
+        $billed = (float) \App\Models\PurchaseInvoiceItem::where('product_id', $product->id)->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'void'))->sum('quantity');
+        $posted = max(0, $stock - max(0, $received - $billed));
+        $value = round(self::stockValue($product) * $posted / $stock, 2);
+        if ($value <= 0.004) {
+            return;
+        }
+        $date = now()->toDateString();
+        $journal = Journal::create([
+            'company_id' => $product->company_id,
+            'ref_number' => DocumentNumber::next(Journal::class, 'ref_number', 'RCL-', (int) $product->company_id, $date),
+            'type' => 'general', 'transaction_date' => $date,
+            'description' => 'Pindah akun persediaan ' . $product->name, 'status' => 'posted', 'created_by' => $userId,
+        ]);
+        JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $new->id, 'debit' => $value, 'credit' => 0, 'description' => 'Pindah akun persediaan ' . $product->name]);
+        JournalDetail::create(['journal_id' => $journal->id, 'account_id' => $oldAccountId, 'debit' => 0, 'credit' => $value, 'description' => 'Pindah akun persediaan ' . $product->name]);
+        JournalGuard::assertBalanced($journal);
+    }
+
+    /** Nilai stok sebuah barang: FIFO dari sisa tiap batch, selain itu stok x harga rata-rata. */
+    public static function stockValue(Product $product, ?string $method = null): float
+    {
+        $method ??= optional(\App\Models\Company::find($product->company_id))->inventory_costing_method ?? 'average';
+        if ($method !== 'fifo') {
+            return (float) $product->stock * (float) $product->buy_price;
+        }
+
+        return (float) InventoryMovement::where('product_id', $product->id)->where('type', 'in')->where('remaining_qty', '>', 0)
+            ->get()->sum(fn ($m) => (float) $m->remaining_qty * (float) $m->unit_cost);
     }
 
     /** Nilai pokok barang yang keluar (FIFO bila dipakai perusahaan, selain itu harga rata-rata). */

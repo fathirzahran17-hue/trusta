@@ -58,17 +58,29 @@
             <div style="padding: 14px 18px; background: rgba(15,23,42,0.3);">
                 <h3 style="font-size: 0.82rem; font-weight: 600; color: #fff; margin-bottom: 10px;">Item Produk / Layanan</h3>
 
+                @include('partials.invoice-layout', [
+                    'layouts' => $layouts, 'layout' => $layout, 'warnShortage' => true,
+                    'itemHeads' => array_intersect_key(['barang' => 'Barang', 'jasa' => 'Jasa'], $layouts),
+                    'hints' => array_intersect_key([
+                        'barang' => 'Pilih barang yang dijual. Pendapatan, harga pokok, dan persediaan dijurnal otomatis mengikuti data barang.',
+                        'jasa' => 'Jasa tanpa stok. Pendapatan dijurnal otomatis mengikuti data jasa.',
+                    ], $layouts),
+                ])
+                <template id="opts-barang">@include('partials.product-options', ['products' => $products->where('type', 'goods'), 'context' => 'sales', 'priceField' => 'sell_price', 'stockMap' => $stockMap])</template>
+                <template id="opts-jasa">@include('partials.product-options', ['products' => $products->where('type', '!=', 'goods'), 'context' => 'sales', 'priceField' => 'sell_price'])</template>
+
                 <div style="overflow: visible;">
                     @include("partials.no-products")
                     <table class="w-full text-sm text-left" id="itemsTable">
                         <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
                             <tr>
-                                <th style="padding: 6px 8px; width: 28%;">Produk / Jasa</th>
-                                <th style="padding: 6px 8px; width: 18%;">Keterangan</th>
+                                <th class="col-item" style="padding: 6px 8px; width: 30%;">Barang</th>
+                                <th class="col-desc" style="padding: 6px 8px; width: 16%;">Keterangan</th>
+                                <th class="col-stock" style="padding: 6px 8px; width: 76px; text-align: right;">Stok</th>
                                 <th style="padding: 6px 8px; width: 70px; text-align: right;">Qty</th>
                                 <th style="padding: 6px 8px; width: 50px; text-align: center;">Satuan</th>
-                                <th style="padding: 6px 8px; width: 120px; text-align: right;">Harga Satuan</th>
-                                <th style="padding: 6px 8px; width: 70px; text-align: right;">Disk (%)</th>
+                                <th style="padding: 6px 8px; width: 150px; min-width: 150px; text-align: right;">Harga Satuan</th>
+                                <th style="padding: 6px 8px; width: 84px; min-width: 84px; text-align: right;">Disk (%)</th>
                                 <th style="padding: 6px 8px; width: 120px; text-align: right;">Jumlah</th>
                                 <th style="padding: 6px 8px; width: 36px;"></th>
                             </tr>
@@ -76,16 +88,12 @@
                         <tbody id="itemsBody" class="divide-y divide-gray-700/50">
                             <tr class="group item-row">
                                 <td style="padding: 4px 4px;">
-                                    <select name="products[]" class="product-select" required style="width: 100%;">
-                                        <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
-                                        @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}" data-price="{{ $prod->sell_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <select name="products[]" class="product-select" required style="width: 100%;"></select>
                                 </td>
-                                <td style="padding: 4px 4px;">
+                                <td class="col-desc" style="padding: 4px 4px;">
                                     <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                                 </td>
+                                <td class="col-stock" style="padding: 4px 8px; text-align: right;"><span class="row-stock">-</span></td>
                                 <td style="padding: 4px 4px;">
                                     <input type="number" step="0.01" name="quantities[]" class="input-qty" value="1" min="0.01" required style="width: 100%; text-align: right;">
                                 </td>
@@ -193,7 +201,6 @@
             const displayTax = document.getElementById('displayTax');
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->sell_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;
@@ -233,15 +240,13 @@
                 tr.className = 'group item-row';
                 tr.innerHTML = `
                     <td style="padding: 4px 4px;">
-                        <select name="products[]" class="product-select" required style="width: 100%;">
-                            <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
-                            ${productOptions}
-                        </select>
+                        <select name="products[]" class="product-select" required style="width: 100%;">${window.InvoiceLayout.options()}</select>
                     </td>
-                    <td style="padding: 4px 4px;">
+                    <td class="col-desc" style="padding: 4px 4px;">
                         <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" placeholder="Opsional" style="width: 100%;">
                     </td>
-                    <td style="padding: 4px 4px;">
+                    <td class="col-stock" style="padding: 4px 8px; text-align: right;"><span class="row-stock">-</span></td>
+                                <td style="padding: 4px 4px;">
                         <input type="number" step="0.01" name="quantities[]" class="input-qty" value="1" min="0.01" required style="width: 100%; text-align: right;">
                     </td>
                     <td style="padding: 4px 4px; text-align: center;">
@@ -320,6 +325,7 @@
             }
 
             // Init existing rows
+            window.InvoiceLayout.init();
             document.querySelectorAll('.item-row').forEach(row => attachRowListeners(row));
             taxSelect.addEventListener('change', calculateTotals);
             
@@ -329,5 +335,5 @@
         });
     </script>
     @include('partials.prefill-rows', ['rows' => $prefill['rows']])
+    @include('partials.material-sale-warning')
 </x-app-layout>
-

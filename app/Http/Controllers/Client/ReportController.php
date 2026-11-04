@@ -39,6 +39,7 @@ class ReportController extends Controller
     public function payableSummary(Request $r)   { return $this->respond($r, fn ($b) => $b->payableSummary($r)); }
     public function purchaseReport(Request $r)   { return $this->respond($r, fn ($b) => $b->purchaseReport($r)); }
     public function inventoryStock(Request $r)   { return $this->respond($r, fn ($b) => $b->inventoryStock($r)); }
+    public function productionCost(Request $r)   { return $this->respond($r, fn ($b) => $b->productionCost($r)); }
 
     /** Satu pintu untuk semua laporan: layar, PDF (halaman cetak A4), Excel, CSV. */
     private function respond(Request $request, callable $make)

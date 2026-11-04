@@ -90,6 +90,35 @@ class ProductionController extends Controller
         return back()->with('success', 'Resep dihapus. Perintah produksi yang sudah jadi tidak berubah.');
     }
 
+    // ===== Kebutuhan Bahan =====
+    public function requirements(Request $request)
+    {
+        $cid = $this->cid();
+        $boms = Bom::with(['product', 'items.product'])->where('company_id', $cid)->where('is_active', true)->orderBy('name')->get();
+        $planned = collect((array) $request->input('qty', []))->map(fn ($q) => (float) $q)->filter(fn ($q) => $q > 0)
+            ->only($boms->pluck('id')->all())->all();
+
+        $need = [];
+        foreach ($boms as $bom) {
+            $factor = ($planned[$bom->id] ?? 0) / max((float) $bom->output_qty, 0.0001);
+            foreach ($factor > 0 ? $bom->items : [] as $item) {
+                $need[$item->product_id] = ($need[$item->product_id] ?? 0) + (float) $item->quantity * $factor;
+            }
+        }
+        $stock = \App\Support\ItemKind::stockMap($cid);
+        $products = Product::where('company_id', $cid)->whereIn('id', array_keys($need))->get()->keyBy('id');
+        $rows = collect($need)->map(function ($qty, $id) use ($products, $stock) {
+            $have = max(0, $stock[$id] ?? 0);
+            $short = round(max(0, $qty - $have), 4);
+
+            return ['product' => $products[$id], 'need' => $qty, 'stock' => $have, 'short' => $short,
+                'order' => ceil($short * 100) / 100, // form pesanan memakai 2 desimal
+                'cost' => round($short * (float) $products[$id]->buy_price, 2)];
+        })->sortByDesc('short')->values();
+
+        return view('client.production.requirements', ['boms' => $boms, 'planned' => $planned, 'rows' => $rows, 'shortCount' => $rows->where('short', '>', 0)->count()]);
+    }
+
     // ===== Perintah Produksi =====
     public function orders()
     {

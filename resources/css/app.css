@@ -1572,6 +1572,25 @@ html.dark .bg-yellow-600 { background-color: #a16207; }
 .auth-eye { position: absolute; inset: 0 0 0 auto; width: 42px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); background: transparent; border: none; cursor: pointer; }
 .auth-eye:hover { color: var(--text-strong); }
 .auth-eye svg { width: 19px; height: 19px; }
+/* Layout baris faktur dan jenis barang */
+.layout-tabs { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+.layout-tab { padding: 6px 16px; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); background: transparent; border: none; border-radius: 7px; cursor: pointer; }
+.layout-tab:hover { color: var(--text-strong); }
+.layout-tab.on { color: var(--accent); background: var(--surface); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }
+.layout-hint { margin: 0 0 14px; font-size: 0.75rem; color: var(--text-dim); }
+#itemsTable:not([data-layout="barang"]) .col-stock { display: none; }
+#itemsTable[data-layout="barang"] .col-desc { display: none; }
+#itemsTable .input-discount { padding-left: 6px; padding-right: 4px; }
+.row-stock { font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
+.row-stock.is-low { color: var(--danger); font-weight: 600; }
+.recv-box { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-top: 16px; padding: 12px 16px; background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 10px; }
+.recv-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-strong); cursor: pointer; }
+.recv-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.recv-warehouse { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); }
+.recv-off { flex-basis: 100%; margin: 0; font-size: 0.75rem; color: var(--text-dim); }
+.kind-tag { display: inline-block; margin-left: 8px; padding: 1px 7px; font-size: 0.68rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 999px; white-space: nowrap; }
+.material-warn { margin-top: 4px; font-size: 0.72rem; color: var(--danger); }
+
 .pw-rules { margin-top: 8px; padding: 10px 12px; font-size: 0.78rem; color: var(--text-dim); background: var(--surface-2, transparent); border: 1px solid var(--border); border-radius: 10px; }
 .pw-rules ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .pw-rules li { display: flex; align-items: center; gap: 7px; }

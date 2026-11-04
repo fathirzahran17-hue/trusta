@@ -11,7 +11,7 @@
 
     <form method="POST" action="{{ route('client.production.orders.store') }}" class="pay-card" x-data="prodForm()" x-init="init()">
         @csrf
-        <div class="pay-card-head"><h3>Produksi Baru</h3><a class="pay-mini" href="{{ route('client.production.boms') }}">Kelola Resep</a></div>
+        <div class="pay-card-head"><h3>Produksi Baru</h3><span><a class="pay-mini" href="{{ route('client.production.requirements') }}">Cek Kebutuhan Bahan</a> <a class="pay-mini" href="{{ route('client.production.boms') }}">Kelola Resep</a></span></div>
         <div class="pay-form-grid">
             <div class="pay-field"><label>Tanggal *</label><input type="date" name="date" value="{{ old('date', date('Y-m-d')) }}" required></div>
             <div class="pay-field" style="grid-column: span 2"><label>Pakai Resep</label>
@@ -22,7 +22,7 @@
             <div class="pay-field" style="grid-column: span 2"><label>Barang Jadi *</label>
                 <select name="product_id" x-model="product" required>
                     <option value="">-- Pilih barang jadi --</option>
-                    @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->sku ? $p->sku . ' - ' : '' }}{{ $p->name }}</option>@endforeach
+                    @include('partials.product-options', ['products' => $products, 'context' => 'output'])
                 </select></div>
             <div class="pay-field"><label>Jumlah Diproduksi *</label><input type="number" step="0.01" min="0.01" name="quantity" x-model="qty" @input="applyBom(true)" required></div>
             <div class="pay-field" style="grid-column: span 2"><label>Catatan</label><input type="text" name="notes" maxlength="255" value="{{ old('notes') }}"></div>
@@ -36,11 +36,11 @@
                     <tr>
                         <td><select :name="'components[' + i + '][product_id]'" x-model="r.product_id" style="width:100%">
                             <option value="">-- Pilih bahan --</option>
-                            @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->unit }})</option>@endforeach
+                            @include('partials.product-options', ['products' => $products, 'context' => 'input', 'withUnit' => true])
                         </select></td>
                         <td class="r" :style="lack(r) ? 'color: var(--danger); font-weight:700' : ''" x-text="info(r.product_id) ? info(r.product_id).stock : ''"></td>
                         <td class="r"><input type="number" step="0.0001" min="0" class="pay-amt" style="width:130px" :name="'components[' + i + '][quantity]'" x-model="r.quantity"></td>
-                        <td class="r" x-text="window.fmtRp((info(r.product_id) ? info(r.product_id).cost : 0) * (parseFloat(r.quantity) || 0))"></td>
+                        <td class="r" :style="noCost(r) ? 'color: var(--danger); font-weight:700' : ''" x-text="noCost(r) ? 'Harga pokok Rp 0' : window.fmtRp((info(r.product_id) ? info(r.product_id).cost : 0) * (parseFloat(r.quantity) || 0))"></td>
                         <td class="c"><button type="button" class="pay-mini dng" @click="rows.splice(i, 1)" x-show="rows.length > 1">&times;</button></td>
                     </tr>
                 </template>
@@ -105,6 +105,7 @@
                 costs: @js(array_values(old('costs', []))),
                 init() { if (this.bom && !@js((bool) old('components'))) this.applyBom(); },
                 info(id) { return prices[id] || null; },
+                noCost(r) { const i = this.info(r.product_id); return i && !i.cost; },
                 lack(r) { const i = this.info(r.product_id); return i && (parseFloat(r.quantity) || 0) > i.stock + 0.0001; },
                 applyBom(onlyQty) {
                     const b = boms.find(x => String(x.id) === String(this.bom)); if (!b) return;

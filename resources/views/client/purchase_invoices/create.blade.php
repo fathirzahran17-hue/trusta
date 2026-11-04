@@ -70,39 +70,43 @@
             <!-- Detail Barang/Jasa -->
             <div class="p-6 md:p-8 bg-gray-900/50">
                 <h3 class="text-lg font-medium text-white mb-1">{{ $mode === 'biaya' ? 'Rincian Biaya / Akun Lawan' : 'Item Produk / Layanan / Biaya yang Dibeli' }}</h3>
-                <p class="text-xs text-gray-400 mb-4">Pilih <b>produk/jasa</b>, atau pilih <b>akun biaya</b> langsung (mis. Biaya Listrik) bila yang dicatat bukan barang. Jurnal: Debit akun yang dipilih, Kredit Hutang Usaha. Satu faktur boleh mencampur keduanya.</p>
+                @include('partials.invoice-layout', [
+                    'layouts' => $layouts, 'layout' => $layout,
+                    'itemHeads' => array_intersect_key(['barang' => 'Barang', 'jasa' => 'Jasa', 'biaya' => 'Akun Biaya'], $layouts),
+                    'hints' => array_intersect_key([
+                        'barang' => 'Barang masuk persediaan dengan harga di faktur. Jurnal: <b>Debit</b> Persediaan, <b>Kredit</b> Hutang Usaha.',
+                        'jasa' => 'Jasa dari pemasok, tanpa stok. Jurnal: <b>Debit</b> akun biaya jasa tersebut, <b>Kredit</b> Hutang Usaha.',
+                        'biaya' => 'Tagihan yang bukan barang, misalnya listrik atau sewa. Jurnal: <b>Debit</b> akun yang dipilih, <b>Kredit</b> Hutang Usaha.',
+                    ], $layouts),
+                ])
+                <template id="opts-barang">@include('partials.product-options', ['products' => $products->where('type', 'goods'), 'context' => 'purchase', 'priceField' => 'buy_price', 'stockMap' => $stockMap])</template>
+                <template id="opts-jasa">@include('partials.product-options', ['products' => $products->where('type', '!=', 'goods'), 'context' => 'purchase', 'priceField' => 'buy_price'])</template>
+                <template id="opts-biaya">{!! $__acctOpts !!}</template>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left" id="itemsTable">
                         <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
                             <tr>
-                                <th class="px-4 py-3 w-1/4">{{ $mode === 'biaya' ? 'Akun Biaya / Produk' : 'Produk / Jasa / Akun Biaya' }}</th>
-                                <th class="px-4 py-3" style="width: 16%;">Keterangan</th>
-                                <th class="px-4 py-3 w-20 text-right">Qty</th>
-                                <th class="px-4 py-3 text-center" style="width: 50px;">Satuan</th>
-                                <th class="px-4 py-3 text-right" style="min-width: 170px;">Harga Satuan</th>
-                                <th class="px-4 py-3 text-right" style="width: 70px;">Disk (%)</th>
-                                <th class="px-4 py-3 w-36 text-right">Jumlah</th>
-                                <th class="px-4 py-3 w-12"></th>
+                                <th class="px-3 py-3 col-item" style="width: 30%;">Barang</th>
+                                <th class="px-4 py-3 col-desc" style="width: 16%;">Keterangan</th>
+                                <th class="px-2 py-3 text-right col-stock" style="width: 76px;">Stok</th>
+                                <th class="px-2 py-3 text-right" style="width: 76px;">Qty</th>
+                                <th class="px-2 py-3 text-center" style="width: 54px;">Satuan</th>
+                                <th class="px-2 py-3 text-right" style="width: 156px; min-width: 156px;">Harga Satuan</th>
+                                <th class="px-2 py-3 text-right" style="width: 84px; min-width: 84px;">Disk (%)</th>
+                                <th class="px-3 py-3 text-right" style="width: 124px;">Jumlah</th>
+                                <th class="px-1 py-3" style="width: 36px;"></th>
                             </tr>
                         </thead>
                         <tbody id="itemsBody" class="divide-y divide-gray-700/50">
                             <tr class="group item-row">
                                 <td class="px-2 py-3">
-                                                                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" style="min-width: 230px;" required>
-                                        <option value="" data-price="0" data-unit="">{{ $mode === 'biaya' ? '-- Pilih Akun Biaya --' : '-- Pilih Produk / Akun Biaya --' }}</option>
-                                        @if($mode === 'biaya')<optgroup label="Akun Biaya / Akun Lawan">{!! $__acctOpts !!}</optgroup>@endif
-                                        <optgroup label="Produk / Jasa">
-                                        @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
-                                        @endforeach
-                                        </optgroup>
-                                        @if($mode !== 'biaya')<optgroup label="Akun Biaya / Akun Lawan">{!! $__acctOpts !!}</optgroup>@endif
-                                    </select>
+                                                                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" style="min-width: 150px;" required></select>
                                 </td>
-                                <td class="px-2 py-3">
+                                <td class="px-2 py-3 col-desc">
                                     <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
                                 </td>
+                                <td class="px-2 py-3 text-right col-stock"><span class="row-stock">-</span></td>
                                 <td class="px-2 py-3">
                                     <input type="number" step="0.01" name="quantities[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-qty" value="1" min="0.01" required>
                                 </td>
@@ -175,6 +179,18 @@
                     </table>
                 </div>
 
+                @if($hasStock)
+                    <div class="recv-box" id="receivedBox" style="display:none">
+                        <label class="recv-check"><input type="checkbox" name="received_now" value="1" checked> <span><b>Barang sudah diterima</b> (stok langsung bertambah)</span></label>
+                        @if($warehouses->count() > 1)
+                            <label class="recv-warehouse">Gudang
+                                <select name="warehouse_id">@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select>
+                            </label>
+                        @endif
+                        <p class="recv-off" style="display:none">Stok belum bertambah sampai Penerimaan Barang dicatat dan ditautkan ke faktur ini.</p>
+                    </div>
+                @endif
+
                 <div class="mt-8">
                     <label for="notes" class="block text-sm font-medium text-gray-300 mb-2">Catatan Tambahan (Opsional)</label>
                     <textarea name="notes" id="notes" rows="3" class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Catatan internal terkait pembelian ini"></textarea>
@@ -183,7 +199,7 @@
 
             <div class="px-8 py-5 bg-gray-800/50 border-t border-gray-700/50 flex justify-between items-center">
                 <div class="text-xs text-gray-500">
-                    <span class="text-trusta-teal font-semibold">INFO:</span> Menyimpan invoice akan secara otomatis membuat Jurnal Hutang (AP) & Biaya.
+                    <span class="text-trusta-teal font-semibold">INFO:</span> Menyimpan faktur otomatis membuat jurnal hutang dan persediaan atau biaya.
                 </div>
                 <div class="flex space-x-3">
                     <a href="{{ route('client.purchase-invoices.index') }}" class="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm font-medium">
@@ -208,7 +224,6 @@
             const displayTax = document.getElementById('displayTax');
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
-            const productOptions = `{!! ($mode === 'biaya' ? '<optgroup label="Akun Biaya / Akun Lawan">' . $__acctOpts . '</optgroup>' : '') !!}<optgroup label="Produk / Jasa">@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach</optgroup>{!! ($mode !== 'biaya' ? '<optgroup label="Akun Biaya / Akun Lawan">' . $__acctOpts . '</optgroup>' : '') !!}`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;
@@ -246,15 +261,13 @@
                 tr.className = 'group item-row';
                 tr.innerHTML = `
                     <td class="px-2 py-3">
-                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" style="min-width: 230px;" required>
-                            <option value="" data-price="0" data-unit="">{{ $mode === 'biaya' ? '-- Pilih Akun Biaya --' : '-- Pilih Produk / Akun Biaya --' }}</option>
-                            ${productOptions}
-                        </select>
+                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" style="min-width: 150px;" required>${window.InvoiceLayout.options()}</select>
                     </td>
-                    <td class="px-2 py-3">
+                    <td class="px-2 py-3 col-desc">
                         <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
                     </td>
-                    <td class="px-2 py-3">
+                    <td class="px-2 py-3 text-right col-stock"><span class="row-stock">-</span></td>
+                                <td class="px-2 py-3">
                         <input type="number" step="0.01" name="quantities[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-qty" value="1" min="0.01" required>
                     </td>
                     <td class="px-2 py-3 text-center">
@@ -331,6 +344,7 @@
             }
 
             // Init existing rows
+            window.InvoiceLayout.init();
             document.querySelectorAll('.item-row').forEach(row => attachRowListeners(row));
             taxSelect.addEventListener('change', calculateTotals);
             

@@ -287,6 +287,17 @@ class InvoicePaymentService
             if ($orig) {
                 self::reverseJournal($orig, 'Pembatalan faktur ' . $inv->invoice_number, $userId);
             }
+            if ($kind === 'purchase') {
+                PurchaseCostAdjuster::revertInvoice($inv);
+                // Penerimaan yang dibuat otomatis dari faktur ini ikut dibatalkan, stoknya ditarik kembali.
+                foreach (\App\Models\ItemReceipt::where('source_invoice_id', $inv->id)->where('status', 'received')->get() as $receipt) {
+                    try {
+                        OrderLifecycle::cancelReceipt($receipt);
+                    } catch (\DomainException $e) {
+                        throw new \DomainException('Faktur tidak bisa dibatalkan. ' . $e->getMessage());
+                    }
+                }
+            }
             $inv->status = 'void';
             $inv->amount_due = 0;
             $inv->save();
