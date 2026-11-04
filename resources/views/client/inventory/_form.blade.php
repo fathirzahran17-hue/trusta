@@ -28,6 +28,17 @@
             <input type="text" name="name" id="name" value="{{ $val('name') }}" required maxlength="255" placeholder="{{ $isService ? 'Contoh: Jasa Instalasi AC' : 'Contoh: Laptop ASUS VivoBook' }}">
             @error('name')<div style="color:var(--danger);font-size:.72rem;margin-top:3px">{{ $message }}</div>@enderror
         </div>
+        @if(count($itemKinds ?? []) > 1)
+        <div class="pay-field">
+            <label for="item_kind">Jenis Barang <span style="color:var(--danger)">*</span></label>
+            <select name="item_kind" id="item_kind" required>
+                <option value="" data-account="">-- Pilih jenis --</option>
+                @foreach($itemKinds as $k => $acc)<option value="{{ $k }}" data-account="{{ $acc->id }}" @selected(old('item_kind', $p->item_kind ?? null) === $k)>{{ \App\Support\ItemKind::label($k) }}</option>@endforeach
+            </select>
+            @error('item_kind')<div style="color:var(--danger);font-size:.72rem;margin-top:3px">{{ $message }}</div>@enderror
+            <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Menentukan akun persediaan dan di form mana barang ini tampil lebih dulu.</div>
+        </div>
+        @endif
         <div class="pay-field">
             <label for="category_id">Kategori</label>
             <select name="category_id" id="category_id">
@@ -110,7 +121,7 @@
 @else
 <div class="pay-card">
     @php $invSel = old('inventory_account_id', $p->inventory_account_id ?? ''); @endphp
-    <details {{ $errors->has('expense_account_id') || $errors->has('inventory_account_id') || $invSel || $inventoryAccounts->count() > 1 || ($inventoryRequired ?? false) ? 'open' : '' }}>
+    <details {{ $errors->has('expense_account_id') || $errors->has('inventory_account_id') || (count($itemKinds ?? []) <= 1 && ($invSel || $inventoryAccounts->count() > 1)) ? 'open' : '' }}>
         <summary style="cursor:pointer;padding:13px 18px;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-strong)">Pengaturan akun lanjutan <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--text-dim)">(sudah otomatis)</span></summary>
         <div class="pay-form-grid" style="padding-top:0">
             <div class="pay-field" style="grid-column: span 2">
@@ -122,12 +133,12 @@
             </div>
             <div class="pay-field" style="grid-column: span 2">
                 <label for="inventory_account_id">Akun Persediaan</label>
-                <select name="inventory_account_id" id="inventory_account_id" @required($inventoryRequired ?? false)>
-                    <option value="">{{ ($inventoryRequired ?? false) ? '-- Pilih akun persediaan --' : 'Otomatis (' . (optional($defaultInventory)->name ?? 'Persediaan') . ')' }}</option>
+                <select name="inventory_account_id" id="inventory_account_id">
+                    <option value="">{{ count($itemKinds ?? []) > 1 ? 'Otomatis mengikuti Jenis Barang' : 'Otomatis (' . (optional($defaultInventory)->name ?? 'Persediaan') . ')' }}</option>
                     @foreach($inventoryAccounts as $a)<option value="{{ $a->id }}" @selected($invSel == $a->id)>{{ $a->code }} - {{ $a->name }}</option>@endforeach
                 </select>
                 <x-input-error :messages="$errors->get('inventory_account_id')" class="mt-1" />
-                <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Manufaktur: pilih <b>Bahan Baku</b> untuk bahan, <b>Barang Jadi</b> untuk hasil produksi. Bila diganti saat masih ada stok, nilainya otomatis dipindahkan lewat jurnal.</div>
+                <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px">Bila diganti saat masih ada stok, nilainya otomatis dipindahkan lewat jurnal.</div>
             </div>
         </div>
     </details>
@@ -140,4 +151,14 @@
         <input type="checkbox" name="is_active" value="1" @checked(old('is_active', $p->is_active)) style="width:17px;height:17px;accent-color:var(--accent)"> Aktif (bisa dipilih di transaksi)
     </label>
 </div></div>
+@endif
+
+@if(count($itemKinds ?? []) > 1)
+<script>
+    // Jenis barang diganti: akun persediaan ikut menyesuaikan
+    document.getElementById('item_kind').addEventListener('change', function () {
+        const account = document.getElementById('inventory_account_id');
+        if (account) account.value = this.options[this.selectedIndex].dataset.account || '';
+    });
+</script>
 @endif

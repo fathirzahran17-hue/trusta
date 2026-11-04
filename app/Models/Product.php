@@ -10,7 +10,7 @@ class Product extends Model
     use \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
-        'company_id', 'category_id', 'sku', 'name', 'type', 'is_taxable', 'unit',
+        'company_id', 'category_id', 'sku', 'name', 'type', 'item_kind', 'is_taxable', 'unit',
         'sell_price', 'buy_price', 'revenue_account_id', 'expense_account_id',
         'is_active', 'inventory_account_id',
     ];

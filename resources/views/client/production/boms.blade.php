@@ -17,7 +17,7 @@
                 <label>Barang Jadi *</label>
                 <select name="product_id" required>
                     <option value="">-- Pilih barang jadi --</option>
-                    @foreach($products as $p)<option value="{{ $p->id }}" @selected(old('product_id', optional($edit)->product_id) == $p->id)>{{ $p->sku ? $p->sku . ' - ' : '' }}{{ $p->name }}</option>@endforeach
+                    @include('partials.product-options', ['products' => $products, 'context' => 'output', 'selected' => old('product_id', optional($edit)->product_id)])
                 </select>
             </div>
             <div class="pay-field"><label>Menghasilkan (jumlah) *</label><input type="number" step="0.01" min="0.01" name="output_qty" value="{{ old('output_qty', $edit ? (float) $edit->output_qty : 1) }}" required></div>
@@ -32,7 +32,7 @@
                             <td>
                                 <select :name="'components[' + i + '][product_id]'" x-model="r.product_id" style="width:100%">
                                     <option value="">-- Pilih bahan --</option>
-                                    @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->sku ? $p->sku . ' - ' : '' }}{{ $p->name }} ({{ $p->unit }})</option>@endforeach
+                                    @include('partials.product-options', ['products' => $products, 'context' => 'input', 'withUnit' => true])
                                 </select>
                             </td>
                             <td class="r"><input type="number" step="0.0001" min="0" class="pay-amt" :name="'components[' + i + '][quantity]'" x-model="r.quantity" style="width:140px"></td>

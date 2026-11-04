@@ -44,10 +44,15 @@ class InventoryController extends Controller
                 $q->where('name', 'like', "%{$request->search}%")->orWhere('sku', 'like', "%{$request->search}%");
             });
         }
+        if ($request->filled('jenis') && isset(\App\Support\ItemKind::TYPES[$request->jenis])) {
+            $query->where('item_kind', $request->jenis);
+        }
         $products = $query->orderBy('name')->paginate(20)->withQueryString();
         $counts = Product::where('company_id', $this->companyId())->whereIn('type', ['goods', 'service'])->selectRaw('type, count(*) c')->groupBy('type')->pluck('c', 'type');
 
-        return view('client.inventory.index', ['products' => $products, 'kind' => $kind, 'counts' => $counts]);
+        $itemKinds = $kind === 'service' ? [] : \App\Support\ItemKind::available((int) $this->companyId());
+
+        return view('client.inventory.index', ['products' => $products, 'kind' => $kind, 'counts' => $counts, 'itemKinds' => $itemKinds]);
     }
 
     public function show(Product $product)
@@ -65,7 +70,8 @@ class InventoryController extends Controller
             ->reject(fn ($a) => $a->is_header)->values();
 
         $revenueAccounts = $leaf(['revenue', 'other_income']);
-        $costAccounts = $leaf(['cost_of_sales', 'expense']);
+        // Barang: hanya akun HPP, supaya nilainya masuk Harga Pokok Penjualan di Laba Rugi. Jasa subkontrak boleh akun beban.
+        $costAccounts = $leaf($kind === 'goods' ? ['cost_of_sales'] : ['cost_of_sales', 'expense']);
         $defaultRevenue = $kind === 'service' ? AccountResolver::serviceRevenue($cid) : AccountResolver::salesRevenue($cid);
 
         return [
@@ -78,7 +84,7 @@ class InventoryController extends Controller
             'defaultRevenueId' => optional($defaultRevenue)->id,
             'defaultCostId' => $kind === 'goods' ? optional(AccountResolver::cogs($cid))->id : null,
             'nextSku' => $this->nextSku($kind),
-            'inventoryRequired' => $kind === 'goods' && \App\Support\BusinessType::hasProduction(\App\Support\BusinessType::current()),
+            'itemKinds' => $kind === 'goods' ? \App\Support\ItemKind::available((int) $cid) : [],
             'costLocked' => $product && $kind === 'goods' && abs((float) $product->stock) > 0.00005,
             'inventoryAccounts' => AccountResolver::inventoryAccounts((int) $cid),
             'defaultInventory' => AccountResolver::inventory((int) $cid),
@@ -113,7 +119,7 @@ class InventoryController extends Controller
         $skuRule = \Illuminate\Validation\Rule::unique('products', 'sku')->where('company_id', $cid)->ignore($product?->id);
         $accountRule = fn () => \Illuminate\Validation\Rule::exists('accounts', 'id')->where('company_id', $cid);
 
-        $inventoryRequired = $kind === 'goods' && \App\Support\BusinessType::hasProduction(\App\Support\BusinessType::current());
+        $itemKinds = $kind === 'goods' ? \App\Support\ItemKind::available((int) $cid) : [];
         $v = $request->validate([
             'sku' => ['required', 'string', 'max:50', $skuRule],
             'name' => 'required|string|max:255',
@@ -123,10 +129,11 @@ class InventoryController extends Controller
             'buy_price' => 'nullable|numeric|min:0',
             'revenue_account_id' => ['nullable', $accountRule()],
             'expense_account_id' => ['nullable', $accountRule()],
-            'inventory_account_id' => [$inventoryRequired ? 'required' : 'nullable', $accountRule()],
+            'inventory_account_id' => ['nullable', $accountRule()],
+            'item_kind' => [count($itemKinds) > 1 ? 'required' : 'nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\ItemKind::TYPES))],
             'is_subcontract' => 'nullable',
         ], ['sku.unique' => 'Kode ini sudah dipakai produk lain.',
-            'inventory_account_id.required' => 'Pilih Akun Persediaan: Bahan Baku untuk bahan, Barang Jadi untuk hasil produksi.']);
+            'item_kind.required' => 'Pilih Jenis Barang: Bahan untuk yang dibeli dan diolah, Barang Jadi untuk hasil produksi.']);
 
         // Stok masih ada: harga pokok hanya berubah lewat transaksi, supaya nilai stok tetap sama dengan Buku Besar.
         if ($product && $kind === 'goods' && abs((float) $product->stock) > 0.00005
@@ -159,7 +166,10 @@ class InventoryController extends Controller
             $data['unit'] = ($v['unit'] ?? null) ?: 'pcs';
             $data['buy_price'] = $v['buy_price'] ?? ($product->buy_price ?? 0);
             $data['expense_account_id'] = $v['expense_account_id'] ?? optional(AccountResolver::cogs($cid))->id;
-            $data['inventory_account_id'] = $v['inventory_account_id'] ?? null;
+            // Jenis barang menentukan akun persediaan, kecuali akun dipilih sendiri di pengaturan lanjutan.
+            $itemKind = $v['item_kind'] ?? (count($itemKinds) === 1 ? array_key_first($itemKinds) : $product?->item_kind);
+            $data['item_kind'] = $itemKind;
+            $data['inventory_account_id'] = $v['inventory_account_id'] ?? optional($itemKinds[$itemKind] ?? null)->id;
         }
 
         return $data;

@@ -102,6 +102,19 @@ class AccountResolver
         return self::find($companyId, 'cost_of_sales', ['HPP%Barang Dagang%', 'HPP%Barang Jadi%', 'HPP%', 'Harga Pokok%']);
     }
 
+    /** Akun HPP sebuah barang: yang dipilih di data barang, bila tidak valid akun HPP standar perusahaan. */
+    public static function cogsFor(?\App\Models\Product $product, int $companyId): ?Account
+    {
+        if ($product && $product->expense_account_id) {
+            $a = Account::where('company_id', $companyId)->where('is_active', true)->where('type', 'cost_of_sales')->find($product->expense_account_id);
+            if ($a && !$a->is_header) {
+                return $a;
+            }
+        }
+
+        return self::cogs($companyId);
+    }
+
     public static function inventory(int $companyId): ?Account
     {
         return self::find($companyId, 'asset', ['Persediaan Barang Dagang%', 'Persediaan Barang Jadi%', 'Persediaan%']);

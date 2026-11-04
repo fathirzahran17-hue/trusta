@@ -36,7 +36,8 @@
                 ['client.reports.purchase-report', 'Daftar Faktur Pembelian', 'Seluruh faktur pembelian pada periode.', 'doc', true],
             ]],
             ['Persediaan', [
-                ['client.reports.inventory-stock', 'Stok Persediaan', 'Stok, harga beli, dan nilai persediaan per barang.', 'box', true],
+                ['client.reports.inventory-stock', 'Stok Persediaan', 'Stok, jenis barang, dan nilai persediaan per barang.', 'box', true],
+                ...(\App\Support\BusinessType::hasProduction(\App\Support\BusinessType::current()) ? [['client.reports.production-cost', 'Harga Pokok Produksi', 'Bahan, tenaga kerja, overhead, dan hasil produksi pada periode.', 'box', true]] : []),
             ]],
             ['Pajak', [
                 ['client.reports.spt_ppn', 'SPT PPN / PPNBM', 'Ringkasan PPN keluaran dan masukan.', 'doc', false],

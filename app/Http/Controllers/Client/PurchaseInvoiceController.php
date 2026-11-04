@@ -55,8 +55,16 @@ class PurchaseInvoiceController extends Controller
 
         $expenseAccounts = self::expenseAccounts((int) $cid);
         $mode = request('mode') === 'biaya' ? 'biaya' : 'umum';
+        $hasStock = \App\Support\BusinessType::hasStock(\App\Support\BusinessType::current());
+        $layouts = ($hasStock ? ['barang' => 'Barang'] : []) + ['jasa' => 'Jasa', 'biaya' => 'Biaya'];
+        $layout = request('layout');
+        if (! isset($layouts[$layout])) {
+            $layout = $mode === 'biaya' ? 'biaya' : array_key_first($layouts);
+        }
+        $warehouses = \App\Models\Warehouse::where('company_id', $cid)->where('is_active', true)->orderBy('name')->get();
+        $stockMap = \App\Support\ItemKind::stockMap((int) $cid);
 
-        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'receipts', 'checked', 'expenseAccounts', 'mode'));
+        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'receipts', 'checked', 'expenseAccounts', 'mode', 'layouts', 'layout', 'warehouses', 'stockMap', 'hasStock'));
     }
 
     /** Akun yang boleh dipilih langsung di baris faktur: biaya, HPP, biaya lain, dan aset (bukan kas/bank). */
@@ -112,6 +120,8 @@ class PurchaseInvoiceController extends Controller
             'discount_percent' => 'nullable|numeric|min:0|max:100',
             'tax_id' => 'nullable|exists:taxes,id',
             'notes' => 'nullable|string',
+            'received_now' => 'nullable|boolean',
+            'warehouse_id' => 'nullable|integer',
         ]);
 
         try {
@@ -284,9 +294,12 @@ class PurchaseInvoiceController extends Controller
             ]);
 
             // 5. Create Invoice Items
+            if ($request->boolean('received_now')) {
+                $items = \App\Services\StockReceiver::receiveFromInvoice($invoice, $items, $overallDiscPct, $request->warehouse_id ? (int) $request->warehouse_id : null, auth()->id());
+            }
             foreach ($items as $item) {
                 $invoice->items()->create($item);
-                // Note: Mutasi stok fisik (InventoryMovement) sekarang HANYA ditangani oleh Penerimaan Barang (Item Receipt).
+                // Mutasi stok ditangani Penerimaan Barang: dokumen terpisah, atau dibuat otomatis lewat pilihan "Barang sudah diterima".
             }
 
             \App\Services\PurchaseCostAdjuster::applyInvoice($invoice, $journal);

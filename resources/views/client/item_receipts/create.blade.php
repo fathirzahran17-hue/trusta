@@ -104,9 +104,7 @@
                                 <td style="padding: 4px 4px;">
                                     <select name="products[]" required style="width: 100%;">
                                         <option value="">-- Pilih Barang --</option>
-                                        @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
-                                        @endforeach
+                                        @include('partials.product-options', ['products' => $products, 'context' => 'purchase'])
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
@@ -175,7 +173,7 @@
                 });
             }, 0);
 
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            const productOptions = `@include('partials.product-options', ['products' => $products, 'context' => 'purchase'])`;
 
             btnAddRow.addEventListener('click', function() {
                 const tr = document.createElement('tr');

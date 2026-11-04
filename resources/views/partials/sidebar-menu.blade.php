@@ -94,7 +94,8 @@
             ]],
             \App\Support\BusinessType::hasProduction($bizType) ? ['title' => 'Produksi', 'icon' => 'factory', 'children' => [
                 $S(1, 'Resep Produk (BOM)', 'client.production.boms', 'client.production.boms*'),
-                $S(2, 'Perintah Produksi', 'client.production.orders', 'client.production.orders*'),
+                $S(2, 'Kebutuhan Bahan', 'client.production.requirements'),
+                $S(3, 'Perintah Produksi', 'client.production.orders', 'client.production.orders*'),
             ]] : null,
             ['title' => 'Aset Tetap', 'icon' => 'asset', 'children' => [
                 $S(1, 'Daftar Aset Tetap', 'client.fixed_assets.index', ['client.fixed_assets.index', 'client.fixed_assets.create', 'client.fixed_assets.edit']),

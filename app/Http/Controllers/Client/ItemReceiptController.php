@@ -179,31 +179,7 @@ class ItemReceiptController extends Controller
                     $price = $this->rowCost($request, $index, $product, $po);
 
                     if ($product->type === 'goods') {
-                        // 1. Moving Average Calculation
-                        $oldStock = $product->stock;
-                        $oldPrice = $product->buy_price;
-                        $newTotalStock = $oldStock + $qty;
-                        
-                        if ($newTotalStock > 0) {
-                            $movingAverage = (($oldStock * $oldPrice) + ($qty * $price)) / $newTotalStock;
-                            $product->buy_price = $movingAverage;
-                            $product->save();
-                        }
-
-                        $movement = \App\Models\InventoryMovement::create([
-                            'company_id' => $companyId,
-                            'product_id' => $product->id,
-                            'warehouse_id' => $request->warehouse_id,
-                            'date' => $request->receipt_date,
-                            'type' => 'in',
-                            'quantity' => $qty,
-                            'unit_cost' => $price,
-                            'remaining_qty' => $qty,
-                            'reference_type' => 'item_receipt',
-                            'reference_id' => $itemReceipt->id,
-                            'notes' => 'Penerimaan Barang ' . $itemReceipt->receipt_number,
-                            'created_by' => auth()->id(),
-                        ]);
+                        $movement = \App\Services\StockReceiver::receive($itemReceipt, $product, $qty, $price, (int) $request->warehouse_id, auth()->id());
                         if ($po) {
                             \App\Services\PurchaseCostAdjuster::applyReceipt($movement, $po->id);
                         }

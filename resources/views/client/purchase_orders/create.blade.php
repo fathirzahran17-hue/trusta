@@ -67,7 +67,7 @@
                                 <th style="padding: 6px 8px; width: 70px; text-align: right;">Qty</th>
                                 <th style="padding: 6px 8px; width: 50px; text-align: center;">Satuan</th>
                                 <th style="padding: 6px 8px; width: 120px; text-align: right;">Harga Satuan</th>
-                                <th style="padding: 6px 8px; width: 70px; text-align: right;">Disk (%)</th>
+                                <th style="padding: 6px 8px; width: 84px; min-width: 84px; text-align: right;">Disk (%)</th>
                                 <th style="padding: 6px 8px; width: 120px; text-align: right;">Jumlah</th>
                                 <th style="padding: 6px 8px; width: 36px;"></th>
                             </tr>
@@ -77,9 +77,7 @@
                                 <td style="padding: 4px 4px;">
                                     <select name="products[]" class="product-select" required style="width: 100%;">
                                         <option value="" data-price="0" data-unit="">-- Pilih Produk --</option>
-                                        @foreach($products as $prod)
-                                            <option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>
-                                        @endforeach
+                                        @include('partials.product-options', ['products' => $products, 'context' => 'purchase', 'priceField' => 'buy_price'])
                                     </select>
                                 </td>
                                 <td style="padding: 4px 4px;">
@@ -193,7 +191,7 @@
             const displayGrandTotal = document.getElementById('displayGrandTotal');
 
             // NOTE: Using buy_price for purchase orders
-            const productOptions = `@foreach($products as $prod)<option value="{{ $prod->id }}" data-price="{{ $prod->buy_price }}" data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}">{{ $prod->code ? $prod->code . ' - ' : '' }}{{ $prod->name }}</option>@endforeach`;
+            const productOptions = `@include('partials.product-options', ['products' => $products, 'context' => 'purchase', 'priceField' => 'buy_price'])`;
 
             window.calculateTotals = function() {
                 let subtotal = 0;

@@ -184,6 +184,7 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
         Route::get('production/boms/{bom}/edit', [\App\Http\Controllers\Client\ProductionController::class, 'editBom'])->whereNumber('bom')->name('production.boms.edit');
         Route::put('production/boms/{bom}', [\App\Http\Controllers\Client\ProductionController::class, 'updateBom'])->whereNumber('bom')->name('production.boms.update');
         Route::delete('production/boms/{bom}', [\App\Http\Controllers\Client\ProductionController::class, 'destroyBom'])->whereNumber('bom')->name('production.boms.destroy');
+        Route::get('production/requirements', [\App\Http\Controllers\Client\ProductionController::class, 'requirements'])->name('production.requirements');
         Route::get('production/orders', [\App\Http\Controllers\Client\ProductionController::class, 'orders'])->name('production.orders');
         Route::post('production/orders', [\App\Http\Controllers\Client\ProductionController::class, 'storeOrder'])->name('production.orders.store');
         Route::get('production/orders/{order}', [\App\Http\Controllers\Client\ProductionController::class, 'showOrder'])->whereNumber('order')->name('production.orders.show');
@@ -231,6 +232,7 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::get('reports/payable-summary', [\App\Http\Controllers\Client\ReportController::class, 'payableSummary'])->name('reports.payable-summary');
     Route::get('reports/purchase-report', [\App\Http\Controllers\Client\ReportController::class, 'purchaseReport'])->name('reports.purchase-report');
     Route::get('reports/inventory-stock', [\App\Http\Controllers\Client\ReportController::class, 'inventoryStock'])->name('reports.inventory-stock');
+    Route::get('reports/production-cost', [\App\Http\Controllers\Client\ReportController::class, 'productionCost'])->middleware('production')->name('reports.production-cost');
     Route::get('reports/spt-ppn', [\App\Http\Controllers\Client\ReportController::class, 'sptPpn'])->name('reports.spt_ppn');
     Route::get('reports/tax-calculator', [\App\Http\Controllers\Client\ReportController::class, 'taxCalculator'])->name('reports.tax_calculator');
 

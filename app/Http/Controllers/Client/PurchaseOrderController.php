@@ -72,7 +72,16 @@ class PurchaseOrderController extends Controller
         // Generate auto PO number
         $orderNumber = \App\Services\DocumentNumber::next(\App\Models\PurchaseOrder::class, 'po_number', 'PO-', (int) auth()->user()->company_id, null);
             
-        return view('client.purchase_orders.create', compact('suppliers', 'products', 'taxes', 'orderNumber'));
+        // Dari halaman Kebutuhan Bahan: baris terisi bahan yang kurang
+        $prefillRows = [];
+        foreach ((array) request('items', []) as $productId => $qty) {
+            $product = $products->firstWhere('id', (int) $productId);
+            if ($product && (float) $qty > 0) {
+                $prefillRows[] = ['product_id' => $product->id, 'quantity' => (float) $qty, 'price' => (float) $product->buy_price, 'discount' => 0];
+            }
+        }
+
+        return view('client.purchase_orders.create', compact('suppliers', 'products', 'taxes', 'orderNumber', 'prefillRows'));
     }
 
     public function store(Request $request)

@@ -11,7 +11,7 @@
 
     <form method="POST" action="{{ route('client.production.orders.store') }}" class="pay-card" x-data="prodForm()" x-init="init()">
         @csrf
-        <div class="pay-card-head"><h3>Produksi Baru</h3><a class="pay-mini" href="{{ route('client.production.boms') }}">Kelola Resep</a></div>
+        <div class="pay-card-head"><h3>Produksi Baru</h3><span><a class="pay-mini" href="{{ route('client.production.requirements') }}">Cek Kebutuhan Bahan</a> <a class="pay-mini" href="{{ route('client.production.boms') }}">Kelola Resep</a></span></div>
         <div class="pay-form-grid">
             <div class="pay-field"><label>Tanggal *</label><input type="date" name="date" value="{{ old('date', date('Y-m-d')) }}" required></div>
             <div class="pay-field" style="grid-column: span 2"><label>Pakai Resep</label>
@@ -22,7 +22,7 @@
             <div class="pay-field" style="grid-column: span 2"><label>Barang Jadi *</label>
                 <select name="product_id" x-model="product" required>
                     <option value="">-- Pilih barang jadi --</option>
-                    @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->sku ? $p->sku . ' - ' : '' }}{{ $p->name }}</option>@endforeach
+                    @include('partials.product-options', ['products' => $products, 'context' => 'output'])
                 </select></div>
             <div class="pay-field"><label>Jumlah Diproduksi *</label><input type="number" step="0.01" min="0.01" name="quantity" x-model="qty" @input="applyBom(true)" required></div>
             <div class="pay-field" style="grid-column: span 2"><label>Catatan</label><input type="text" name="notes" maxlength="255" value="{{ old('notes') }}"></div>
@@ -36,7 +36,7 @@
                     <tr>
                         <td><select :name="'components[' + i + '][product_id]'" x-model="r.product_id" style="width:100%">
                             <option value="">-- Pilih bahan --</option>
-                            @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->unit }})</option>@endforeach
+                            @include('partials.product-options', ['products' => $products, 'context' => 'input', 'withUnit' => true])
                         </select></td>
                         <td class="r" :style="lack(r) ? 'color: var(--danger); font-weight:700' : ''" x-text="info(r.product_id) ? info(r.product_id).stock : ''"></td>
                         <td class="r"><input type="number" step="0.0001" min="0" class="pay-amt" style="width:130px" :name="'components[' + i + '][quantity]'" x-model="r.quantity"></td>

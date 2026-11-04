@@ -335,15 +335,15 @@ class ManufacturingCostTest extends TestCase
         $this->assertEmpty($this->get('/client/consistency')->viewData('issues'));
     }
 
-    public function test_manufacturer_must_choose_inventory_account(): void
+    public function test_manufacturer_must_choose_item_kind(): void
     {
         $base = ['type' => 'goods', 'sku' => 'BHN-1', 'name' => 'Paku', 'sell_price' => 0, 'buy_price' => 100];
 
-        $this->post('/client/inventory', $base)->assertSessionHasErrors('inventory_account_id');
+        $this->post('/client/inventory', $base)->assertSessionHasErrors('item_kind');
         $this->assertSame(0, Product::where('sku', 'BHN-1')->count());
 
-        $this->post('/client/inventory', $base + ['inventory_account_id' => $this->account('Persediaan Bahan Baku')->id])->assertSessionHasNoErrors();
-        $this->assertSame(1, Product::where('sku', 'BHN-1')->count());
+        $this->post('/client/inventory', $base + ['item_kind' => 'bahan_baku'])->assertSessionHasNoErrors();
+        $this->assertSame($this->account('Persediaan Bahan Baku')->id, Product::where('sku', 'BHN-1')->firstOrFail()->inventory_account_id);
     }
 
     public function test_changing_inventory_account_moves_stock_value(): void
@@ -353,7 +353,7 @@ class ManufacturingCostTest extends TestCase
         $this->invoice($kayu, 100, 20000, $po, $rc);
 
         $this->put('/client/inventory/' . $kayu->id, ['sku' => $kayu->sku, 'name' => 'Kayu', 'sell_price' => 0, 'buy_price' => 20000, 'is_active' => 1,
-            'inventory_account_id' => $this->account('Persediaan Barang Jadi')->id])->assertSessionHasNoErrors();
+            'item_kind' => 'barang_jadi'])->assertSessionHasNoErrors();
 
         $this->assertEquals(0, $this->balance('Persediaan Bahan Baku'));
         $this->assertEquals(2000000, $this->balance('Persediaan Barang Jadi'));
@@ -364,7 +364,7 @@ class ManufacturingCostTest extends TestCase
         $kayu = $this->material();
         [$po, $rc] = $this->received($kayu);
         $this->invoice($kayu, 100, 20000, $po, $rc);
-        $data = ['sku' => $kayu->sku, 'name' => 'Kayu', 'sell_price' => 5, 'is_active' => 1, 'inventory_account_id' => $kayu->inventory_account_id];
+        $data = ['sku' => $kayu->sku, 'name' => 'Kayu', 'sell_price' => 5, 'is_active' => 1, 'item_kind' => 'bahan_baku'];
 
         $this->get('/client/inventory/' . $kayu->id . '/edit')->assertOk()->assertSee('Terkunci karena masih ada stok');
         $this->put('/client/inventory/' . $kayu->id, $data + ['buy_price' => 500])->assertSessionHasErrors('buy_price');
@@ -443,7 +443,7 @@ class ManufacturingCostTest extends TestCase
         [$po, $rc] = $this->received($kayu);
 
         $this->put('/client/inventory/' . $kayu->id, ['sku' => $kayu->sku, 'name' => 'Kayu', 'sell_price' => 0, 'buy_price' => 20000, 'is_active' => 1,
-            'inventory_account_id' => $this->account('Persediaan Barang Jadi')->id])->assertSessionHasNoErrors();
+            'item_kind' => 'barang_jadi'])->assertSessionHasNoErrors();
         $this->assertEquals(0, $this->balance('Persediaan Bahan Baku'));
         $this->assertEquals(0, $this->balance('Persediaan Barang Jadi'));
 
