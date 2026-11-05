@@ -3,7 +3,7 @@
     @section('subtitle', 'Isi rencana produksi untuk melihat bahan yang dibutuhkan dan yang masih kurang')
 
     @php
-        $rp = fn ($v) => 'Rp ' . number_format((float) $v, 2, ',', '.');
+        $rp = fn ($v) => 'Rp ' . \App\Support\Money::fmt((float) $v);
         $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 4, ',', '.'), '0'), ',');
     @endphp
 

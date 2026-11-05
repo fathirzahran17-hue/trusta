@@ -66,7 +66,7 @@
                                 {{ $order->order_date->format('d M Y') }}
                             </td>
                             <td class="px-6 py-4 text-right font-bold text-trusta-teal" style="font-variant-numeric: tabular-nums;">
-                                Rp {{ number_format($order->total, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($order->total) }}
                             </td>
                             <td class="px-6 py-4 text-center">
                                 @if($order->status == 'closed')

@@ -13,19 +13,19 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 max-w-4xl">
         <div class="bg-[#1E293B] border border-gray-800 rounded-xl p-4">
             <p class="text-xs text-gray-400 uppercase mb-1">Harga Perolehan</p>
-            <p class="text-lg font-bold text-white tabular-nums">Rp {{ number_format($fixedAsset->acquisition_cost, 2, ',', '.') }}</p>
+            <p class="text-lg font-bold text-white tabular-nums">Rp {{ \App\Support\Money::fmt($fixedAsset->acquisition_cost) }}</p>
         </div>
         <div class="bg-[#1E293B] border border-gray-800 rounded-xl p-4">
             <p class="text-xs text-gray-400 uppercase mb-1">Akum. Penyusutan</p>
-            <p class="text-lg font-bold text-red-400 tabular-nums">Rp {{ number_format($fixedAsset->accumulated_depreciation, 2, ',', '.') }}</p>
+            <p class="text-lg font-bold text-red-400 tabular-nums">Rp {{ \App\Support\Money::fmt($fixedAsset->accumulated_depreciation) }}</p>
         </div>
         <div class="bg-[#1E293B] border border-gray-800 rounded-xl p-4">
             <p class="text-xs text-gray-400 uppercase mb-1">Nilai Buku</p>
-            <p class="text-lg font-bold text-trusta-teal tabular-nums">Rp {{ number_format($fixedAsset->book_value, 2, ',', '.') }}</p>
+            <p class="text-lg font-bold text-trusta-teal tabular-nums">Rp {{ \App\Support\Money::fmt($fixedAsset->book_value) }}</p>
         </div>
         <div class="bg-[#1E293B] border border-gray-800 rounded-xl p-4">
             <p class="text-xs text-gray-400 uppercase mb-1">Penyusutan/Bulan</p>
-            <p class="text-lg font-bold text-yellow-400 tabular-nums">Rp {{ number_format($fixedAsset->monthly_depreciation, 2, ',', '.') }}</p>
+            <p class="text-lg font-bold text-yellow-400 tabular-nums">Rp {{ \App\Support\Money::fmt($fixedAsset->monthly_depreciation) }}</p>
         </div>
     </div>
 

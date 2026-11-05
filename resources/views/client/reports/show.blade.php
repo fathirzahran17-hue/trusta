@@ -33,6 +33,9 @@
             @if(!empty($doc['filters']))
                 <button type="submit" class="rpt-btn primary">Terapkan</button>
             @endif
+            @foreach($doc['links'] ?? [] as $link)
+                <a href="{{ $link['url'] }}" class="rpt-btn">{{ $link['label'] }}</a>
+            @endforeach
         </div>
         <div class="rpt-actions">
             <button type="submit" name="export" value="excel" class="rpt-btn excel">

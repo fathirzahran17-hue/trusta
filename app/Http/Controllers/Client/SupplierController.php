@@ -8,39 +8,56 @@ use Illuminate\Http\Request;
 
 class SupplierController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $suppliers = Supplier::where('company_id', auth()->user()->company_id)->orderBy('name')->get();
-        return view('client.suppliers.index', compact('suppliers'));
+        $categories = $this->categoryOptions();
+        $suppliers = Supplier::where('company_id', auth()->user()->company_id)->with('category')
+            ->when($request->filled('kategori'), fn ($q) => $q->where('supplier_category_id', (int) $request->kategori))
+            ->orderBy('name')->get();
+        return view('client.suppliers.index', compact('suppliers', 'categories'));
+    }
+
+    private function categoryOptions()
+    {
+        return \App\Models\SupplierCategory::where('company_id', auth()->user()->company_id)->orderBy('name')->get();
+    }
+
+    private function categoryRule(): array
+    {
+        return ['nullable', \Illuminate\Validation\Rule::exists('supplier_categories', 'id')->where('company_id', auth()->user()->company_id)];
     }
 
     public function create()
     {
-        return view('client.suppliers.create');
+        return view('client.suppliers.create', ['categories' => $this->categoryOptions()]);
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'tax_address' => 'nullable|string',
             'npwp' => 'nullable|string|max:30',
             'default_term_days' => 'nullable|integer|min:0',
+            'supplier_category_id' => $this->categoryRule(),
             'is_active' => 'boolean',
         ]);
 
         Supplier::create([
             'company_id' => auth()->user()->company_id,
             'name' => $request->name,
+            'company_name' => $request->company_name,
             'email' => $request->email,
             'phone' => $request->phone,
             'address' => $request->address,
             'tax_address' => $request->tax_address,
             'npwp' => $request->npwp,
             'default_term_days' => $request->default_term_days ?? 30,
+            'supplier_category_id' => $request->supplier_category_id ?: null,
             'is_active' => $request->has('is_active') ? $request->is_active : true,
         ]);
 
@@ -50,7 +67,7 @@ class SupplierController extends Controller
     public function edit(Supplier $supplier)
     {
         if ($supplier->company_id !== auth()->user()->company_id) abort(403);
-        return view('client.suppliers.edit', compact('supplier'));
+        return view('client.suppliers.edit', ['supplier' => $supplier, 'categories' => $this->categoryOptions()]);
     }
 
     public function update(Request $request, Supplier $supplier)
@@ -59,23 +76,27 @@ class SupplierController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'tax_address' => 'nullable|string',
             'npwp' => 'nullable|string|max:30',
             'default_term_days' => 'nullable|integer|min:0',
+            'supplier_category_id' => $this->categoryRule(),
             'is_active' => 'boolean',
         ]);
 
         $supplier->update([
             'name' => $request->name,
+            'company_name' => $request->company_name,
             'email' => $request->email,
             'phone' => $request->phone,
             'address' => $request->address,
             'tax_address' => $request->tax_address,
             'npwp' => $request->npwp,
             'default_term_days' => $request->default_term_days ?? 30,
+            'supplier_category_id' => $request->supplier_category_id ?: null,
             'is_active' => $request->has('is_active'),
         ]);
 

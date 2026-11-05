@@ -2,7 +2,18 @@
     @section('title', 'Data Pelanggan (Customer)')
     @section('subtitle', 'Kelola daftar pelanggan atau klien untuk invoice penjualan Anda')
 
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
+        @if($categories->isNotEmpty())
+            <form method="GET" action="{{ route('client.customers.index') }}" style="display:flex;align-items:center;gap:8px">
+                <label for="kategori" style="margin:0;white-space:nowrap">Kategori</label>
+                <select name="kategori" id="kategori" onchange="this.form.submit()" style="min-width:180px">
+                    <option value="">Semua</option>
+                    @foreach($categories as $cat)<option value="{{ $cat->id }}" @selected(request('kategori') == $cat->id)>{{ $cat->name }}</option>@endforeach
+                </select>
+            </form>
+        @else
+            <div></div>
+        @endif
         <a href="{{ route('client.customers.create') }}" class="btn-primary">
             <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
             Tambah Pelanggan
@@ -16,6 +27,7 @@
                     <tr>
                         <th scope="col" class="px-6 py-4 font-semibold">Nama Kontak</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Perusahaan / Instansi</th>
+                        <th scope="col" class="px-6 py-4 font-semibold">Kategori</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Kontak</th>
                         <th scope="col" class="px-6 py-4 font-semibold text-right">Saldo Piutang</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Status</th>
@@ -31,6 +43,7 @@
                             <td class="px-6 py-4">
                                 {{ $customer->company_name ?: '-' }}
                             </td>
+                            <td class="px-6 py-4">{{ $customer->category->name ?? '-' }}</td>
                             <td class="px-6 py-4">
                                 @if($customer->email)
                                     <div style="display: flex; align-items: center; font-size: 0.72rem; margin-bottom: 2px;">
@@ -46,7 +59,7 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 text-right font-medium {{ $customer->saldo > 0 ? 'text-trusta-teal' : 'text-gray-400' }}">
-                                Rp {{ number_format($customer->saldo, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($customer->saldo) }}
                             </td>
                             <td class="px-6 py-4">
                                 @if($customer->is_active)
@@ -76,7 +89,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" style="padding: 40px 14px; text-align: center; color: #64748b;">
+                            <td colspan="7" style="padding: 40px 14px; text-align: center; color: #64748b;">
                                 <svg style="width: 36px; height: 36px; margin: 0 auto 10px; color: #334155;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                                 <p style="font-size: 0.82rem;">Belum ada data pelanggan. Silakan tambah pelanggan baru.</p>
                             </td>

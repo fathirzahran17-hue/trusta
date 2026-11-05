@@ -79,7 +79,7 @@ class TaxController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        $data = $request->all();
+        $data = $request->only(['name', 'rate', 'sales_tax_account_id', 'purchase_tax_account_id']);
         $data['is_active'] = $request->has('is_active');
         $tax->update($data);
 

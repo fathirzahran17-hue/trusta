@@ -55,9 +55,9 @@
                         </td>
                         <td class="px-6 py-4 text-gray-400">{{ $asset->category->name ?? '-' }}</td>
                         <td class="px-6 py-4 text-gray-400">{{ $asset->acquisition_date->format('d/m/Y') }}</td>
-                        <td class="px-6 py-4 text-right font-medium text-white tabular-nums">Rp {{ number_format($asset->acquisition_cost, 2, ',', '.') }}</td>
+                        <td class="px-6 py-4 text-right font-medium text-white tabular-nums">Rp {{ \App\Support\Money::fmt($asset->acquisition_cost) }}</td>
                         <td class="px-6 py-4 text-right">
-                            <div class="font-medium text-white tabular-nums">Rp {{ number_format($asset->book_value, 2, ',', '.') }}</div>
+                            <div class="font-medium text-white tabular-nums">Rp {{ \App\Support\Money::fmt($asset->book_value) }}</div>
                             <div class="text-xs text-gray-500 mt-1">
                                 <div class="w-full bg-gray-700 rounded-full h-1.5">
                                     <div class="bg-trusta-teal h-1.5 rounded-full" style="width: {{ $asset->depreciation_percent }}%"></div>

@@ -55,10 +55,10 @@
                                         <div class="text-white">{{ $l['name'] }}</div>
                                         @if(!empty($l['description']))<div class="text-xs text-gray-400">{{ $l['description'] }}</div>@endif
                                     </td>
-                                    <td class="border-b border-gray-700 p-3 text-right tabular-nums">{{ rtrim(rtrim(number_format($l['quantity'], 2, ',', '.'), '0'), ',') }}</td>
+                                    <td class="border-b border-gray-700 p-3 text-right tabular-nums">{{ rtrim(rtrim(\App\Support\Money::fmt($l['quantity']), '0'), ',') }}</td>
                                     @if($showPrices)
-                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['price'], 2, ',', '.') }}</td>
-                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ number_format($l['total'], 2, ',', '.') }}</td>
+                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ \App\Support\Money::fmt($l['price']) }}</td>
+                                        <td class="border-b border-gray-700 p-3 text-right tabular-nums">Rp {{ \App\Support\Money::fmt($l['total']) }}</td>
                                     @endif
                                 </tr>
                             @empty
@@ -67,7 +67,7 @@
                         </tbody>
                         @if($showPrices && $total !== null)
                             <tfoot>
-                                <tr><td colspan="3" class="p-3 text-right font-semibold text-gray-300">Total</td><td class="p-3 text-right font-bold text-white tabular-nums">Rp {{ number_format($total, 2, ',', '.') }}</td></tr>
+                                <tr><td colspan="3" class="p-3 text-right font-semibold text-gray-300">Total</td><td class="p-3 text-right font-bold text-white tabular-nums">Rp {{ \App\Support\Money::fmt($total) }}</td></tr>
                             </tfoot>
                         @endif
                     </table>
@@ -89,7 +89,7 @@
                         </thead>
                         <tbody>
                             @foreach($progress['rows'] as $r)
-                                @php $fmt = fn($n) => rtrim(rtrim(number_format($n, 2, ',', '.'), '0'), ','); @endphp
+                                @php $fmt = fn($n) => rtrim(rtrim(\App\Support\Money::fmt($n), '0'), ','); @endphp
                                 <tr>
                                     <td class="border-b border-gray-700 p-3 text-white">{{ $r['name'] }}</td>
                                     <td class="border-b border-gray-700 p-3 text-right tabular-nums">{{ $fmt($r['ordered']) }}</td>
@@ -105,6 +105,9 @@
         </div>
 
         <div>
+            @isset($attachType)
+                @include('partials.attachments', ['attachType' => $attachType, 'attachId' => $attachId])
+            @endisset
             @include('partials.related-docs', ['groups' => $groups])
         </div>
     </div>

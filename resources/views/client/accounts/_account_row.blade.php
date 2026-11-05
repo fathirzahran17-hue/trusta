@@ -23,7 +23,7 @@
         {{ $isHeader ? 'Header' : 'Detail' }}
     </td>
     <td class="px-6 py-2 text-right tabular-nums {{ $isHeader ? 'font-bold' : '' }} {{ $account->is_contra ? 'text-amber-400' : ($account->balance < 0 ? 'text-red-400' : ($isHeader ? 'text-white' : 'text-gray-300')) }}" @if($account->is_contra) title="Akun lawan: mengurangi saldo kelompoknya" @endif>
-        Rp {{ number_format($account->display_balance, 2, ',', '.') }}
+        Rp {{ \App\Support\Money::fmt($account->display_balance) }}
     </td>
     <td class="px-6 py-2">
         <div class="flex items-center justify-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -11,12 +11,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [\App\Http\Middleware\SecurityHeaders::class]);
+        $middleware->web(append: [\App\Http\Middleware\SecurityHeaders::class, \App\Http\Middleware\ApplyLocale::class]);
         $middleware->alias([
             'superadmin' => \App\Http\Middleware\SuperAdminMiddleware::class,
             'client' => \App\Http\Middleware\ClientMiddleware::class,
             'client_admin' => \App\Http\Middleware\ClientAdminMiddleware::class,
             'premium' => \App\Http\Middleware\CheckPremium::class,
+            'plan_features' => \App\Http\Middleware\EnforcePlanFeatures::class,
             'production' => \App\Http\Middleware\RequiresProduction::class,
         ]);
     })

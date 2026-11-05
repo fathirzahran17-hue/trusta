@@ -69,7 +69,7 @@
                                 <div class="text-xs text-gray-500 mt-1">Oleh: {{ $journal->createdBy->name ?? '-' }}</div>
                             </td>
                             <td class="px-6 py-4 text-right font-medium text-white">
-                                Rp {{ number_format($journal->total_debit, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($journal->total_debit) }}
                             </td>
                             <td class="px-6 py-4 text-center">
                                 @if($journal->status === 'posted')

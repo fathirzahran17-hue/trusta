@@ -115,9 +115,9 @@
                             </td>
                             <td class="py-4 px-2 text-right text-gray-600">{{ (float)$item->quantity }}</td>
                             <td class="py-4 px-2 text-center text-gray-600">{{ $item->product->unit ?? 'pcs' }}</td>
-                            <td class="py-4 px-2 text-right text-gray-600">Rp {{ number_format($item->unit_price, 2, ',', '.') }}</td>
+                            <td class="py-4 px-2 text-right text-gray-600">Rp {{ \App\Support\Money::fmt($item->unit_price) }}</td>
                             <td class="py-4 px-2 text-right text-gray-600">{{ $item->discount_percent > 0 ? (float)$item->discount_percent . '%' : '-' }}</td>
-                            <td class="py-4 px-2 text-right font-medium text-gray-900">Rp {{ number_format($item->total, 2, ',', '.') }}</td>
+                            <td class="py-4 px-2 text-right font-medium text-gray-900">Rp {{ \App\Support\Money::fmt($item->total) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -128,38 +128,38 @@
                 <div class="w-1/2">
                     <div class="flex justify-between py-2 text-sm">
                         <span class="text-gray-500 font-medium">Subtotal</span>
-                        <span class="text-gray-900 font-medium">Rp {{ number_format($sales_invoice->subtotal, 2, ',', '.') }}</span>
+                        <span class="text-gray-900 font-medium">Rp {{ \App\Support\Money::fmt($sales_invoice->subtotal) }}</span>
                     </div>
                     @if($sales_invoice->discount_amount > 0)
                         <div class="flex justify-between py-2 text-sm">
                             <span class="text-gray-500 font-medium">Diskon ({{ (float)$sales_invoice->discount_percent }}%)</span>
-                            <span class="text-red-600 font-medium">-Rp {{ number_format($sales_invoice->discount_amount, 2, ',', '.') }}</span>
+                            <span class="text-red-600 font-medium">-Rp {{ \App\Support\Money::fmt($sales_invoice->discount_amount) }}</span>
                         </div>
                     @endif
                     @if($sales_invoice->tax_amount > 0 && abs(((float) $sales_invoice->subtotal - (float) $sales_invoice->discount_amount) - (float) $sales_invoice->tax_base) > 0.004)
                         <div class="flex justify-between py-2 text-sm">
                             <span class="text-gray-500 font-medium">DPP (baris kena PPN)</span>
-                            <span class="text-gray-900 font-medium">Rp {{ number_format($sales_invoice->tax_base, 2, ',', '.') }}</span>
+                            <span class="text-gray-900 font-medium">Rp {{ \App\Support\Money::fmt($sales_invoice->tax_base) }}</span>
                         </div>
                     @endif
                     @if($sales_invoice->tax_amount > 0)
                         <div class="flex justify-between py-2 text-sm border-b border-gray-200">
                             <span class="text-gray-500 font-medium">Pajak ({{ $sales_invoice->tax ? $sales_invoice->tax->name : 'Tax' }} {{ (float)$sales_invoice->tax_percent }}%)</span>
-                            <span class="text-gray-900 font-medium">Rp {{ number_format($sales_invoice->tax_amount, 2, ',', '.') }}</span>
+                            <span class="text-gray-900 font-medium">Rp {{ \App\Support\Money::fmt($sales_invoice->tax_amount) }}</span>
                         </div>
                     @endif
                     <div class="flex justify-between py-4 border-t-2 border-gray-900 mt-2">
                         <span class="text-lg font-bold text-gray-900 uppercase tracking-wider">Grand Total</span>
-                        <span class="text-2xl font-bold text-gray-900">Rp {{ number_format($sales_invoice->total, 2, ',', '.') }}</span>
+                        <span class="text-2xl font-bold text-gray-900">Rp {{ \App\Support\Money::fmt($sales_invoice->total) }}</span>
                     </div>
                     @if($sales_invoice->amount_paid > 0)
                         <div class="flex justify-between py-2 text-sm">
                             <span class="text-gray-500 font-medium">Sudah Dibayar</span>
-                            <span class="text-green-600 font-medium">Rp {{ number_format($sales_invoice->amount_paid, 2, ',', '.') }}</span>
+                            <span class="text-green-600 font-medium">Rp {{ \App\Support\Money::fmt($sales_invoice->amount_paid) }}</span>
                         </div>
                         <div class="flex justify-between py-2 text-sm border-t border-gray-200">
                             <span class="text-gray-500 font-bold">Sisa Tagihan</span>
-                            <span class="text-red-600 font-bold">Rp {{ number_format($sales_invoice->amount_due, 2, ',', '.') }}</span>
+                            <span class="text-red-600 font-bold">Rp {{ \App\Support\Money::fmt($sales_invoice->amount_due) }}</span>
                         </div>
                     @endif
                 </div>
@@ -184,6 +184,7 @@
             @include('partials.tax-number-form', ['action' => route('client.sales-invoices.tax-number', $sales_invoice), 'number' => $sales_invoice->tax_invoice_number])
         @endif
         @include('partials.invoice-payment-panel', ['invoice' => $sales_invoice, 'kind' => 'sales'])
+        @include('partials.attachments', ['attachType' => 'sales-invoice', 'attachId' => $sales_invoice->id])
         @include('partials.related-docs', ['groups' => \App\Services\DocumentLinker::relatedForSalesInvoice($sales_invoice)])
     </div>
 </x-app-layout>

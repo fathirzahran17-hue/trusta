@@ -143,7 +143,7 @@
             window.calculateTotals = function() {
                 let subtotal = 0, taxable = 0;
                 const doc = returnDocs[invoiceSelect.value] || { disc: 0, rate: 0, lines: {} };
-                const fmt = (n) => n.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                const fmt = (n) => window.fmtAmount(n);
                 
                 document.querySelectorAll('.item-row').forEach(row => {
                     const qty = parseFloat(row.querySelector('.input-qty').value) || 0;

@@ -36,6 +36,7 @@ class ReportController extends Controller
     public function inventoryStock(Request $r)   { return $this->respond($r, fn ($b) => $b->inventoryStock($r)); }
     public function productionCost(Request $r)   { return $this->respond($r, fn ($b) => $b->productionCost($r)); }
     public function vat(Request $r)              { return $this->respond($r, fn ($b) => $b->vat($r)); }
+    public function coretax(Request $r)          { return $this->respond($r, fn ($b) => $b->coretax($r)); }
 
     /** Satu pintu untuk semua laporan: layar, PDF (halaman cetak A4), Excel, CSV. */
     private function respond(Request $request, callable $make)
@@ -43,6 +44,9 @@ class ReportController extends Controller
         $user = auth()->user();
         $company = $user->company;
         $doc = $make(new ReportBuilder($user->company_id));
+        if (app()->getLocale() === 'en') {
+            $doc = \App\Support\UiTranslator::instance()->report($doc);
+        }
         $file = $doc['file'] ?? $doc['key'];
 
         switch ($request->input('export')) {
@@ -57,7 +61,10 @@ class ReportController extends Controller
             case 'csv':
                 $headers = array_column($doc['columns'], 'label');
                 $rows = [];
-                foreach ($doc['rows'] as $row) {
+                // CSV untuk diolah lagi, jadi data dua sisi tetap ditulis memanjang
+                $pair = $doc['side_by_side'] ?? null;
+                $lines = $pair ? [...$doc['rows'], ['type' => 'section', 'label' => $pair['title']], ...$pair['left'], ...$pair['right']] : $doc['rows'];
+                foreach ($lines as $row) {
                     if ($row['type'] === 'spacer') continue;
                     if ($row['type'] === 'section') { $rows[] = array_merge([$row['label']], array_fill(0, count($headers) - 1, '')); continue; }
                     $line = [];

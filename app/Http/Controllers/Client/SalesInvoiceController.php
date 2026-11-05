@@ -58,7 +58,9 @@ class SalesInvoiceController extends Controller
         $layout = isset($layouts[request('layout')]) ? request('layout') : array_key_first($layouts);
         $stockMap = \App\Support\ItemKind::stockMap((int) $cid);
 
-        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'deliveries', 'checked', 'layouts', 'layout', 'stockMap'));
+        $termDays = \App\Support\PaymentTerms::days(auth()->user()->company?->default_sales_term, (int) $cid);
+
+        return view('client.sales_invoices.create', compact('customers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'deliveries', 'checked', 'layouts', 'layout', 'stockMap', 'termDays'));
     }
 
     public function store(Request $request)

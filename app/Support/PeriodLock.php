@@ -31,6 +31,16 @@ class PeriodLock
         return Carbon::parse($company->closing_date)->startOfDay();
     }
 
+    /** Tanggal paling awal yang boleh dipakai transaksi, bila pembatasan di Preferensi aktif. */
+    public static function startDate(): ?Carbon
+    {
+        if (!auth()->check()) return null;
+        $company = auth()->user()->company ?? null;
+        if (!$company || !$company->prevent_prior_transactions || !$company->data_start_date) return null;
+
+        return Carbon::parse($company->data_start_date)->startOfDay();
+    }
+
     public static function isClosed($date): bool
     {
         $closing = self::closingDate();
@@ -41,6 +51,13 @@ class PeriodLock
 
     public static function assertOpen($date, string $what = 'Transaksi'): void
     {
+        $start = self::startDate();
+        if ($start && $date && Carbon::parse($date)->startOfDay()->lt($start)) {
+            throw new PeriodClosedException(
+                $what . ' bertanggal ' . Carbon::parse($date)->format('d M Y') . ' ditolak karena sebelum Tanggal Mulai Data ('
+                . $start->format('d M Y') . '). Ubah tanggalnya, atau atur Tanggal Mulai Data di Preferensi.'
+            );
+        }
         if (self::isClosed($date)) {
             throw new PeriodClosedException(
                 $what . ' bertanggal ' . Carbon::parse($date)->format('d M Y') . ' tidak dapat disimpan/diubah/dihapus karena periodenya sudah Tutup Buku (terkunci sampai '

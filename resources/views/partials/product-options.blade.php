@@ -1,7 +1,7 @@
 {{-- Pilihan barang berkelompok. Param: $products, $context (purchase|sales|input|output), $priceField (opsional), $stockMap (opsional), $withUnit (opsional) --}}
 @foreach(\App\Support\ItemKind::groups($products, $context ?? 'purchase') as $group)
 @if($group['label'])<optgroup label="{{ $group['label'] }}">@endif
-@foreach($group['items'] as $prod)<option value="{{ $prod->id }}"@isset($priceField) data-price="{{ $prod->{$priceField} }}"@endisset data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}" data-taxable="{{ $prod->is_taxable ? 1 : 0 }}"@isset($stockMap) data-stock="{{ $stockMap[$prod->id] ?? 0 }}"@endisset @if($group['warn']) data-warn="1"@endif @if(isset($selected) && $selected == $prod->id) selected @endif>{{ $prod->sku ? $prod->sku . ' - ' : '' }}{{ $prod->name }}@if($withUnit ?? false) ({{ $prod->unit }})@endif</option>
+@foreach($group['items'] as $prod)<option value="{{ $prod->id }}"@isset($priceField) data-price="{{ $prod->{$priceField} }}"@endisset data-unit="{{ $prod->unit }}" data-type="{{ $prod->type }}" data-taxable="{{ $prod->is_taxable ? 1 : 0 }}"@if(($context ?? '') === 'sales' && $prod->type === 'goods') data-cost="{{ $prod->buy_price }}" @endif @isset($stockMap) data-stock="{{ $stockMap[$prod->id] ?? 0 }}"@endisset @if($group['warn']) data-warn="1"@endif @if(isset($selected) && $selected == $prod->id) selected @endif>{{ $prod->sku ? $prod->sku . ' - ' : '' }}{{ $prod->name }}@if($withUnit ?? false) ({{ $prod->unit }})@endif</option>
 @endforeach
 @if($group['label'])</optgroup>@endif
 @endforeach

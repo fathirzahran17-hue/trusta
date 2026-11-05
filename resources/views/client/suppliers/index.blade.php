@@ -3,7 +3,17 @@
     @section('subtitle', 'Kelola daftar pemasok atau vendor untuk invoice pembelian Anda')
 
     <div class="flex justify-between items-center mb-6">
-        <div></div>
+        @if($categories->isNotEmpty())
+            <form method="GET" action="{{ route('client.suppliers.index') }}" style="display:flex;align-items:center;gap:8px">
+                <label for="kategori" style="margin:0;white-space:nowrap">Kategori</label>
+                <select name="kategori" id="kategori" onchange="this.form.submit()" style="min-width:180px">
+                    <option value="">Semua</option>
+                    @foreach($categories as $cat)<option value="{{ $cat->id }}" @selected(request('kategori') == $cat->id)>{{ $cat->name }}</option>@endforeach
+                </select>
+            </form>
+        @else
+            <div></div>
+        @endif
         <a href="{{ route('client.suppliers.create') }}" class="btn-primary">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
             Tambah Pemasok
@@ -17,6 +27,7 @@
                     <tr>
                         <th scope="col" class="px-6 py-4 rounded-tl-xl font-semibold">Nama Kontak</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Perusahaan / Vendor</th>
+                        <th scope="col" class="px-6 py-4 font-semibold">Kategori</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Kontak</th>
                         <th scope="col" class="px-6 py-4 font-semibold text-right">Saldo Hutang</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Status</th>
@@ -32,6 +43,7 @@
                             <td class="px-6 py-4">
                                 {{ $supplier->company_name ?: '-' }}
                             </td>
+                            <td class="px-6 py-4">{{ $supplier->category->name ?? '-' }}</td>
                             <td class="px-6 py-4">
                                 @if($supplier->email)
                                     <div class="flex items-center text-xs mb-1">
@@ -47,7 +59,7 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 text-right font-medium {{ $supplier->saldo > 0 ? 'text-red-400' : 'text-gray-400' }}">
-                                Rp {{ number_format($supplier->saldo, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($supplier->saldo) }}
                             </td>
                             <td class="px-6 py-4">
                                 @if($supplier->is_active)
@@ -77,7 +89,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                            <td colspan="7" class="px-6 py-12 text-center text-gray-400">
                                 <svg class="w-12 h-12 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                                 <p>Belum ada data pemasok. Silakan tambah pemasok baru.</p>
                             </td>

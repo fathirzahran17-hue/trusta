@@ -199,7 +199,6 @@
         <div class="pref-sidebar-item" :class="activeMenu === 'penjualan' ? 'active' : ''" @click="activeMenu = 'penjualan'">Penjualan</div>
         <div class="pref-sidebar-item" :class="activeMenu === 'pembelian' ? 'active' : ''" @click="activeMenu = 'pembelian'">Pembelian</div>
         <div class="pref-sidebar-item" :class="activeMenu === 'pembatasan' ? 'active' : ''" @click="activeMenu = 'pembatasan'">Pembatasan</div>
-        <div class="pref-sidebar-item" :class="activeMenu === 'persetujuan' ? 'active' : ''" @click="activeMenu = 'persetujuan'">Persetujuan</div>
         <div class="pref-sidebar-item" :class="activeMenu === 'lampiran' ? 'active' : ''" @click="activeMenu = 'lampiran'">Lampiran</div>
         <div class="pref-sidebar-item" :class="activeMenu === 'atribut' ? 'active' : ''" @click="activeMenu = 'atribut'">Atribut Tambahan</div>
         <div class="pref-sidebar-item" :class="activeMenu === 'lainnya' ? 'active' : ''" @click="activeMenu = 'lainnya'">Lain-lain</div>
@@ -367,9 +366,11 @@
                     <div class="pref-form-group">
                         <div class="pref-label">Syarat Pembayaran Default</div>
                         <select name="default_sales_term" class="pref-input">
-                            <option value="Net 30" {{ old('default_sales_term', $company->default_sales_term) == 'Net 30' ? 'selected' : '' }}>Net 30</option>
-                            <option value="Cash On Delivery" {{ old('default_sales_term', $company->default_sales_term) == 'Cash On Delivery' ? 'selected' : '' }}>Cash On Delivery</option>
+                            @foreach(\App\Support\PaymentTerms::options((int) $company->id) as $termName => $termDays)
+                                <option value="{{ $termName }}" @selected(old('default_sales_term', $company->default_sales_term) === $termName)>{{ $termName }}</option>
+                            @endforeach
                         </select>
+                        <div class="pref-hint">Mengisi Jatuh Tempo otomatis di faktur baru. Jangka waktu pada data pelanggan atau pemasok lebih diutamakan.</div>
                     </div>
                     <div class="pref-form-group">
                         <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
@@ -393,9 +394,11 @@
                     <div class="pref-form-group">
                         <div class="pref-label">Syarat Pembayaran Default</div>
                         <select name="default_purchase_term" class="pref-input">
-                            <option value="Net 30" {{ old('default_purchase_term', $company->default_purchase_term) == 'Net 30' ? 'selected' : '' }}>Net 30</option>
-                            <option value="Net 60" {{ old('default_purchase_term', $company->default_purchase_term) == 'Net 60' ? 'selected' : '' }}>Net 60</option>
+                            @foreach(\App\Support\PaymentTerms::options((int) $company->id) as $termName => $termDays)
+                                <option value="{{ $termName }}" @selected(old('default_purchase_term', $company->default_purchase_term) === $termName)>{{ $termName }}</option>
+                            @endforeach
                         </select>
+                        <div class="pref-hint">Mengisi Jatuh Tempo otomatis di faktur baru. Jangka waktu pada data pelanggan atau pemasok lebih diutamakan.</div>
                     </div>
                     <div class="pref-form-group">
                         <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
@@ -437,31 +440,16 @@
                         </label>
                     </div>
                     <div class="pref-form-group">
+                        <div class="pref-label">Tanggal Mulai Data</div>
+                        <input type="date" name="data_start_date" value="{{ old('data_start_date', $company->data_start_date ? \Illuminate\Support\Carbon::parse($company->data_start_date)->format('Y-m-d') : '') }}" class="pref-input" style="max-width: 180px;" />
+                        <div class="pref-hint">Transaksi bertanggal sebelum ini ditolak selama pembatasan di atas dicentang. Kosongkan bila tidak perlu.</div>
+                    </div>
+                    <div class="pref-form-group">
                         <div class="pref-label" style="width: 250px;">Kunci Periode Transaksi</div>
                         <div style="flex: 1; min-width: 220px; font-size: 0.875rem; color: var(--text); line-height: 1.5;">
                             {{ $company->closing_date ? 'Terkunci sampai ' . \App\Support\ReportFormat::date($company->closing_date) . '.' : 'Belum ada periode yang dikunci.' }}
                             <a href="{{ route('client.company.month_end') }}" style="color: var(--accent); font-weight: 600;">Atur di Tutup Buku Bulanan</a>
                         </div>
-                    </div>
-                    <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
-                    </div>
-                </div>
-            </form>
-        </template>
-
-        <template x-if="activeMenu === 'persetujuan'">
-            <form action="{{ route('client.settings.preferences.update') }}" method="POST" class="pref-form-area">
-                @csrf
-                <div style="flex: 1;">
-                    <h3 style="font-size: 1.1rem; font-weight: 600; color: var(--trusta-teal); margin-bottom: 20px;">Persetujuan Transaksi (Approval)</h3>
-                    <p style="margin-bottom: 16px; font-size: 0.9rem; color: var(--trusta-text-muted);">Gunakan menu khusus "Penyetuju Transaksi" untuk mengatur struktur hierarki approval secara detail.</p>
-                    <div class="pref-form-group">
-                        <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
-                            <input type="hidden" name="notify_approver" value="0" />
-                            <input type="checkbox" name="notify_approver" value="1" {{ old('notify_approver', $company->notify_approver) ? 'checked' : '' }} style="margin-right: 12px; width: 16px; height: 16px;" />
-                            <span>Kirim notifikasi email kepada Penyetuju saat ada transaksi baru</span>
-                        </label>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
                         <button type="submit" class="btn-primary">Simpan Pengaturan</button>
@@ -477,11 +465,13 @@
                     <h3 style="font-size: 1.1rem; font-weight: 600; color: var(--trusta-teal); margin-bottom: 20px;">Lampiran Berkas</h3>
                     <div class="pref-form-group">
                         <div class="pref-label">Batas Ukuran File (MB)</div>
-                        <input type="number" name="max_attachment_size" class="pref-input" value="{{ old('max_attachment_size', $company->max_attachment_size) }}" style="max-width: 100px;" />
+                        <input type="number" name="max_attachment_size" class="pref-input" min="1" max="10" value="{{ old('max_attachment_size', $company->max_attachment_size) }}" style="max-width: 100px;" />
+                        <div class="pref-hint">Maksimal 10 MB. Lampiran bisa ditambahkan di Faktur, Pesanan, dan Jurnal.</div>
                     </div>
                     <div class="pref-form-group">
                         <div class="pref-label">Format Diizinkan (koma dipisah)</div>
                         <input type="text" name="allowed_attachment_types" class="pref-input" value="{{ old('allowed_attachment_types', $company->allowed_attachment_types) }}" />
+                        <div class="pref-hint">Pisahkan dengan koma. Pilihan: PDF, JPG, PNG, WEBP, XLSX, XLS, DOCX, DOC, CSV, TXT.</div>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
                         <button type="submit" class="btn-primary">Simpan Pengaturan</button>
@@ -499,10 +489,12 @@
                     <div class="pref-form-group">
                         <div class="pref-label">Atribut Khusus Pelanggan 1</div>
                         <input type="text" name="custom_customer_attr_1" class="pref-input" value="{{ old('custom_customer_attr_1', $company->custom_customer_attr_1) }}" placeholder="Misal: Nomor Member" />
+                        <div class="pref-hint">Menambah satu kolom di form pelanggan. Kosongkan bila tidak perlu.</div>
                     </div>
                     <div class="pref-form-group">
                         <div class="pref-label">Atribut Khusus Barang 1</div>
                         <input type="text" name="custom_item_attr_1" class="pref-input" value="{{ old('custom_item_attr_1', $company->custom_item_attr_1) }}" placeholder="Misal: Nomor Rak" />
+                        <div class="pref-hint">Menambah satu kolom di form barang dan jasa. Kosongkan bila tidak perlu.</div>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
                         <button type="submit" class="btn-primary">Simpan Pengaturan</button>
@@ -522,6 +514,7 @@
                             <option value="2 Angka (0.00)" {{ old('price_decimal_format', $company->price_decimal_format) == '2 Angka (0.00)' ? 'selected' : '' }}>2 Angka (0.00)</option>
                             <option value="Tanpa Desimal" {{ old('price_decimal_format', $company->price_decimal_format) == 'Tanpa Desimal' ? 'selected' : '' }}>Tanpa Desimal</option>
                         </select>
+                        <div class="pref-hint">Hanya mengubah tampilan. Nilai tersimpan dan jurnal tetap dua desimal.</div>
                     </div>
                     <div class="pref-form-group">
                         <div class="pref-label">Bahasa Standar</div>
@@ -529,6 +522,7 @@
                             <option value="Bahasa Indonesia" {{ old('default_language', $company->default_language) == 'Bahasa Indonesia' ? 'selected' : '' }}>Bahasa Indonesia</option>
                             <option value="English" {{ old('default_language', $company->default_language) == 'English' ? 'selected' : '' }}>English</option>
                         </select>
+                        <div class="pref-hint">Dipakai pengguna yang belum memilih bahasanya sendiri di menu atas.</div>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
                         <button type="submit" class="btn-primary">Simpan Pengaturan</button>

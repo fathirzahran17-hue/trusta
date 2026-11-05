@@ -61,7 +61,7 @@
                         <td>{{ optional($b->product)->name }}</td>
                         <td class="r">{{ (float) $b->output_qty }} {{ optional($b->product)->unit }}</td>
                         <td class="wrap" style="font-size:.75rem">{{ $b->items->map(fn ($i) => (float) $i->quantity . ' ' . optional($i->product)->unit . ' ' . optional($i->product)->name)->implode(', ') }}</td>
-                        <td class="r">Rp {{ number_format($est, 2, ',', '.') }}</td>
+                        <td class="r">Rp {{ \App\Support\Money::fmt($est) }}</td>
                         <td class="c" style="white-space:nowrap">
                             <a class="pay-mini" href="{{ route('client.production.boms.edit', $b) }}">Ubah</a>
                             <form method="POST" action="{{ route('client.production.boms.destroy', $b) }}" style="display:inline" onsubmit="return confirm('Hapus resep {{ addslashes($b->name) }}?')">@csrf @method('DELETE')<button class="pay-mini dng" type="submit">Hapus</button></form>

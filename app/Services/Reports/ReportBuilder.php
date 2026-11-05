@@ -773,6 +773,160 @@ class ReportBuilder
         ];
     }
 
+    /* ------------------------------------------------------ rekonsiliasi Coretax */
+
+    /** Lampiran 1 SPT Tahunan PPh Badan: nilai komersial dari Buku Besar, kolom fiskal dari isian pengguna. */
+    public function coretax(Request $r): array
+    {
+        $company = \App\Models\Company::find($this->companyId);
+        $lampiran = array_key_exists($r->input('lampiran'), \App\Services\Coretax\CoretaxCatalog::LAMPIRAN) ? $r->input('lampiran') : \App\Services\Coretax\CoretaxCatalog::forBusinessType($company?->business_type);
+        $years = self::coretaxYears($this->companyId);
+        $year = in_array((int) $r->input('tahun'), $years, true) ? (int) $r->input('tahun') : $years[0];
+        $detail = $r->input('tampilan', 'rinci') !== 'ringkas';
+        $rec = (new \App\Services\Coretax\CoretaxReconciliation($this->companyId, $year, $lampiran))->build();
+        $cols = [
+            ['key' => 'code', 'label' => 'Kode Akun', 'width' => 9],
+            ['key' => 'name', 'label' => 'Nama Akun', 'width' => 44],
+            ['key' => 'commercial', 'label' => 'Nilai (Komersial)', 'width' => 17, 'align' => 'right', 'format' => 'money'],
+            ['key' => 'non_object', 'label' => 'Tidak Termasuk Objek Pajak', 'width' => 15, 'align' => 'right', 'format' => 'money'],
+            ['key' => 'final', 'label' => 'Dikenakan PPh Final', 'width' => 15, 'align' => 'right', 'format' => 'money'],
+            ['key' => 'object', 'label' => 'Objek Pajak Tidak Final', 'width' => 15, 'align' => 'right', 'format' => 'money'],
+            ['key' => 'positive', 'label' => 'Penyesuaian Fiskal Positif', 'width' => 15, 'align' => 'right', 'format' => 'money'],
+            ['key' => 'negative', 'label' => 'Penyesuaian Fiskal Negatif', 'width' => 15, 'align' => 'right', 'format' => 'money'],
+            ['key' => 'codes', 'label' => 'Kode Penyesuaian', 'width' => 12],
+            ['key' => 'fiscal', 'label' => 'Nilai Fiskal', 'width' => 17, 'align' => 'right', 'format' => 'money'],
+        ];
+        $rows = [];
+        $section = function (array $catalog) use (&$rows, $rec, $detail) {
+            foreach ($catalog as $line) {
+                if ($line['kind'] === 'header') {
+                    $rows[] = $this->sec($line['name']);
+                    continue;
+                }
+                $code = $line['code'];
+                $v = $rec->values[$code] ?? [];
+                $income = ! empty($line['income']);
+                $cells = [$code, $line['name'], (float) ($v['commercial'] ?? 0),
+                    $income ? (float) ($v['non_object'] ?? 0) : '',
+                    $income ? (float) ($v['final'] ?? 0) : '',
+                    $income ? (float) ($v['object'] ?? 0) : '',
+                    (float) ($v['positive'] ?? 0),
+                    (float) ($v['negative'] ?? 0),
+                    (string) ($v['codes'] ?? ''),
+                    (float) ($v['fiscal'] ?? 0)];
+                $type = $line['kind'] === 'total' ? ($code === '4800' ? 'total' : 'subtotal') : 'row';
+                $rows[] = ['type' => $type, 'cells' => $cells, 'indent' => $type === 'row' ? 1 : 0];
+                if ($detail) {
+                    foreach ($rec->accountsByCode[$code] ?? [] as $acc) {
+                        $rows[] = ['type' => 'row', 'italic' => true, 'indent' => 3, 'cells' => ['', trim($acc['code'] . ' ' . $acc['name']), (float) $acc['amount'], '', '', '', '', '', '', '']];
+                    }
+                }
+            }
+        };
+        $rows[] = $this->sec('LAPORAN LABA RUGI');
+        $section(\App\Services\Coretax\CoretaxCatalog::profitLoss($lampiran));
+        $position = $this->coretaxPosition($rec, $detail);
+
+        $profit = $rec->value('4800');
+        $book = \App\Services\EarningsLink::profit($this->companyId, $rec->start, $rec->end);
+        $diffProfit = round($profit - $book, 2);
+        $diffBalance = round($rec->value('1700') - $rec->value('3300'), 2);
+        $notes = [];
+        $notes[] = abs($diffProfit) < 0.01 && abs($diffBalance) < 0.01
+            ? ['tone' => 'good', 'text' => 'Laba sebelum pajak cocok dengan Laba Rugi, dan Jumlah Aset sama dengan Jumlah Liabilitas dan Ekuitas.']
+            : ['tone' => 'bad', 'text' => 'Ada selisih: laba rugi Rp ' . \App\Support\Money::fmt($diffProfit) . ', neraca Rp ' . \App\Support\Money::fmt($diffBalance) . '. Periksa pemetaan akunnya.'];
+        if ($rec->needCheck) {
+            $notes[] = ['tone' => 'bad', 'text' => $rec->needCheck . ' akun dipetakan hanya berdasarkan jenisnya. Periksa di halaman Pemetaan Akun.'];
+        }
+        $taxExpense = collect($rec->mapping)->first(fn ($m) => in_array($m['account']->type, ['expense', 'other_expense'], true)
+            && preg_match('/\bpph\b|pajak penghasilan|pajak final/iu', $m['account']->name) && abs($m['amount']) > 0.004);
+        if ($taxExpense) {
+            $notes[] = ['tone' => 'info', 'text' => 'Beban pajak penghasilan seperti ' . $taxExpense['account']->name . ' masuk kode ' . $taxExpense['code'] . ' dan umumnya perlu penyesuaian fiskal positif. Isi di halaman Penyesuaian Fiskal.'];
+        }
+        if (in_array($lampiran, ['1B', '1C'], true)) {
+            $notes[] = ['tone' => 'info', 'text' => 'Stok dicatat perpetual, jadi Pembelian dihitung dari HPP pembukuan ditambah persediaan akhir dikurangi persediaan awal. Total HPP selalu sama dengan pembukuan.'];
+        }
+        $notes[] = ['tone' => 'info', 'text' => $lampiran === '1C'
+            ? 'Kertas kerja untuk membantu pengisian Lampiran 1 di Coretax, bukan pengganti pelaporan.'
+            : 'Kertas kerja untuk membantu pengisian Lampiran 1 di Coretax, bukan pengganti pelaporan. Daftar kode ' . $lampiran . ' diambil dari sumber sekunder, cocokkan dengan tampilan Coretax.'];
+
+        return [
+            'key' => 'coretax', 'title' => 'Rekonsiliasi Coretax', 'subtitle' => \App\Services\Coretax\CoretaxCatalog::LAMPIRAN[$lampiran] . ' · ' . $this->period($rec->start, $rec->end),
+            'file' => "Rekonsiliasi_Coretax_{$lampiran}_{$year}", 'orientation' => 'landscape',
+            'filters' => [
+                ['name' => 'tahun', 'label' => 'Tahun Pajak', 'type' => 'select', 'value' => $year, 'options' => array_combine($years, $years)],
+                ['name' => 'lampiran', 'label' => 'Formulir', 'type' => 'select', 'value' => $lampiran, 'options' => \App\Services\Coretax\CoretaxCatalog::LAMPIRAN],
+                ['name' => 'tampilan', 'label' => 'Tampilan', 'type' => 'select', 'value' => $detail ? 'rinci' : 'ringkas', 'options' => ['rinci' => 'Dengan rincian akun', 'ringkas' => 'Seperti formulir']],
+            ],
+            'links' => [
+                ['label' => 'Pemetaan Akun', 'url' => route('client.reports.coretax.mapping', ['lampiran' => $lampiran, 'tahun' => $year])],
+                ['label' => 'Penyesuaian Fiskal', 'url' => route('client.reports.coretax.fiscal', ['lampiran' => $lampiran, 'tahun' => $year])],
+            ],
+            'columns' => $cols, 'rows' => $rows, 'indent_col' => 1, 'table_class' => 'rpt-wide', 'side_by_side' => $position,
+            'summary' => [
+                ['label' => 'Laba (Rugi) Komersial', 'value' => $profit, 'format' => 'money'],
+                ['label' => 'Laba (Rugi) Fiskal', 'value' => $rec->value('4800', 'fiscal'), 'format' => 'money'],
+                ['label' => 'Jumlah Aset', 'value' => $rec->value('1700'), 'format' => 'money'],
+                ['label' => 'Akun Perlu Dicek', 'value' => $rec->needCheck, 'format' => 'int', 'tone' => $rec->needCheck ? 'bad' : 'good'],
+            ],
+            'notes' => $notes,
+        ];
+    }
+
+    /** Laporan Posisi Keuangan seperti formulir: Aset di kiri, Liabilitas dan Ekuitas di kanan, baris jumlah akhirnya sejajar. */
+    private function coretaxPosition(\App\Services\Coretax\CoretaxReconciliation $rec, bool $detail): array
+    {
+        $sides = ['left' => [], 'right' => []];
+        $side = 'left';
+        foreach (\App\Services\Coretax\CoretaxCatalog::position() as $line) {
+            if ($line['kind'] === 'header') {
+                $side = str_starts_with($line['name'], 'Aset') ? 'left' : 'right';
+                $sides[$side][] = $this->sec($line['name']);
+                continue;
+            }
+            $code = $line['code'];
+            $side = (int) $code[0] === 1 ? 'left' : 'right';
+            $isTotal = $line['kind'] === 'total';
+            $indent = ! $isTotal && preg_match('/^(Dikurangi|Cadangan)/', $line['name']) ? 1 : 0;
+            $sides[$side][] = ['type' => $isTotal ? (in_array($code, ['1700', '3300'], true) ? 'total' : 'subtotal') : 'row', 'indent' => $indent,
+                'cells' => [$code, $line['name'], $rec->value($code)]];
+            if ($detail) {
+                foreach ($rec->accountsByCode[$code] ?? [] as $acc) {
+                    $sides[$side][] = ['type' => 'row', 'italic' => true, 'indent' => $indent + 1, 'cells' => ['', trim($acc['code'] . ' ' . $acc['name']), (float) $acc['amount']]];
+                }
+            }
+        }
+        // Sisi yang lebih pendek diberi baris kosong sebelum jumlah akhirnya
+        $missing = count($sides['left']) - count($sides['right']);
+        $short = $missing > 0 ? 'right' : 'left';
+        if ($missing !== 0) {
+            array_splice($sides[$short], -1, 0, array_fill(0, abs($missing), ['type' => 'spacer']));
+        }
+
+        return [
+            'title' => 'LAPORAN POSISI KEUANGAN', 'sheet' => 'Posisi Keuangan',
+            'columns' => [
+                ['label' => 'Kode Akun', 'width' => 9],
+                ['label' => 'Nama Akun', 'width' => 44],
+                ['label' => 'Nilai', 'width' => 18, 'align' => 'right', 'format' => 'money'],
+            ],
+            'left' => $sides['left'], 'right' => $sides['right'],
+        ];
+    }
+
+    /** Tahun yang punya jurnal, terbaru lebih dulu. Selalu memuat tahun berjalan. @return int[] */
+    public static function coretaxYears(int $companyId): array
+    {
+        $journals = \App\Models\Journal::where('company_id', $companyId)->where('status', 'posted');
+        $first = (clone $journals)->min('transaction_date');
+        $last = (clone $journals)->max('transaction_date');
+        $now = (int) date('Y');
+        $to = $last ? max((int) substr((string) $last, 0, 4), $now) : $now;
+        $from = $first ? min((int) substr((string) $first, 0, 4), $now) : $now;
+
+        return range($to, $from);
+    }
+
     /* ---------------------------------------------------------- persediaan */
 
     /** Saldo gabungan beberapa akun sampai tanggal tertentu, termasuk saldo awal akun. */

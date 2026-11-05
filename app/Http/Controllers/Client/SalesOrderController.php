@@ -40,6 +40,7 @@ class SalesOrderController extends Controller
         })->all();
 
         return view('client.documents.show', [
+            'attachType' => 'sales-order', 'attachId' => $salesOrder->id,
             'title' => 'Pesanan Penjualan',
             'number' => $salesOrder->order_number,
             'backUrl' => route('client.sales.orders'),

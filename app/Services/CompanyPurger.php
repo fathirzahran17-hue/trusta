@@ -117,6 +117,7 @@ class CompanyPurger
             }
 
             DB::table('companies')->where('id', $companyId)->delete();
+            \Illuminate\Support\Facades\Storage::disk('local')->deleteDirectory('attachments/' . $companyId);
         });
     }
 }

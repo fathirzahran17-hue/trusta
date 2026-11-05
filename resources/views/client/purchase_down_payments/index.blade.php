@@ -40,11 +40,11 @@
                                 {{ $dp->purchaseOrder->po_number ?? '-' }}
                             </td>
                             <td class="px-6 py-4 text-right font-bold text-trusta-teal" style="font-variant-numeric: tabular-nums;">
-                                Rp {{ number_format($dp->amount, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($dp->amount) }}
                             </td>
                             <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">
                                 @if((float) $dp->tax_amount > 0)
-                                    Rp {{ number_format($dp->tax_amount, 2, ',', '.') }}
+                                    Rp {{ \App\Support\Money::fmt($dp->tax_amount) }}
                                     <form method="POST" action="{{ route('client.down-payments.tax-number', $dp) }}" class="fp-inline" data-no-guard>
                                         @csrf
                                         <input type="text" name="tax_invoice_number" value="{{ $dp->tax_invoice_number }}" placeholder="No. Faktur Pajak" aria-label="No. Faktur Pajak {{ $dp->payment_number }}" inputmode="numeric" maxlength="32" onchange="this.form.submit()">
@@ -53,8 +53,8 @@
                                     -
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">Rp {{ number_format($dp->applied_amount, 2, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right font-semibold" style="font-variant-numeric: tabular-nums;">Rp {{ number_format($dp->remaining, 2, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">Rp {{ \App\Support\Money::fmt($dp->applied_amount) }}</td>
+                            <td class="px-6 py-4 text-right font-semibold" style="font-variant-numeric: tabular-nums;">Rp {{ \App\Support\Money::fmt($dp->remaining) }}</td>
                         </tr>
                     @empty
                         <tr>

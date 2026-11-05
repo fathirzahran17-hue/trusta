@@ -57,7 +57,6 @@
                             @if($p->has_reports)<li>Laporan keuangan lengkap</li>@endif
                             @if($p->has_cash_bank)<li>Kas & bank, rekonsiliasi</li>@endif
                             @if($p->has_export)<li>Ekspor Excel / PDF</li>@endif
-                            @if($p->has_auto_backup)<li>Backup otomatis</li>@endif
                             @foreach($p->featureList() as $f)<li>{{ $f }}</li>@endforeach
                         </ul>
                     </label>

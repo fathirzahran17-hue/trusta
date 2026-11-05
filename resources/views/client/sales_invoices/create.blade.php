@@ -31,7 +31,7 @@
                         <select name="customer_id" id="customer_id" required>
                             <option value="">-- Pilih Pelanggan --</option>
                             @foreach($customers as $cust)
-                                <option value="{{ $cust->id }}" {{ old('customer_id', $prefill['party_id']) == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
+                                <option value="{{ $cust->id }}" data-term="{{ (int) $cust->default_term_days }}" {{ old('customer_id', $prefill['party_id']) == $cust->id ? 'selected' : '' }}>{{ $cust->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -43,7 +43,7 @@
 
                     <div>
                         <label for="due_date">Jatuh Tempo <span class="req">*</span></label>
-                        <input type="date" name="due_date" id="due_date" value="{{ old('due_date', date('Y-m-d', strtotime('+30 days'))) }}" required>
+                        <input type="date" name="due_date" id="due_date" value="{{ old('due_date', date('Y-m-d', strtotime('+' . $termDays . ' days'))) }}" required>
                     </div>
                 </div>
             </div>
@@ -172,7 +172,7 @@
                     const discountAmt = lineTotal * (discPct / 100);
                     const total = lineTotal - discountAmt;
                     
-                    row.querySelector('.row-total').textContent = total.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    row.querySelector('.row-total').textContent = window.fmtAmount(total);
                     subtotal += total;
                     if (window.LineTax.isTaxable(row)) taxableSubtotal += total;
                 });
@@ -189,10 +189,10 @@
                 
                 const grandTotal = afterDiscount + taxAmount;
 
-                displaySubtotal.textContent = subtotal.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                displayDiscount.textContent = overallDiscAmt > 0 ? '-' + overallDiscAmt.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0,00';
-                displayTax.textContent = taxAmount.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                displayGrandTotal.textContent = grandTotal.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                displaySubtotal.textContent = window.fmtAmount(subtotal);
+                displayDiscount.textContent = overallDiscAmt > 0 ? '-' + window.fmtAmount(overallDiscAmt) : '0,00';
+                displayTax.textContent = window.fmtAmount(taxAmount);
+                displayGrandTotal.textContent = window.fmtAmount(grandTotal);
             }
 
             btnAddRow.addEventListener('click', function() {
@@ -296,5 +296,6 @@
         });
     </script>
     @include('partials.prefill-rows', ['rows' => $prefill['rows']])
+    @include('partials.due-date-sync', ['partySelect' => '#customer_id', 'defaultDays' => $termDays])
     @include('partials.material-sale-warning')
 </x-app-layout>

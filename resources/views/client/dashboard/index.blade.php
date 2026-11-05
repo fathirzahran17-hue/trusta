@@ -4,7 +4,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    @php $rpd = fn ($v) => 'Rp ' . number_format((float) $v, 2, ',', '.'); @endphp
+    @php
+        $rpd = fn ($v) => 'Rp ' . \App\Support\Money::fmt((float) $v);
+        // Kolom sempit: ringkas mulai 1 miliar, angka lengkapnya muncul saat kursor diarahkan
+        $rpf = fn ($v) => 'Rp ' . \App\Support\Money::fit((float) $v);
+        $whole = fn ($v) => abs((float) $v) >= 1e9 ? \App\Support\Money::compact($v) : number_format((float) $v, 0, ',', '.');
+    @endphp
     <form method="GET" action="{{ route('client.dashboard') }}" class="dash-period" x-data="{ p: '{{ $period['key'] }}' }">
         <span class="dash-period-label">Periode</span>
         <select name="period" x-model="p" @change="if (p !== 'custom') $el.form.submit()">
@@ -22,13 +27,13 @@
         @if($alerts['overdue_ar_count'])
             <a href="{{ route('client.sales-invoices.index') }}" class="block rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-400 hover:bg-red-500/20 transition-colors">
                 <div class="font-semibold">{{ $alerts['overdue_ar_count'] }} piutang jatuh tempo</div>
-                <div class="text-xs opacity-90">Sisa tagihan Rp {{ number_format($alerts['overdue_ar_amount'], 2, ',', '.') }}</div>
+                <div class="text-xs opacity-90">Sisa tagihan Rp {{ \App\Support\Money::fmt($alerts['overdue_ar_amount']) }}</div>
             </a>
         @endif
         @if($alerts['overdue_ap_count'])
             <a href="{{ route('client.purchase-invoices.index') }}" class="block rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-500 hover:bg-yellow-500/20 transition-colors">
                 <div class="font-semibold">{{ $alerts['overdue_ap_count'] }} hutang jatuh tempo</div>
-                <div class="text-xs opacity-90">Perlu dibayar Rp {{ number_format($alerts['overdue_ap_amount'], 2, ',', '.') }}</div>
+                <div class="text-xs opacity-90">Perlu dibayar Rp {{ \App\Support\Money::fmt($alerts['overdue_ap_amount']) }}</div>
             </a>
         @endif
         @if($alerts['low_stock'])
@@ -41,17 +46,17 @@
     @endif
 
     <!-- 6 Column Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+    <div class="grid grid-cols-1 lg:grid-cols-6 gap-4">
         
-        <!-- 1. Aktifitas Terakhir Anda -->
-        <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
+        <!-- 1. Aktivitas Terakhir Anda -->
+        <div class="lg:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200">Aktifitas Terakhir Anda</h3>
+                <h3 class="text-sm font-semibold text-gray-200">Aktivitas Terakhir Anda</h3>
                 <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 overflow-y-auto">
                 @if($recentActivities->isEmpty())
-                    <p class="text-xs text-gray-500 text-center mt-8">Belum ada aktifitas</p>
+                    <p class="text-xs text-gray-500 text-center mt-8">Belum ada aktivitas</p>
                 @else
                     <div class="relative border-l border-gray-700 ml-3 space-y-4">
                         @foreach($recentActivities as $act)
@@ -67,7 +72,7 @@
         </div>
 
         <!-- 2. Kegiatan Mendatang -->
-        <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
+        <div class="lg:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
                 <h3 class="text-sm font-semibold text-gray-200">Kegiatan Mendatang <span class="text-[10px] text-gray-400 ml-1 font-normal">(jatuh tempo 14 hari)</span></h3>
                 <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
@@ -97,9 +102,9 @@
         </div>
 
         <!-- 3. Tren Penjualan -->
-        <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
+        <div class="lg:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.sales-report') }}" class="hover:text-trusta-teal">Tren Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">{{ $rpd($salesTotal) }}</span></a></h3>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.sales-report') }}" class="hover:text-trusta-teal">Tren Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal" title="{{ $rpd($salesTotal) }}">{{ $rpf($salesTotal) }}</span></a></h3>
                 <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 relative w-full h-full">
@@ -108,7 +113,7 @@
         </div>
 
         <!-- 4. Laba / Rugi Tahun ini -->
-        <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
+        <div class="lg:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
                 <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.profit-loss') }}" class="hover:text-trusta-teal">Laba/Rugi <span class="text-[10px] text-gray-400 ml-1 font-normal">(periode)</span></a></h3>
                 <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
@@ -118,36 +123,36 @@
                     <div class="w-32 h-32 relative">
                         <canvas id="plDonutChart"></canvas>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-xs text-gray-400">Laba</span>
-                            <span class="text-sm font-bold text-green-400">{{ $netProfit >= 0 ? '+' : '-' }}</span>
+                            <span class="text-xs text-gray-400">{{ $netProfit >= 0 ? 'Laba' : 'Rugi' }}</span>
+                            <span class="text-sm font-bold {{ $netProfit > 0 ? 'text-green-400' : ($netProfit < 0 ? 'text-red-400' : 'text-gray-400') }}" title="{{ $rpd($netProfit) }}">{{ \App\Support\Money::compact($netProfit) }}</span>
                         </div>
                     </div>
                 </div>
                 <div class="w-1/2 pl-2 flex flex-col justify-center space-y-3">
                     <div>
                         <div class="flex items-center text-xs mb-1"><span class="w-2 h-2 rounded-full bg-teal-400 mr-2"></span> <span class="text-gray-400">Pendapatan</span></div>
-                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($revenue, 2, ',', '.') }}</div>
+                        <div class="text-sm font-semibold text-gray-200 text-right" title="{{ $rpd($revenue) }}">{{ $rpf($revenue) }}</div>
                     </div>
                     <div>
                         <div class="flex items-center text-xs mb-1"><span class="w-2 h-2 rounded-full bg-red-400 mr-2"></span> <span class="text-gray-400">Nilai HPP</span></div>
-                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($cogs, 2, ',', '.') }}</div>
+                        <div class="text-sm font-semibold text-gray-200 text-right" title="{{ $rpd($cogs) }}">{{ $rpf($cogs) }}</div>
                     </div>
                     <div>
                         <div class="flex items-center text-xs mb-1"><span class="w-2 h-2 rounded-full bg-orange-400 mr-2"></span> <span class="text-gray-400">Beban</span></div>
-                        <div class="text-sm font-semibold text-gray-200 text-right">Rp {{ number_format($expense, 2, ',', '.') }}</div>
+                        <div class="text-sm font-semibold text-gray-200 text-right" title="{{ $rpd($expense) }}">{{ $rpf($expense) }}</div>
                     </div>
                     <div class="pt-2 border-t border-gray-700">
-                        <div class="text-xs text-gray-400">Laba Bersih</div>
-                        <div class="text-sm font-bold {{ $netProfit >= 0 ? 'text-green-400' : 'text-red-400' }} text-right">Rp {{ number_format($netProfit, 2, ',', '.') }}</div>
+                        <div class="text-xs text-gray-400">{{ $netProfit >= 0 ? 'Laba Bersih' : 'Rugi Bersih' }}</div>
+                        <div class="text-sm font-bold {{ $netProfit > 0 ? 'text-green-400' : ($netProfit < 0 ? 'text-red-400' : 'text-gray-400') }} text-right" title="{{ $rpd($netProfit) }}">{{ $rpf($netProfit) }}</div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- 5. Arus Kas -->
-        <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
+        <div class="lg:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
-                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.cash-bank.index') }}" class="hover:text-trusta-teal">Arus Kas <span class="text-[10px] ml-1 font-normal" style="color:#16a34a">+{{ number_format($cashTotals['in'], 0, ',', '.') }}</span> <span class="text-[10px] font-normal" style="color:var(--danger)">−{{ number_format($cashTotals['out'], 0, ',', '.') }}</span></a></h3>
+                <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.cash-bank.index') }}" class="hover:text-trusta-teal">Arus Kas <span class="text-[10px] ml-1 font-normal" style="color:#16a34a" title="Uang Masuk {{ $rpd($cashTotals['in']) }}">+{{ $whole($cashTotals['in']) }}</span> <span class="text-[10px] font-normal" style="color:var(--danger)" title="Uang Keluar {{ $rpd($cashTotals['out']) }}">−{{ $whole($cashTotals['out']) }}</span></a></h3>
                 <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
             </div>
             <div class="p-4 flex-1 relative w-full h-full">
@@ -156,7 +161,7 @@
         </div>
 
         <!-- 6. Beban Perusahaan -->
-        <div class="md:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
+        <div class="lg:col-span-2 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-72">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
                 <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.reports.profit-loss') }}" class="hover:text-trusta-teal">Beban Perusahaan <span class="text-[10px] text-gray-400 ml-1 font-normal">(periode)</span></a></h3>
                 <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
@@ -166,22 +171,20 @@
                     <div class="w-32 h-32 relative">
                         <canvas id="expenseDonutChart"></canvas>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-xs text-gray-400">Total Beban</span>
+                            <span class="text-[10px] text-gray-400">Total Beban</span>
+                            <span class="text-sm font-bold text-gray-200" title="{{ $rpd($expense) }}">{{ \App\Support\Money::compact($expense) }}</span>
                         </div>
                     </div>
                 </div>
-                <div class="w-1/2 pl-2 flex flex-col justify-center space-y-2">
-                    @php 
-                        $colors = ['bg-pink-500', 'bg-yellow-500', 'bg-blue-400', 'bg-purple-500', 'bg-green-500'];
-                        $totalTopExpense = $topExpenses->sum('total');
-                    @endphp
+                <div class="w-1/2 min-w-0 pl-2 flex flex-col justify-center space-y-2">
+                    @php $colors = ['bg-pink-500', 'bg-yellow-500', 'bg-blue-400', 'bg-purple-500', 'bg-green-500']; @endphp
                     @forelse($topExpenses as $idx => $exp)
                     <div>
                         <div class="flex items-center text-[10px] mb-1">
-                            <span class="w-2 h-2 rounded-full {{ $colors[$idx % 5] }} mr-1"></span> 
-                            <span class="text-gray-400 truncate w-full" title="{{ $exp->name }}">{{ Str::limit($exp->name, 15) }}</span>
+                            <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $colors[$idx % 5] }} mr-1"></span>
+                            <span class="text-gray-400 truncate" title="{{ $exp->name }}">{{ $exp->name }}</span>
                         </div>
-                        <div class="text-xs font-semibold text-gray-200 text-right">Rp {{ number_format($exp->total, 2, ',', '.') }}</div>
+                        <div class="text-xs font-semibold text-gray-200 text-right" title="{{ $rpd($exp->total) }}">{{ $rpf($exp->total) }}</div>
                     </div>
                     @empty
                     <p class="text-xs text-gray-500">Belum ada data beban</p>
@@ -191,7 +194,7 @@
         </div>
 
         <!-- 7. Penjualan -->
-        <div class="md:col-span-3 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-56">
+        <div class="lg:col-span-3 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-56">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
                 <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.sales-invoices.index') }}" class="hover:text-trusta-teal">Penjualan <span class="text-[10px] text-gray-400 ml-1 font-normal">(Semua Data)</span></a></h3>
                 <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
@@ -200,43 +203,43 @@
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <p class="text-xs text-gray-400">Total Pendapatan</p>
-                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($salesOverview['total'], 2, ',', '.') }}</h4>
+                        <h4 class="text-xl font-bold text-gray-100">Rp {{ \App\Support\Money::fmt($salesOverview['total']) }}</h4>
                     </div>
                     <div class="text-right">
                         <p class="text-xs text-gray-400">Total Belum Lunas</p>
-                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($salesOverview['unpaid'], 2, ',', '.') }}</h4>
+                        <h4 class="text-xl font-bold text-gray-100">Rp {{ \App\Support\Money::fmt($salesOverview['unpaid']) }}</h4>
                     </div>
                 </div>
 
                 <div class="flex space-x-2 text-xs text-gray-400 mb-1">
-                    <div class="w-1/4">Faktur Lunas</div>
-                    <div class="w-1/4 text-center">Faktur Belum Lunas</div>
+                    <div class="w-1/4">Sudah Dibayar</div>
+                    <div class="w-1/4 text-center">Sisa Tagihan</div>
                     <div class="w-1/4 text-center">Belum Jatuh Tempo</div>
                     <div class="w-1/4 text-right">Lewat Jatuh Tempo</div>
                 </div>
                 <div class="flex space-x-2 text-xs font-semibold mb-2">
-                    <div class="w-1/4 text-green-400">Rp {{ number_format($salesOverview['paid'], 2, ',', '.') }}</div>
-                    <div class="w-1/4 text-center text-yellow-400">Rp {{ number_format($salesOverview['unpaid'], 2, ',', '.') }}</div>
-                    <div class="w-1/4 text-center text-yellow-500">Rp {{ number_format($salesOverview['not_due'], 2, ',', '.') }}</div>
-                    <div class="w-1/4 text-right text-red-400">Rp {{ number_format($salesOverview['overdue'], 2, ',', '.') }}</div>
+                    <div class="w-1/4 text-green-400 whitespace-nowrap" title="{{ $rpd($salesOverview['paid']) }}">{{ $rpf($salesOverview['paid']) }}</div>
+                    <div class="w-1/4 text-center text-yellow-400 whitespace-nowrap" title="{{ $rpd($salesOverview['unpaid']) }}">{{ $rpf($salesOverview['unpaid']) }}</div>
+                    <div class="w-1/4 text-center text-yellow-500 whitespace-nowrap" title="{{ $rpd($salesOverview['not_due']) }}">{{ $rpf($salesOverview['not_due']) }}</div>
+                    <div class="w-1/4 text-right text-red-400 whitespace-nowrap" title="{{ $rpd($salesOverview['overdue']) }}">{{ $rpf($salesOverview['overdue']) }}</div>
                 </div>
                 <!-- Progress Bars -->
-                <div class="flex space-x-1 h-3 mt-auto">
+                <div class="dash-progress mt-auto">
                     @php
                         $sTotal = $salesOverview['total'] > 0 ? $salesOverview['total'] : 1; // prevent div by zero
                         $sPaid = ($salesOverview['paid'] / $sTotal) * 100;
                         $sNotDue = ($salesOverview['not_due'] / $sTotal) * 100;
                         $sOverdue = ($salesOverview['overdue'] / $sTotal) * 100;
                     @endphp
-                    <div class="bg-green-500 rounded-sm" style="width: {{ $sPaid }}%"></div>
-                    <div class="bg-yellow-500 rounded-sm" style="width: {{ $sNotDue }}%"></div>
-                    <div class="bg-red-500 rounded-sm" style="width: {{ $sOverdue }}%"></div>
+                    <div class="bg-green-500" style="width: {{ round($sPaid, 2) }}%" title="Sudah Dibayar {{ $rpd($salesOverview['paid']) }}"></div>
+                    <div class="bg-yellow-500" style="width: {{ round($sNotDue, 2) }}%" title="Belum Jatuh Tempo {{ $rpd($salesOverview['not_due']) }}"></div>
+                    <div class="bg-red-500" style="width: {{ round($sOverdue, 2) }}%" title="Lewat Jatuh Tempo {{ $rpd($salesOverview['overdue']) }}"></div>
                 </div>
             </div>
         </div>
 
         <!-- 8. Pembelian -->
-        <div class="md:col-span-3 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-56">
+        <div class="lg:col-span-3 bg-[#1E293B] border border-gray-700 rounded-lg shadow-lg flex flex-col h-56">
             <div class="p-3 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-lg">
                 <h3 class="text-sm font-semibold text-gray-200"><a href="{{ route('client.purchase-invoices.index') }}" class="hover:text-trusta-teal">Pembelian <span class="text-[10px] text-gray-400 ml-1 font-normal">(Semua Data)</span></a></h3>
                 <button type="button" onclick="location.reload()" title="Muat ulang" class="text-gray-400 hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
@@ -245,37 +248,37 @@
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <p class="text-xs text-gray-400">Total Pembelian</p>
-                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($purchaseOverview['total'], 2, ',', '.') }}</h4>
+                        <h4 class="text-xl font-bold text-gray-100">Rp {{ \App\Support\Money::fmt($purchaseOverview['total']) }}</h4>
                     </div>
                     <div class="text-right">
                         <p class="text-xs text-gray-400">Total Belum Lunas</p>
-                        <h4 class="text-xl font-bold text-gray-100">Rp {{ number_format($purchaseOverview['unpaid'], 2, ',', '.') }}</h4>
+                        <h4 class="text-xl font-bold text-gray-100">Rp {{ \App\Support\Money::fmt($purchaseOverview['unpaid']) }}</h4>
                     </div>
                 </div>
 
                 <div class="flex space-x-2 text-xs text-gray-400 mb-1">
-                    <div class="w-1/4">Faktur Lunas</div>
-                    <div class="w-1/4 text-center">Faktur Belum Lunas</div>
+                    <div class="w-1/4">Sudah Dibayar</div>
+                    <div class="w-1/4 text-center">Sisa Tagihan</div>
                     <div class="w-1/4 text-center">Belum Jatuh Tempo</div>
                     <div class="w-1/4 text-right">Lewat Jatuh Tempo</div>
                 </div>
                 <div class="flex space-x-2 text-xs font-semibold mb-2">
-                    <div class="w-1/4 text-green-400">Rp {{ number_format($purchaseOverview['paid'], 2, ',', '.') }}</div>
-                    <div class="w-1/4 text-center text-yellow-400">Rp {{ number_format($purchaseOverview['unpaid'], 2, ',', '.') }}</div>
-                    <div class="w-1/4 text-center text-yellow-500">Rp {{ number_format($purchaseOverview['not_due'], 2, ',', '.') }}</div>
-                    <div class="w-1/4 text-right text-red-400">Rp {{ number_format($purchaseOverview['overdue'], 2, ',', '.') }}</div>
+                    <div class="w-1/4 text-green-400 whitespace-nowrap" title="{{ $rpd($purchaseOverview['paid']) }}">{{ $rpf($purchaseOverview['paid']) }}</div>
+                    <div class="w-1/4 text-center text-yellow-400 whitespace-nowrap" title="{{ $rpd($purchaseOverview['unpaid']) }}">{{ $rpf($purchaseOverview['unpaid']) }}</div>
+                    <div class="w-1/4 text-center text-yellow-500 whitespace-nowrap" title="{{ $rpd($purchaseOverview['not_due']) }}">{{ $rpf($purchaseOverview['not_due']) }}</div>
+                    <div class="w-1/4 text-right text-red-400 whitespace-nowrap" title="{{ $rpd($purchaseOverview['overdue']) }}">{{ $rpf($purchaseOverview['overdue']) }}</div>
                 </div>
                 <!-- Progress Bars -->
-                <div class="flex space-x-1 h-3 mt-auto">
+                <div class="dash-progress mt-auto">
                     @php
                         $pTotal = $purchaseOverview['total'] > 0 ? $purchaseOverview['total'] : 1; 
                         $pPaid = ($purchaseOverview['paid'] / $pTotal) * 100;
                         $pNotDue = ($purchaseOverview['not_due'] / $pTotal) * 100;
                         $pOverdue = ($purchaseOverview['overdue'] / $pTotal) * 100;
                     @endphp
-                    <div class="bg-green-500 rounded-sm" style="width: {{ $pPaid }}%"></div>
-                    <div class="bg-yellow-500 rounded-sm" style="width: {{ $pNotDue }}%"></div>
-                    <div class="bg-red-500 rounded-sm" style="width: {{ $pOverdue }}%"></div>
+                    <div class="bg-green-500" style="width: {{ round($pPaid, 2) }}%" title="Sudah Dibayar {{ $rpd($purchaseOverview['paid']) }}"></div>
+                    <div class="bg-yellow-500" style="width: {{ round($pNotDue, 2) }}%" title="Belum Jatuh Tempo {{ $rpd($purchaseOverview['not_due']) }}"></div>
+                    <div class="bg-red-500" style="width: {{ round($pOverdue, 2) }}%" title="Lewat Jatuh Tempo {{ $rpd($purchaseOverview['overdue']) }}"></div>
                 </div>
             </div>
         </div>
@@ -289,6 +292,28 @@
             return { text: dark ? '#94a3b8' : '#475569', grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)', surface: dark ? '#1E293B' : '#ffffff' };
         };
         const trustaCharts = [];
+        // Satuan naik sendiri saat nilainya mencapai 1000. Aturannya sama dengan App\\Support\\Money::compact.
+        const SHORT_UNITS = @json(\App\Support\Money::compactUnits());
+        const shortAmount = (value) => {
+            const abs = Math.abs(value), sign = value < 0 ? '-' : '';
+            const text = (n) => String(Math.round(n * 100) / 100).replace('.', ',');
+            for (let i = 0; i < SHORT_UNITS.length; i++) {
+                const [size, label] = SHORT_UNITS[i];
+                if (abs < size) continue;
+                const short = Math.round(abs / size * 100) / 100;
+                return sign + (short >= 1000 && i > 0 ? text(short / 1000) + ' ' + SHORT_UNITS[i - 1][1] : text(short) + ' ' + label);
+            }
+            return sign + text(abs);
+        };
+        // Sumbu uang tanpa pecahan seperti 0,2 saat data masih kosong; label tanggal mendatar dan dilompati bila tidak muat
+        const moneyTicks = { maxTicksLimit: 6, precision: 0, callback: shortAmount };
+        const flatLabels = { maxRotation: 0, autoSkipPadding: 10 };
+        // Lingkaran tetap terlihat walau belum ada data
+        const ringData = (values, colors) => values.some(v => v > 0)
+            ? { data: values, backgroundColor: colors }
+            : { data: [1], backgroundColor: [chartTheme().grid] };
+        const ringTip = (values) => ({ enabled: values.some(v => v > 0), callbacks: { label: rupiahTip } });
+        const rupiahTip = (ctx) => (window.trustaT || (s => s))(ctx.dataset.label || ctx.label || '') + ': ' + window.fmtRp(Math.abs(ctx.parsed.y ?? ctx.parsed));
         Chart.defaults.color = chartTheme().text;
         Chart.defaults.font.family = "'Poppins', sans-serif";
         window.addEventListener('trusta:theme', () => {
@@ -315,7 +340,7 @@
                     pointBackgroundColor: chartTheme().surface,
                     pointBorderColor: '#2DD4BF',
                     pointBorderWidth: 2,
-                    pointRadius: 4,
+                    pointRadius: {{ count($salesTrendLabels) > 20 ? 2 : 4 }},
                     fill: true,
                     tension: 0.3
                 }]
@@ -323,31 +348,26 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: rupiahTip } } },
                 scales: {
-                    x: { grid: { display: false, drawBorder: false } },
+                    x: { grid: { display: false, drawBorder: false }, ticks: flatLabels },
                     y: { 
+                        beginAtZero: true,
                         grid: { color: chartTheme().grid, drawBorder: false },
-                        ticks: {
-                            callback: function(value) {
-                                if (value >= 1000000) return (value / 1000000) + 'Jt';
-                                if (value >= 1000) return (value / 1000) + 'Rb';
-                                return value;
-                            }
-                        }
+                        ticks: moneyTicks
                     }
                 }
             }
         }));
 
         // 2. Profit & Loss Donut
+        const plValues = [{{ max(0, $revenue) }}, {{ max(0, $cogs) }}, {{ max(0, $expense) }}];
         trustaCharts.push(new Chart(document.getElementById('plDonutChart'), {
             type: 'doughnut',
             data: {
                 labels: ['Pendapatan', 'HPP', 'Beban'],
                 datasets: [{
-                    data: [{{ $revenue }}, {{ $cogs }}, {{ $expense }}],
-                    backgroundColor: ['#2DD4BF', '#F87171', '#FB923C'],
+                    ...ringData(plValues, ['#2DD4BF', '#F87171', '#FB923C']),
                     borderWidth: 0,
                     hoverOffset: 4
                 }]
@@ -356,7 +376,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 cutout: '75%',
-                plugins: { legend: { display: false } }
+                plugins: { legend: { display: false }, tooltip: ringTip(plValues) }
             }
         }));
 
@@ -383,20 +403,13 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: rupiahTip } } },
                 scales: {
-                    x: { stacked: true, grid: { display: false } },
+                    x: { stacked: true, grid: { display: false }, ticks: flatLabels },
                     y: { 
                         stacked: true, 
                         grid: { color: chartTheme().grid },
-                        ticks: {
-                            callback: function(value) {
-                                let v = Math.abs(value);
-                                if (v >= 1000000) return (value / 1000000) + 'Jt';
-                                if (v >= 1000) return (value / 1000) + 'Rb';
-                                return value;
-                            }
-                        }
+                        ticks: moneyTicks
                     }
                 }
             }
@@ -404,16 +417,16 @@
 
         // 4. Expenses Donut
         @php 
-            $expLabels = $topExpenses->pluck('name');
-            $expData = $topExpenses->pluck('total');
+            $expLabels = $topExpenses->pluck('name')->values();
+            $expData = $topExpenses->pluck('total')->map(fn ($v) => (float) $v)->values();
         @endphp
+        const expValues = {!! json_encode($expData) !!};
         trustaCharts.push(new Chart(document.getElementById('expenseDonutChart'), {
             type: 'doughnut',
             data: {
                 labels: {!! json_encode($expLabels) !!},
                 datasets: [{
-                    data: {!! json_encode($expData) !!},
-                    backgroundColor: ['#EC4899', '#EAB308', '#60A5FA', '#A855F7', '#22C55E'],
+                    ...ringData(expValues, ['#EC4899', '#EAB308', '#60A5FA', '#A855F7', '#22C55E']),
                     borderWidth: 0,
                     hoverOffset: 4
                 }]
@@ -422,7 +435,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 cutout: '75%',
-                plugins: { legend: { display: false } }
+                plugins: { legend: { display: false }, tooltip: ringTip(expValues) }
             }
         }));
     </script>

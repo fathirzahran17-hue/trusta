@@ -1,7 +1,7 @@
 @php
     $isAll = $kind === 'all';
     $isService = $kind === 'service';
-    $rp = fn ($n) => 'Rp ' . number_format($n, 2, ',', '.');
+    $rp = fn ($n) => 'Rp ' . \App\Support\Money::fmt($n);
     $self = $isAll ? route('client.inventory.all') : ($isService ? route('client.inventory.services') : route('client.inventory.index'));
     $create = $isService ? route('client.inventory.services.create') : route('client.inventory.create');
 @endphp
@@ -39,7 +39,7 @@
         <div class="pay-scroll">
             <table class="pay-table">
                 <thead><tr>
-                    <th>Kode</th><th>Nama</th>@if($isAll)<th>Jenis</th>@endif<th>Kategori</th><th>Satuan</th>
+                    <th>Kode</th><th>Nama</th>@if($isAll)<th>Jenis</th>@endif<th>Kategori</th>@if($products->contains(fn ($row) => $row->brand_id))<th>Merek</th>@endif<th>Satuan</th>
                     <th class="r">{{ $isService ? 'Tarif Acuan' : ($isAll ? 'Harga Jual / Acuan' : 'Harga Jual') }}</th>
                     @if($isService)<th>Subkontraktor</th>@else<th class="r">Harga Beli</th><th class="r">Stok</th>@endif
                     <th>Status</th><th class="c">Aksi</th>
@@ -51,6 +51,7 @@
                         <td class="wrap">{{ $product->name }}@if(count($itemKinds) > 1 && \App\Support\ItemKind::label($product->item_kind))<span class="kind-tag">{{ \App\Support\ItemKind::label($product->item_kind) }}</span>@endif</td>
                         @if($isAll)<td><span class="st {{ $product->type === 'service' ? 'st-unpaid' : 'st-paid' }}">{{ $product->type === 'service' ? 'Jasa' : 'Barang' }}</span></td>@endif
                         <td>{{ $product->category->name ?? '-' }}</td>
+                        @if($products->contains(fn ($row) => $row->brand_id))<td>{{ $product->brand->name ?? '-' }}</td>@endif
                         <td>{{ $product->unit ?: '-' }}</td>
                         <td class="r">@if($product->type === 'service' && $product->sell_price <= 0)<span style="color:var(--text-faint)" title="Nilai jasa diisi pada tiap transaksi">sesuai pekerjaan</span>@else{{ $rp($product->sell_price) }}@endif</td>
                         @if($isService)

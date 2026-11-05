@@ -49,20 +49,25 @@ class PreferenceController extends Controller
             'address' => 'nullable|string',
             'default_tax_rate' => 'nullable|numeric|min:0|max:100',
             'tax_rounding' => ['nullable', \Illuminate\Validation\Rule::in([\App\Services\DocumentTax::ROUND_NORMAL, \App\Services\DocumentTax::ROUND_UP, \App\Services\DocumentTax::ROUND_DOWN])],
-            'default_sales_term' => 'nullable|string',
+            'default_sales_term' => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\PaymentTerms::options((int) $company->id)))],
             'warn_below_cost' => 'nullable|boolean',
-            'default_purchase_term' => 'nullable|string',
+            'default_purchase_term' => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\PaymentTerms::options((int) $company->id)))],
+            'data_start_date' => 'nullable|date',
             'prevent_over_receive' => 'nullable|boolean',
             'prevent_prior_transactions' => 'nullable|boolean',
-            'notify_approver' => 'nullable|boolean',
-            'max_attachment_size' => 'nullable|integer|min:1',
+            'max_attachment_size' => 'nullable|integer|min:1|max:10',
             'allowed_attachment_types' => 'nullable|string',
             'custom_customer_attr_1' => 'nullable|string',
             'custom_item_attr_1' => 'nullable|string',
-            'price_decimal_format' => 'nullable|string',
-            'default_language' => 'nullable|string',
+            'price_decimal_format' => 'nullable|in:2 Angka (0.00),Tanpa Desimal',
+            'default_language' => 'nullable|in:Bahasa Indonesia,English',
             'inventory_costing_method' => 'nullable|in:average,fifo',
         ]);
+
+        // Hanya jenis berkas yang aman yang disimpan
+        if (isset($validated['allowed_attachment_types'])) {
+            $validated['allowed_attachment_types'] = implode(',', array_values(array_diff(\App\Http\Controllers\Client\AttachmentController::allowedTypes($validated['allowed_attachment_types']), ['JPEG'])));
+        }
 
         // Nilai persediaan dan HPP yang sudah tercatat memakai metode lama: mengganti metode di tengah jalan membuat stok tidak lagi cocok dengan Buku Besar
         if (isset($validated['inventory_costing_method']) && $validated['inventory_costing_method'] !== ($company->inventory_costing_method ?? 'average')
@@ -71,7 +76,7 @@ class PreferenceController extends Controller
         }
 
         // Checkbox mengirim hidden 0 + 1, jadi hanya form yang memuatnya yang mengubah nilai boolean
-        foreach (['warn_below_cost', 'prevent_over_receive', 'prevent_prior_transactions', 'notify_approver'] as $flag) {
+        foreach (['warn_below_cost', 'prevent_over_receive', 'prevent_prior_transactions'] as $flag) {
             if ($request->exists($flag)) {
                 $validated[$flag] = $request->boolean($flag);
             } else {

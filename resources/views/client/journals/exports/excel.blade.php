@@ -33,8 +33,8 @@
                     @endif
                     <td style="border: 1px solid #ccc;">{{ $detail->account->code ?? '-' }}</td>
                     <td style="border: 1px solid #ccc;">{{ $detail->account->name ?? '-' }}</td>
-                    <td style="border: 1px solid #ccc; text-align: right;">{{ $detail->debit > 0 ? number_format($detail->debit, 2, ',', '.') : '' }}</td>
-                    <td style="border: 1px solid #ccc; text-align: right;">{{ $detail->credit > 0 ? number_format($detail->credit, 2, ',', '.') : '' }}</td>
+                    <td style="border: 1px solid #ccc; text-align: right;">{{ $detail->debit > 0 ? \App\Support\Money::fmt($detail->debit) : '' }}</td>
+                    <td style="border: 1px solid #ccc; text-align: right;">{{ $detail->credit > 0 ? \App\Support\Money::fmt($detail->credit) : '' }}</td>
                 </tr>
                 @php
                     $grandDebit += $detail->debit;
@@ -54,8 +54,8 @@
         {{-- Grand Total --}}
         <tr>
             <td colspan="4" style="border-top: 2px solid #000; font-weight: bold; text-align: right;">GRAND TOTAL</td>
-            <td style="border-top: 2px solid #000; font-weight: bold; text-align: right;">{{ number_format($grandDebit, 2, ',', '.') }}</td>
-            <td style="border-top: 2px solid #000; font-weight: bold; text-align: right;">{{ number_format($grandCredit, 2, ',', '.') }}</td>
+            <td style="border-top: 2px solid #000; font-weight: bold; text-align: right;">{{ \App\Support\Money::fmt($grandDebit) }}</td>
+            <td style="border-top: 2px solid #000; font-weight: bold; text-align: right;">{{ \App\Support\Money::fmt($grandCredit) }}</td>
         </tr>
     </tbody>
 </table>

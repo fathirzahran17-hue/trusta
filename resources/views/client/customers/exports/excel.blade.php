@@ -20,7 +20,7 @@
         </tr>
         <tr>
             <th colspan="2" style="font-weight: bold;">Total Saldo Piutang Saat Ini</th>
-            <th colspan="4" style="font-weight: bold;">{{ number_format($totalPiutang, 2, ',', '.') }}</th>
+            <th colspan="4" style="font-weight: bold;">{{ \App\Support\Money::fmt($totalPiutang) }}</th>
         </tr>
         <tr><th colspan="6"></th></tr>
         <tr>

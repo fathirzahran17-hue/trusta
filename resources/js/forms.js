@@ -267,7 +267,7 @@ function initLineTax() {
             const row = document.getElementById('rowTaxBase'), out = document.getElementById('displayTaxBase');
             if (row && out) {
                 row.hidden = !(rate > 0 && Math.abs(base - afterDiscount) > 0.004);
-                out.textContent = base.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                out.textContent = window.fmtAmount(base);
             }
             return rate > 0 ? LineTax.amount(base, rate) : 0;
         },

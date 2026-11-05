@@ -138,7 +138,7 @@
                     subtotal += amount;
                 });
 
-                displayGrandTotal.textContent = subtotal.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                displayGrandTotal.textContent = window.fmtAmount(subtotal);
             }
 
             btnAddRow.addEventListener('click', function() {

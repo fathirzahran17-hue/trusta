@@ -33,9 +33,9 @@
                                             <a href="{{ route('client.project-jobs.show', $job) }}" class="text-trusta-teal hover:underline">{{ $job->name }}</a>
                                             <div class="text-xs text-slate-400 mt-1">{{ $job->description ?? '' }}</div>
                                         </td>
-                                        <td class="border-b dark:border-slate-700 p-4 text-right font-mono text-sm text-green-400">Rp {{ number_format($job->income_total, 2, ',', '.') }}</td>
-                                        <td class="border-b dark:border-slate-700 p-4 text-right font-mono text-sm text-red-400">Rp {{ number_format($job->expense_total, 2, ',', '.') }}</td>
-                                        <td class="border-b dark:border-slate-700 p-4 text-right font-mono text-sm font-bold {{ $job->profit_total >= 0 ? 'text-green-400' : 'text-red-400' }}">Rp {{ number_format($job->profit_total, 2, ',', '.') }}</td>
+                                        <td class="border-b dark:border-slate-700 p-4 text-right font-mono text-sm text-green-400">Rp {{ \App\Support\Money::fmt($job->income_total) }}</td>
+                                        <td class="border-b dark:border-slate-700 p-4 text-right font-mono text-sm text-red-400">Rp {{ \App\Support\Money::fmt($job->expense_total) }}</td>
+                                        <td class="border-b dark:border-slate-700 p-4 text-right font-mono text-sm font-bold {{ $job->profit_total >= 0 ? 'text-green-400' : 'text-red-400' }}">Rp {{ \App\Support\Money::fmt($job->profit_total) }}</td>
                                         <td class="border-b dark:border-slate-700 p-4 text-center">
                                             @if($job->is_active)
                                                 <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full dark:bg-green-900/30 dark:text-green-400">Aktif</span>

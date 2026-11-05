@@ -2,7 +2,7 @@
     @section('title', 'Pelepasan Aset Tetap')
     @section('subtitle', 'Catat aset yang dijual atau dihapus (rusak/hilang) beserta laba/rugi pelepasannya')
 
-    @php $rp = fn ($v) => number_format((float) $v, 2, ',', '.'); @endphp
+    @php $rp = fn ($v) => \App\Support\Money::fmt((float) $v); @endphp
 
     <p class="pay-flow">
         Jurnal otomatis: <b>Debit</b> Akumulasi Penyusutan + <b>Debit</b> Kas/Bank (harga jual) / <b>Kredit</b> Akun Aset (harga perolehan).

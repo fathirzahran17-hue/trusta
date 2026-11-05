@@ -97,10 +97,10 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-4 text-right">
-                                    {{ $detail->debit > 0 ? 'Rp ' . number_format($detail->debit, 2, ',', '.') : '-' }}
+                                    {{ $detail->debit > 0 ? 'Rp ' . \App\Support\Money::fmt($detail->debit) : '-' }}
                                 </td>
                                 <td class="px-4 py-4 text-right">
-                                    {{ $detail->credit > 0 ? 'Rp ' . number_format($detail->credit, 2, ',', '.') : '-' }}
+                                    {{ $detail->credit > 0 ? 'Rp ' . \App\Support\Money::fmt($detail->credit) : '-' }}
                                 </td>
                             </tr>
                         @endforeach
@@ -108,8 +108,8 @@
                     <tfoot class="border-t border-gray-600 bg-gray-800/80">
                         <tr>
                             <td colspan="4" class="px-4 py-4 text-right font-bold text-white uppercase text-xs">Total</td>
-                            <td class="px-4 py-4 text-right font-bold text-trusta-teal text-lg">Rp {{ number_format($journal->total_debit, 2, ',', '.') }}</td>
-                            <td class="px-4 py-4 text-right font-bold text-trusta-teal text-lg">Rp {{ number_format($journal->total_credit, 2, ',', '.') }}</td>
+                            <td class="px-4 py-4 text-right font-bold text-trusta-teal text-lg">Rp {{ \App\Support\Money::fmt($journal->total_debit) }}</td>
+                            <td class="px-4 py-4 text-right font-bold text-trusta-teal text-lg">Rp {{ \App\Support\Money::fmt($journal->total_credit) }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -141,6 +141,7 @@
         ];
     @endphp
     <div class="max-w-4xl mx-auto mt-6">
+        @include('partials.attachments', ['attachType' => 'journal', 'attachId' => $journal->id])
         @include('partials.related-docs', ['groups' => $relGroups])
     </div>
 </x-app-layout>

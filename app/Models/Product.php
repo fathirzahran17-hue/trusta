@@ -10,7 +10,7 @@ class Product extends Model
     use \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
-        'company_id', 'category_id', 'sku', 'name', 'type', 'item_kind', 'is_taxable', 'unit',
+        'brand_id', 'company_id', 'category_id', 'sku', 'name', 'type', 'item_kind', 'is_taxable', 'custom_attr_1', 'unit',
         'sell_price', 'buy_price', 'revenue_account_id', 'expense_account_id',
         'is_active', 'inventory_account_id',
     ];
@@ -60,5 +60,10 @@ class Product extends Model
         $in = $this->inventoryMovements()->where('type', 'in')->sum('quantity');
         $out = $this->inventoryMovements()->where('type', 'out')->sum('quantity');
         return $in - $out;
+    }
+
+    public function brand()
+    {
+        return $this->belongsTo(Brand::class);
     }
 }

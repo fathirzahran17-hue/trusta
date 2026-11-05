@@ -16,7 +16,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         var sel = document.getElementById('tax_id'), display = document.getElementById('amount_display'), hidden = document.getElementById('amount'), info = document.getElementById('dpTaxInfo');
         var first = info.textContent;
-        var fmt = function (n) { return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+        var fmt = function (n) { return window.fmtAmount(n); };
         function refresh() {
             var o = sel.options[sel.selectedIndex], rate = parseFloat(o.dataset.rate) || 0, gross = parseFloat(hidden.value) || 0;
             if (rate <= 0 || gross <= 0) { info.textContent = first; return; }

@@ -41,7 +41,7 @@
             <div class="cb-acc">
                 <span class="cb-code">{{ $account->code }}</span>
                 <span class="cb-name">{{ $account->name }}</span>
-                <span class="cb-bal" style="color: {{ $account->balance < 0 ? '#ef4444' : 'var(--trusta-teal)' }};" title="Saldo berjalan">Rp {{ number_format($account->balance, 2, ',', '.') }}</span>
+                <span class="cb-bal" style="color: {{ $account->balance < 0 ? '#ef4444' : 'var(--trusta-teal)' }};" title="Saldo berjalan">Rp {{ \App\Support\Money::fmt($account->balance) }}</span>
             </div>
             <div style="display:flex; gap:6px;">
                 <button type="button" @click="tab = 'spend'" class="cashbank-tab" :class="{ 'spend-active': tab === 'spend' }">Keluarkan Uang</button>
@@ -176,13 +176,13 @@
                                     {{ $mut->description ?: $mut->journal->description }}
                                 </td>
                                 <td class="px-4 py-2 text-right tabular-nums text-green-400">
-                                    {{ $mut->debit > 0 ? '+ ' . number_format($mut->debit, 2, ',', '.') : '-' }}
+                                    {{ $mut->debit > 0 ? '+ ' . \App\Support\Money::fmt($mut->debit) : '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-right tabular-nums text-red-400">
-                                    {{ $mut->credit > 0 ? '- ' . number_format($mut->credit, 2, ',', '.') : '-' }}
+                                    {{ $mut->credit > 0 ? '- ' . \App\Support\Money::fmt($mut->credit) : '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-right font-bold tabular-nums {{ $mut->current_balance < 0 ? 'text-red-400' : 'text-white' }}">
-                                    Rp {{ number_format($mut->current_balance, 2, ',', '.') }}
+                                    Rp {{ \App\Support\Money::fmt($mut->current_balance) }}
                                 </td>
                             </tr>
                         @endforeach
@@ -197,7 +197,7 @@
                             <td class="px-4 py-2 text-right text-gray-500">-</td>
                             <td class="px-4 py-2 text-right text-gray-500">-</td>
                             <td class="px-4 py-2 text-right font-bold text-white tabular-nums">
-                                Rp {{ number_format($periodOpening, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($periodOpening) }}
                             </td>
                         </tr>
                     </tbody>

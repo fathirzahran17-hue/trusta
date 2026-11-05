@@ -14,7 +14,7 @@
                 
                 <div style="margin-bottom: 14px;">
                     <p style="font-size: 0.6rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px;">Saldo Tersedia</p>
-                    <p style="font-size: 1.4rem; font-weight: 700; color: {{ $account->balance < 0 ? '#ef4444' : '#fff' }}; font-variant-numeric: tabular-nums;">Rp {{ number_format($account->balance, 2, ',', '.') }}</p>
+                    <p style="font-size: 1.4rem; font-weight: 700; color: {{ $account->balance < 0 ? '#ef4444' : '#fff' }}; font-variant-numeric: tabular-nums;">Rp {{ \App\Support\Money::fmt($account->balance) }}</p>
                 </div>
                 
                 <a href="{{ route('client.cash-bank.show', $account->id) }}" class="btn-primary" style="width: 100%; justify-content: center; font-size: 0.75rem;">

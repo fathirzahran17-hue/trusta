@@ -38,7 +38,7 @@ class InventoryController extends Controller
 
     private function listProducts(Request $request, string $kind)
     {
-        $query = Product::where('company_id', $this->companyId())->whereIn('type', $kind === 'all' ? ['goods', 'service'] : [$kind])->with('category');
+        $query = Product::where('company_id', $this->companyId())->whereIn('type', $kind === 'all' ? ['goods', 'service'] : [$kind])->with(['category', 'brand']);
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', "%{$request->search}%")->orWhere('sku', 'like', "%{$request->search}%");
@@ -78,6 +78,7 @@ class InventoryController extends Controller
             'kind' => $kind,
             'product' => $product,
             'categories' => ProductCategory::where('company_id', $cid)->orderBy('name')->get(),
+            'brands' => Brand::where('company_id', $cid)->orderBy('name')->get(),
             'units' => Unit::where('company_id', $cid)->orderBy('name')->get(),
             'revenueAccounts' => $revenueAccounts,
             'costAccounts' => $costAccounts,
@@ -124,6 +125,7 @@ class InventoryController extends Controller
             'sku' => ['required', 'string', 'max:50', $skuRule],
             'name' => 'required|string|max:255',
             'category_id' => ['nullable', \Illuminate\Validation\Rule::exists('product_categories', 'id')->where('company_id', $cid)],
+            'brand_id' => ['nullable', \Illuminate\Validation\Rule::exists('brands', 'id')->where('company_id', $cid)],
             'unit' => 'nullable|string|max:20',
             'sell_price' => ($kind === 'service' ? 'nullable' : 'required') . '|numeric|min:0',
             'buy_price' => 'nullable|numeric|min:0',
@@ -133,6 +135,7 @@ class InventoryController extends Controller
             'item_kind' => [count($itemKinds) > 1 ? 'required' : 'nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\ItemKind::TYPES))],
             'is_subcontract' => 'nullable',
             'is_taxable' => 'nullable|boolean',
+            'custom_attr_1' => 'nullable|string|max:255',
         ], ['sku.unique' => 'Kode ini sudah dipakai produk lain.',
             'item_kind.required' => 'Pilih Jenis Barang: Bahan untuk yang dibeli dan diolah, Barang Jadi untuk hasil produksi.']);
 
@@ -143,10 +146,13 @@ class InventoryController extends Controller
         }
 
         $data = [
-            'sku' => $v['sku'], 'name' => $v['name'], 'type' => $kind, 'category_id' => $v['category_id'] ?? null,
+            'sku' => $v['sku'], 'name' => $v['name'], 'type' => $kind, 'category_id' => $v['category_id'] ?? null, 'brand_id' => $v['brand_id'] ?? null,
             'sell_price' => $v['sell_price'] ?? 0,
             'revenue_account_id' => $v['revenue_account_id'] ?? null,
         ];
+        if ($request->exists('custom_attr_1')) {
+            $data['custom_attr_1'] = $v['custom_attr_1'] ?? null;
+        }
         if ($request->exists('is_taxable')) {
             $data['is_taxable'] = $request->boolean('is_taxable');
         }

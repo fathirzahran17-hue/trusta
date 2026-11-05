@@ -37,6 +37,7 @@ class PurchaseOrderController extends Controller
         ])->all();
 
         return view('client.documents.show', [
+            'attachType' => 'purchase-order', 'attachId' => $purchaseOrder->id,
             'title' => 'Pesanan Pembelian',
             'number' => $purchaseOrder->po_number,
             'backUrl' => route('client.purchases.orders'),

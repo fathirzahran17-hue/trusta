@@ -161,7 +161,7 @@
                     const discountAmt = lineTotal * (discPct / 100);
                     const total = lineTotal - discountAmt;
                     
-                    row.querySelector('.row-total').textContent = total.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    row.querySelector('.row-total').textContent = window.fmtAmount(total);
                     subtotal += total;
                     if (window.LineTax.isTaxable(row)) taxableSubtotal += total;
                 });
@@ -178,10 +178,10 @@
                 
                 const grandTotal = afterDiscount + taxAmount;
 
-                displaySubtotal.textContent = subtotal.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                displayDiscount.textContent = overallDiscAmt > 0 ? '-' + overallDiscAmt.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0,00';
-                displayTax.textContent = taxAmount.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                displayGrandTotal.textContent = grandTotal.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                displaySubtotal.textContent = window.fmtAmount(subtotal);
+                displayDiscount.textContent = overallDiscAmt > 0 ? '-' + window.fmtAmount(overallDiscAmt) : '0,00';
+                displayTax.textContent = window.fmtAmount(taxAmount);
+                displayGrandTotal.textContent = window.fmtAmount(grandTotal);
             }
 
             btnAddRow.addEventListener('click', function() {

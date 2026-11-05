@@ -17,6 +17,10 @@
                 <span><span class="text-gray-500">SKU:</span> {{ $product->sku }}</span>
                 <span><span class="text-gray-500">Unit:</span> {{ $product->unit }}</span>
                 <span><span class="text-gray-500">Kategori:</span> {{ $product->category->name ?? '-' }}</span>
+                @if($product->brand)<span><span class="text-gray-500">Merek:</span> {{ $product->brand->name }}</span>@endif
+                @if(($attrLabel = auth()->user()->company?->custom_item_attr_1) && $product->custom_attr_1)
+                    <span><span class="text-gray-500">{{ $attrLabel }}:</span> {{ $product->custom_attr_1 }}</span>
+                @endif
             </div>
         </div>
         <div class="mt-4 md:mt-0 bg-gray-800 rounded-xl p-4 min-w-[200px] text-center border border-gray-700">

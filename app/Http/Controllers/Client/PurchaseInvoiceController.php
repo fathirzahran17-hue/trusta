@@ -64,7 +64,9 @@ class PurchaseInvoiceController extends Controller
         $warehouses = \App\Models\Warehouse::where('company_id', $cid)->where('is_active', true)->orderBy('name')->get();
         $stockMap = \App\Support\ItemKind::stockMap((int) $cid);
 
-        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'receipts', 'checked', 'expenseAccounts', 'mode', 'layouts', 'layout', 'warehouses', 'stockMap', 'hasStock'));
+        $termDays = \App\Support\PaymentTerms::days(auth()->user()->company?->default_purchase_term, (int) $cid);
+
+        return view('client.purchase_invoices.create', compact('suppliers', 'products', 'taxes', 'invoiceNumber', 'prefill', 'sourceOrders', 'receipts', 'checked', 'expenseAccounts', 'mode', 'layouts', 'layout', 'warehouses', 'stockMap', 'hasStock', 'termDays'));
     }
 
     /** Akun yang boleh dipilih langsung di baris faktur: biaya, HPP, biaya lain, dan aset (bukan kas/bank). */
