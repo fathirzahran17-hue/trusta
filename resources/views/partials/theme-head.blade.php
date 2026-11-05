@@ -24,9 +24,13 @@
     })();
 
     // TRUSTA - format uang: selalu 2 digit di belakang koma (2.000.000,13)
+    // Tampilan nilai mengikuti Preferensi. Kolom isian tetap memakai fmtMoney supaya nilainya utuh.
+    window.fmtAmount = (function (d) {
+        return function (n) { return Number(n).toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d }); };
+    })({{ \App\Support\Money::decimals() }});
     window.fmtMoney = function (n) {
         n = parseFloat(n); if (isNaN(n)) n = 0;
-        return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return window.fmtAmount(n);
     };
     window.fmtRp = function (n) { return 'Rp ' + window.fmtMoney(n); };
     // "1.234.567,89" -> 1234567.89 ; angka biasa ("1234567.89") dipakai apa adanya
@@ -115,3 +119,4 @@
         });
     })();
 </script>
+@include('partials.i18n-client')

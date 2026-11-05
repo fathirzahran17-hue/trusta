@@ -10,8 +10,8 @@ class Customer extends Model
     use \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
-        'company_id', 'name', 'address', 'phone', 'email', 'npwp',
-        'default_term_days', 'is_active',
+        'company_name', 'customer_category_id', 'company_id', 'name', 'address', 'phone', 'email', 'npwp',
+        'default_term_days', 'is_active', 'custom_attr_1',
     ];
 
     protected $casts = [
@@ -31,5 +31,10 @@ class Customer extends Model
     public function getSaldoAttribute()
     {
         return $this->salesInvoices()->where('status', '!=', 'void')->sum('amount_due');
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(CustomerCategory::class, 'customer_category_id');
     }
 }

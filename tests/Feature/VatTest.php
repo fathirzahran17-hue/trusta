@@ -203,16 +203,15 @@ class VatTest extends TestCase
         $this->post('/client/settings/preferences', ['name' => 'PT Pajak', 'tax_rounding' => 'Sesuka Hati'])->assertSessionHasErrors('tax_rounding');
     }
 
-    public function test_other_company_tax_is_ignored(): void
+    public function test_other_company_tax_is_rejected(): void
     {
         $other = $this->registerCompany('PT Lain', 'lain@uji.test');
         $foreign = Tax::create(['company_id' => $other->company_id, 'name' => 'PPN Lain', 'rate' => 50, 'is_active' => true]);
         $this->actingAs($this->user);
 
-        $inv = $this->sell(['tax_id' => $foreign->id]);
+        $this->post('/client/sales-invoices', $this->saleLines(['invoice_number' => 'INV-ASING', 'tax_id' => $foreign->id]))->assertSessionHasErrors('tax_id');
 
-        $this->assertEquals(0, (float) $inv->tax_amount);
-        $this->assertNull($inv->tax_id);
+        $this->assertSame(0, SalesInvoice::where('invoice_number', 'INV-ASING')->count());
     }
 
     /* ---------------------------------------------- pesanan dan tarikannya */
@@ -752,6 +751,22 @@ class VatTest extends TestCase
     }
 
     /* ---------------------------------------------------------- pembersihan */
+
+    public function test_calculator_offers_gross_up_for_income_tax_21_and_23(): void
+    {
+        $this->actingAs($this->user);
+        $this->get('/client/reports/tax-calculator')->assertOk()
+            ->assertSee('Perusahaan, sebagai tunjangan pajak (Gross Up)')
+            ->assertSee('Gaji yang Diterima Karyawan (Sebulan)')
+            ->assertSee('Bruto setelah Gross Up')
+            ->assertSee('Perusahaan, pemasok menerima utuh (Gross Up)')
+            ->assertSee('Nilai Bersih yang Diterima Pemasok')
+            ->assertSee('DPP setelah Gross Up')
+            ->assertSee('Pegawai Tidak Tetap, dibayar bulanan')
+            ->assertSee('Pegawai Tidak Tetap, upah harian, mingguan, satuan, atau borongan')
+            ->assertSee('Upah yang Diterima Pekerja')
+            ->assertSee('Jumlah Hari Kerja');
+    }
 
     public function test_fake_settings_are_gone_and_calculator_is_honest(): void
     {

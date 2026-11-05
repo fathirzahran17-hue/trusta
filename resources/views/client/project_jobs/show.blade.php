@@ -10,15 +10,15 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
             <div class="text-xs text-gray-400">Pendapatan</div>
-            <div class="text-xl font-bold text-green-400">Rp {{ number_format($income, 2, ',', '.') }}</div>
+            <div class="text-xl font-bold text-green-400">Rp {{ \App\Support\Money::fmt($income) }}</div>
         </div>
         <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
             <div class="text-xs text-gray-400">Pengeluaran</div>
-            <div class="text-xl font-bold text-red-400">Rp {{ number_format($expense, 2, ',', '.') }}</div>
+            <div class="text-xl font-bold text-red-400">Rp {{ \App\Support\Money::fmt($expense) }}</div>
         </div>
         <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
             <div class="text-xs text-gray-400">Laba / Rugi</div>
-            <div class="text-xl font-bold {{ ($income - $expense) >= 0 ? 'text-green-400' : 'text-red-400' }}">Rp {{ number_format($income - $expense, 2, ',', '.') }}</div>
+            <div class="text-xl font-bold {{ ($income - $expense) >= 0 ? 'text-green-400' : 'text-red-400' }}">Rp {{ \App\Support\Money::fmt($income - $expense) }}</div>
         </div>
     </div>
 
@@ -44,8 +44,8 @@
                                 @endif
                             </td>
                             <td class="border-b border-gray-700 p-3">{{ optional($d->account)->code }} {{ optional($d->account)->name }}</td>
-                            <td class="border-b border-gray-700 p-3 text-right font-mono">{{ number_format($d->debit, 2, ',', '.') }}</td>
-                            <td class="border-b border-gray-700 p-3 text-right font-mono">{{ number_format($d->credit, 2, ',', '.') }}</td>
+                            <td class="border-b border-gray-700 p-3 text-right font-mono">{{ \App\Support\Money::fmt($d->debit) }}</td>
+                            <td class="border-b border-gray-700 p-3 text-right font-mono">{{ \App\Support\Money::fmt($d->credit) }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="5" class="p-6 text-center text-gray-400">Belum ada jurnal untuk job ini.</td></tr>

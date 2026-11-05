@@ -18,6 +18,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="guest-body font-sans antialiased">
+        @include('partials.language-toggle', ['floating' => true])
         @include('partials.theme-toggle', ['floating' => true])
 
         <div class="auth-shell">

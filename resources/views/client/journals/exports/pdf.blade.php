@@ -68,8 +68,8 @@
                         
                         <td>{{ $detail->account->code ?? '-' }}</td>
                         <td>{{ $detail->account->name ?? '-' }}</td>
-                        <td class="text-right">{{ $detail->debit > 0 ? 'Rp ' . number_format($detail->debit, 2, ',', '.') : '' }}</td>
-                        <td class="text-right">{{ $detail->credit > 0 ? 'Rp ' . number_format($detail->credit, 2, ',', '.') : '' }}</td>
+                        <td class="text-right">{{ $detail->debit > 0 ? 'Rp ' . \App\Support\Money::fmt($detail->debit) : '' }}</td>
+                        <td class="text-right">{{ $detail->credit > 0 ? 'Rp ' . \App\Support\Money::fmt($detail->credit) : '' }}</td>
                     </tr>
                     @php
                         $grandDebit += $detail->debit;
@@ -96,8 +96,8 @@
             @if(count($journals) > 0)
             <tr>
                 <td colspan="4" class="text-right font-bold grand-total" style="font-size: 14px;">GRAND TOTAL</td>
-                <td class="text-right font-bold grand-total" style="font-size: 14px; color: #14b8a6;">Rp {{ number_format($grandDebit, 2, ',', '.') }}</td>
-                <td class="text-right font-bold grand-total" style="font-size: 14px; color: #14b8a6;">Rp {{ number_format($grandCredit, 2, ',', '.') }}</td>
+                <td class="text-right font-bold grand-total" style="font-size: 14px; color: #14b8a6;">Rp {{ \App\Support\Money::fmt($grandDebit) }}</td>
+                <td class="text-right font-bold grand-total" style="font-size: 14px; color: #14b8a6;">Rp {{ \App\Support\Money::fmt($grandCredit) }}</td>
             </tr>
             @endif
         </tbody>

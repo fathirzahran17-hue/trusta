@@ -1,5 +1,5 @@
 @php
-    $rp = fn ($n) => 'Rp ' . number_format($n, 2, ',', '.');
+    $rp = fn ($n) => 'Rp ' . \App\Support\Money::fmt($n);
     $bulan = ['01'=>'Januari','02'=>'Februari','03'=>'Maret','04'=>'April','05'=>'Mei','06'=>'Juni','07'=>'Juli','08'=>'Agustus','09'=>'September','10'=>'Oktober','11'=>'November','12'=>'Desember'];
     [$yy, $mm] = explode('-', $month);
     $eligible = $rows->filter(fn ($r) => !$r->reason && $r->amount > 0);
@@ -89,7 +89,7 @@
                         <td class="num">@if($h->journal)<a href="{{ route('client.journals.show', $h->journal->id) }}">{{ $h->journal->ref_number }}</a>@endif</td>
                         <td>{{ \Carbon\Carbon::parse($h->period . '-01')->translatedFormat('F Y') }}</td>
                         <td class="wrap">{{ $h->assets }}</td>
-                        <td class="r">Rp {{ number_format($h->total, 2, ',', '.') }}</td>
+                        <td class="r">Rp {{ \App\Support\Money::fmt($h->total) }}</td>
                         <td class="c">
                             <form method="POST" action="{{ route('client.fixed_assets.cancel_depreciation', $h->journal->id) }}" onsubmit="return confirm('Batalkan penyusutan ini?')">@csrf
                                 <button type="submit" class="rpt-btn" style="color:#ef4444;">Batalkan</button>

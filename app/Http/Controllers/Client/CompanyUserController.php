@@ -10,6 +10,21 @@ use Illuminate\Validation\Rules\Password;
 
 class CompanyUserController extends Controller
 {
+    /** Pesan bila jumlah pengguna aktif sudah mencapai batas paket. Perusahaan tanpa paket tidak dibatasi. */
+    private function seatLimitMessage(): ?string
+    {
+        $company = auth()->user()->company;
+        $plan = \App\Services\SubscriptionService::current($company)?->plan;
+        if (! $plan) {
+            return null;
+        }
+        $used = User::where('company_id', $company->id)->where('is_active', true)->count();
+
+        return $used >= (int) $plan->max_users
+            ? "Paket {$plan->name} dibatasi {$plan->max_users} pengguna aktif. Nonaktifkan akun lain atau tingkatkan paket di menu Langganan."
+            : null;
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -41,6 +56,10 @@ class CompanyUserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
+
+        if ($full = $this->seatLimitMessage()) {
+            return back()->withInput($request->except('password', 'password_confirmation'))->with('error', $full);
+        }
 
         User::create([
             'company_id' => auth()->user()->company_id,
@@ -80,8 +99,12 @@ class CompanyUserController extends Controller
 
         $user->name = $request->name;
         $user->email = $request->email;
+        // Mengaktifkan kembali akun juga memakai jatah pengguna paket
+        if ($request->has('is_active') && ! $user->is_active && ($full = $this->seatLimitMessage())) {
+            return back()->withInput($request->except('password', 'password_confirmation'))->with('error', $full);
+        }
         $user->is_active = $request->has('is_active');
-        
+
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
         }

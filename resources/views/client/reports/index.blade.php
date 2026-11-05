@@ -41,6 +41,7 @@
             ]],
             ['Pajak', [
                 ['client.reports.vat', 'Laporan PPN', 'Pajak Keluaran dan Masukan per masa pajak, kurang atau lebih bayar.', 'doc', true],
+                ['client.reports.coretax', 'Rekonsiliasi Coretax', 'Lampiran 1 SPT Badan: akun dipetakan otomatis ke kode Coretax.', 'doc', true],
                 ['client.reports.tax_calculator', 'Kalkulator Pajak', 'Simulasi PPN, PPh 21, PPh 23, dan PPh 4(2).', 'calc', false],
             ]],
         ];

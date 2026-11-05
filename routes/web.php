@@ -6,6 +6,9 @@ use App\Http\Controllers\Client\DashboardController as ClientDashboard;
 use Illuminate\Support\Facades\Route;
 
 // Redirect root ke login jika belum auth, atau ke dashboard masing-masing jika sudah
+Route::post('/locale', [\App\Http\Controllers\LocaleController::class, 'update'])->middleware('throttle:30,1')->name('locale.update');
+Route::get('/locale/dictionary', [\App\Http\Controllers\LocaleController::class, 'dictionary'])->name('locale.dictionary');
+
 Route::get('/', function () {
     if (auth()->check()) {
         if (auth()->user()->isSuperAdmin()) {
@@ -78,7 +81,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 // ==========================================
 // PANEL CLIENT (AKUNTANSI)
 // ==========================================
-Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('client')->name('client.')->group(function () {
+Route::middleware(['auth', 'client', 'premium', 'plan_features', 'throttle:600,1'])->prefix('client')->name('client.')->group(function () {
     Route::get('/dashboard', [ClientDashboard::class, 'index'])->name('dashboard');
     
     // Pengaturan & Perusahaan (Khusus Admin Klien)
@@ -234,6 +237,11 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::get('reports/inventory-stock', [\App\Http\Controllers\Client\ReportController::class, 'inventoryStock'])->name('reports.inventory-stock');
     Route::get('reports/production-cost', [\App\Http\Controllers\Client\ReportController::class, 'productionCost'])->middleware('production')->name('reports.production-cost');
     Route::get('reports/ppn', [\App\Http\Controllers\Client\ReportController::class, 'vat'])->name('reports.vat');
+    Route::get('reports/coretax', [\App\Http\Controllers\Client\ReportController::class, 'coretax'])->name('reports.coretax');
+    Route::get('reports/coretax/mapping', [\App\Http\Controllers\Client\CoretaxController::class, 'mapping'])->name('reports.coretax.mapping');
+    Route::post('reports/coretax/mapping', [\App\Http\Controllers\Client\CoretaxController::class, 'saveMapping'])->middleware('client_admin')->name('reports.coretax.mapping.save');
+    Route::get('reports/coretax/fiscal', [\App\Http\Controllers\Client\CoretaxController::class, 'fiscal'])->name('reports.coretax.fiscal');
+    Route::post('reports/coretax/fiscal', [\App\Http\Controllers\Client\CoretaxController::class, 'saveFiscal'])->middleware('client_admin')->name('reports.coretax.fiscal.save');
     Route::get('reports/spt-ppn', fn () => redirect()->route('client.reports.vat')); // alamat lama yang mungkin masih tersimpan di tab atau bookmark
     Route::get('reports/tax-calculator', [\App\Http\Controllers\Client\ReportController::class, 'taxCalculator'])->name('reports.tax_calculator');
 
@@ -265,6 +273,9 @@ Route::middleware(['auth', 'client', 'premium', 'throttle:600,1'])->prefix('clie
     Route::post('sales/returns', [\App\Http\Controllers\Client\SalesReturnController::class, 'store'])->name('sales.returns.store');
     Route::get('search', [\App\Http\Controllers\Client\SearchController::class, 'index'])->middleware('throttle:120,1')->name('search');
     Route::post('sales-invoices/{sales_invoice}/payments', [\App\Http\Controllers\Client\InvoicePaymentController::class, 'storeSales'])->name('sales-invoices.payments.store');
+    Route::post('attachments/{type}/{id}', [\App\Http\Controllers\Client\AttachmentController::class, 'store'])->whereNumber('id')->name('attachments.store');
+    Route::get('attachments/{attachment}/download', [\App\Http\Controllers\Client\AttachmentController::class, 'download'])->name('attachments.download');
+    Route::delete('attachments/{attachment}', [\App\Http\Controllers\Client\AttachmentController::class, 'destroy'])->name('attachments.destroy');
     Route::post('sales-invoices/{sales_invoice}/tax-number', [\App\Http\Controllers\Client\SalesInvoiceController::class, 'updateTaxNumber'])->name('sales-invoices.tax-number');
     Route::post('purchase-invoices/{purchase_invoice}/tax-number', [\App\Http\Controllers\Client\PurchaseInvoiceController::class, 'updateTaxNumber'])->name('purchase-invoices.tax-number');
     Route::post('down-payments/{down_payment}/tax-number', [\App\Http\Controllers\Client\DownPaymentApplicationController::class, 'updateTaxNumber'])->name('down-payments.tax-number');

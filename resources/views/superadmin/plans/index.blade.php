@@ -31,7 +31,7 @@
                     <div class="pay-field" style="grid-column: span 2"><label>Keunggulan Tambahan (satu per baris)</label><textarea name="features" rows="3" x-model="f.features" placeholder="Dukungan prioritas&#10;Pelatihan online"></textarea></div>
                     <div class="pay-field" style="grid-column: span 2"><label>Fitur & Status</label>
                         <div style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:6px; font-size:.82rem; color: var(--text); padding-top:4px">
-                            @foreach(['has_reports' => 'Laporan keuangan', 'has_cash_bank' => 'Kas & bank', 'has_export' => 'Ekspor Excel/PDF', 'has_auto_backup' => 'Backup otomatis', 'is_active' => 'Aktif', 'is_public' => 'Ditampilkan ke klien'] as $k => $l)
+                            @foreach(['has_reports' => 'Laporan keuangan', 'has_cash_bank' => 'Kas & bank', 'has_export' => 'Ekspor Excel/PDF', 'is_active' => 'Aktif', 'is_public' => 'Ditampilkan ke klien'] as $k => $l)
                                 <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="{{ $k }}" value="1" x-model="f.{{ $k }}"> {{ $l }}</label>
                             @endforeach
                         </div>
@@ -55,11 +55,10 @@
                         @if($p->has_reports)<li>Laporan keuangan</li>@endif
                         @if($p->has_cash_bank)<li>Kas & bank</li>@endif
                         @if($p->has_export)<li>Ekspor Excel/PDF</li>@endif
-                        @if($p->has_auto_backup)<li>Backup otomatis</li>@endif
                         @foreach($p->featureList() as $ft)<li>{{ $ft }}</li>@endforeach
                     </ul>
                     <div style="display:flex; gap:6px; margin-top:12px">
-                        <button type="button" class="pay-mini" @click="edit({{ $p->id }}, @js(['name' => $p->name, 'description' => $p->description, 'price' => number_format((float) $p->price, 2, ',', '.'), 'price_yearly' => $p->price_yearly ? number_format((float) $p->price_yearly, 2, ',', '.') : '', 'trial_days' => $p->trial_days, 'max_users' => $p->max_users, 'features' => $p->features, 'sort_order' => $p->sort_order, 'has_reports' => (bool) $p->has_reports, 'has_cash_bank' => (bool) $p->has_cash_bank, 'has_export' => (bool) $p->has_export, 'has_auto_backup' => (bool) $p->has_auto_backup, 'is_active' => (bool) $p->is_active, 'is_public' => (bool) $p->is_public]))">Ubah</button>
+                        <button type="button" class="pay-mini" @click="edit({{ $p->id }}, @js(['name' => $p->name, 'description' => $p->description, 'price' => \App\Support\Money::fmt((float) $p->price), 'price_yearly' => $p->price_yearly ? \App\Support\Money::fmt((float) $p->price_yearly) : '', 'trial_days' => $p->trial_days, 'max_users' => $p->max_users, 'features' => $p->features, 'sort_order' => $p->sort_order, 'has_reports' => (bool) $p->has_reports, 'has_cash_bank' => (bool) $p->has_cash_bank, 'has_export' => (bool) $p->has_export, 'has_auto_backup' => (bool) $p->has_auto_backup, 'is_active' => (bool) $p->is_active, 'is_public' => (bool) $p->is_public]))">Ubah</button>
                         <form method="POST" action="{{ route('superadmin.plans.destroy', $p) }}" onsubmit="return confirm('Hapus paket {{ addslashes($p->name) }}? Bila sudah pernah dipakai, paket hanya dinonaktifkan.')">@csrf @method('DELETE')<button type="submit" class="pay-mini dng">Hapus</button></form>
                     </div>
                 </div>

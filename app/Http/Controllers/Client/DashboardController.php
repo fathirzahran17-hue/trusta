@@ -52,7 +52,7 @@ class DashboardController extends Controller
         $c = $from->copy()->startOfDay();
         while ($c->lte($to)) {
             $k = $daily ? $c->format('Y-m-d') : $c->format('Y-m');
-            $out[$k] = $daily ? ($from->diffInDays($to) <= 7 ? $c->translatedFormat('D d') : $c->format('d M')) : $c->translatedFormat('M Y');
+            $out[$k] = $daily ? ($from->diffInDays($to) <= 7 ? $c->translatedFormat('D d') : $c->format('d M')) : $c->translatedFormat($from->year === $to->year ? 'M' : 'M Y');
             $daily ? $c->addDay() : $c->addMonthNoOverflow()->startOfMonth();
         }
 
@@ -73,7 +73,11 @@ class DashboardController extends Controller
         $recentActivities = Journal::where('company_id', $companyId)->orderBy('created_at', 'desc')->take(6)->get()
             ->map(function ($j) {
                 $src = \App\Services\DocumentLinker::sourceOfJournal($j);
-                $j->act_label = $src['label'] ?? (str_starts_with((string) $j->ref_number, 'VOID-') ? 'Pembatalan' : 'Jurnal');
+                $j->act_label = $src['label'] ?? match (true) {
+                    str_starts_with((string) $j->ref_number, 'VOID-') => 'Pembatalan',
+                    str_starts_with((string) $j->ref_number, 'JV-OB-') => 'Saldo Awal',
+                    default => 'Jurnal',
+                };
                 $j->act_url = $src['url'] ?? route('client.journals.show', $j);
 
                 return $j;
@@ -127,6 +131,8 @@ class DashboardController extends Controller
             ->where('journals.company_id', $companyId)->where('journals.status', 'posted')
             ->whereBetween('journals.transaction_date', [$from, $to . ' 23:59:59'])
             ->whereIn('journal_details.account_id', $cashIds)
+            // Saldo awal bukan uang yang masuk pada periode ini
+            ->where('journals.ref_number', 'not like', 'JV-OB-%')
             ->groupBy('journals.id', 'journals.transaction_date')
             ->selectRaw('journals.transaction_date d, SUM(journal_details.debit) - SUM(journal_details.credit) net')->get();
         $cashFlowIn = array_fill_keys(array_keys($buckets), 0.0);
@@ -153,8 +159,17 @@ class DashboardController extends Controller
             ->groupBy('accounts.name', 'accounts.id')
             ->having('total', '>', 0)
             ->orderBy('total', 'desc')
-            ->limit(5)
             ->get();
+        // Kartu hanya muat 5 baris: akun selebihnya digabung, supaya totalnya tetap sama dengan beban di Laba/Rugi
+        if ($topExpenses->count() > 5) {
+            $topExpenses = $topExpenses->take(4)->values();
+        } else {
+            $topExpenses = $topExpenses->values();
+        }
+        $restExpense = round($expense - (float) $topExpenses->sum('total'), 2);
+        if ($restExpense > 0.004) {
+            $topExpenses->push((object) ['name' => 'Lainnya', 'total' => $restExpense]);
+        }
 
         // 7. Penjualan Overview
         $salesOverview = [

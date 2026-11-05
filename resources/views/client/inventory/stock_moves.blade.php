@@ -68,7 +68,7 @@
                         <td>{{ \Carbon\Carbon::parse($m->date)->format('d/m/Y') }}</td>
                         <td>{{ $m->product->name ?? '-' }}</td>
                         <td class="r" style="color: {{ $m->type === 'in' ? '#15803d' : 'var(--danger)' }}; font-weight:700;">{{ $m->type === 'in' ? '+' : '-' }}{{ (float) $m->quantity }}</td>
-                        <td class="r">{{ number_format((float) $m->quantity * (float) $m->unit_cost, 2, ',', '.') }}</td>
+                        <td class="r">{{ \App\Support\Money::fmt((float) $m->quantity * (float) $m->unit_cost) }}</td>
                         <td class="wrap">{{ $m->notes }}</td>
                         <td>@if($m->journal_id && isset($journals[$m->journal_id]))<a class="lnk" href="{{ route('client.journals.show', $m->journal_id) }}">{{ $journals[$m->journal_id] }}</a>@else - @endif</td>
                         <td class="r">

@@ -29,6 +29,12 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
+                        <label for="company_name" class="block">Perusahaan / Instansi</label>
+                        <input type="text" name="company_name" id="company_name" value="{{ old('company_name', $customer->company_name ?? '') }}" maxlength="255" placeholder="Boleh dikosongkan bila perorangan">
+                        @error('company_name')<p class="field-msg">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
                         <label for="email" class="block">Email</label>
                         <input type="email" name="email" id="email" value="{{ old('email') }}"
                             placeholder="email@contoh.com">
@@ -69,6 +75,16 @@
                     </div>
 
                     <div>
+                        <label for="customer_category_id" class="block">Kategori Pelanggan</label>
+                        <select name="customer_category_id" id="customer_category_id">
+                            <option value="">Tanpa kategori</option>
+                            @foreach($categories as $cat)<option value="{{ $cat->id }}" @selected(old('customer_category_id', $customer->customer_category_id ?? null) == $cat->id)>{{ $cat->name }}</option>@endforeach
+                        </select>
+                        @if($categories->isEmpty())<p class="field-hint">Belum ada kategori. Buat di menu Kategori Pelanggan.</p>@endif
+                        @error('customer_category_id')<p class="field-msg">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
                         <label for="default_term_days" class="block">Jangka Waktu Pembayaran (Hari)</label>
                         <input type="number" name="default_term_days" id="default_term_days" value="{{ old('default_term_days', 30) }}" min="0"
                             placeholder="30">
@@ -86,6 +102,14 @@
                             <p class="text-xs text-gray-500 font-normal">Jika tidak aktif, tidak akan muncul di opsi pembuatan invoice baru.</p>
                         </label>
                     </div>
+
+                    @if($attrLabel = auth()->user()->company?->custom_customer_attr_1)
+                    <div>
+                        <label for="custom_attr_1" class="block">{{ $attrLabel }}</label>
+                        <input type="text" name="custom_attr_1" id="custom_attr_1" value="{{ old('custom_attr_1', null) }}" maxlength="255">
+                    </div>
+                    @endif
+
                 </div>
             </div>
 

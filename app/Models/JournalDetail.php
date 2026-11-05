@@ -21,7 +21,13 @@ class JournalDetail extends Model
     protected static function booted(): void
     {
         $check = function (JournalDetail $d) {
-            if (!\App\Support\PeriodLock::closingDate()) return;
+            // Baris jurnal tidak boleh memakai akun perusahaan lain, dari jalur mana pun datangnya
+            $user = auth()->hasUser() ? auth()->user() : null;
+            if ($user && $user->company_id && $user->role !== 'super_admin'
+                && ! Account::withoutGlobalScopes()->whereKey($d->account_id)->where('company_id', $user->company_id)->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['account_id' => 'Akun tidak ditemukan.']);
+            }
+            if (!\App\Support\PeriodLock::closingDate() && !\App\Support\PeriodLock::startDate()) return;
             $date = Journal::withoutGlobalScopes()->whereKey($d->journal_id)->value('transaction_date');
             \App\Support\PeriodLock::assertOpen($date, 'Jurnal');
         };

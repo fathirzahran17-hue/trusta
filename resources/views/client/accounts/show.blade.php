@@ -29,7 +29,7 @@
         </div>
         <div class="bg-gradient-to-br from-trusta-teal/20 to-gray-800 border border-trusta-teal/30 rounded-2xl p-6 shadow-lg shadow-trusta-teal/10">
             <h4 class="text-sm text-trusta-teal mb-1">Saldo Akhir</h4>
-            <p class="text-2xl font-bold text-white tabular-nums">Rp {{ number_format($account->balance, 2, ',', '.') }}</p>
+            <p class="text-2xl font-bold text-white tabular-nums">Rp {{ \App\Support\Money::fmt($account->balance) }}</p>
         </div>
     </div>
 
@@ -73,7 +73,7 @@
                             <td class="px-6 py-4 text-right text-gray-500">-</td>
                             <td class="px-6 py-4 text-right text-gray-500">-</td>
                             <td class="px-6 py-4 text-right font-bold text-white tabular-nums">
-                                Rp {{ number_format($periodOpening, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($periodOpening) }}
                             </td>
                         </tr>
 
@@ -109,13 +109,13 @@
                                     {{ $mut->description ?: $mut->journal->description }}
                                 </td>
                                 <td class="px-6 py-4 text-right tabular-nums text-gray-300">
-                                    {{ $mut->debit > 0 ? number_format($mut->debit, 2, ',', '.') : '-' }}
+                                    {{ $mut->debit > 0 ? \App\Support\Money::fmt($mut->debit) : '-' }}
                                 </td>
                                 <td class="px-6 py-4 text-right tabular-nums text-gray-300">
-                                    {{ $mut->credit > 0 ? number_format($mut->credit, 2, ',', '.') : '-' }}
+                                    {{ $mut->credit > 0 ? \App\Support\Money::fmt($mut->credit) : '-' }}
                                 </td>
                                 <td class="px-6 py-4 text-right font-bold tabular-nums {{ $runningBalance < 0 ? 'text-red-400' : 'text-white' }}">
-                                    Rp {{ number_format($runningBalance, 2, ',', '.') }}
+                                    Rp {{ \App\Support\Money::fmt($runningBalance) }}
                                 </td>
                             </tr>
                         @endforeach
@@ -126,9 +126,9 @@
                     <tfoot class="bg-gray-800/80 border-t border-gray-700">
                         <tr>
                             <td colspan="3" class="px-6 py-4 text-right font-bold text-gray-400">TOTAL MUTASI PERIODE:</td>
-                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums whitespace-nowrap">Rp {{ number_format($totalDebit, 2, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums whitespace-nowrap">Rp {{ number_format($totalCredit, 2, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right font-bold text-trusta-teal tabular-nums text-lg whitespace-nowrap">Rp {{ number_format($runningBalance, 2, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums whitespace-nowrap">Rp {{ \App\Support\Money::fmt($totalDebit) }}</td>
+                            <td class="px-6 py-4 text-right font-bold text-white tabular-nums whitespace-nowrap">Rp {{ \App\Support\Money::fmt($totalCredit) }}</td>
+                            <td class="px-6 py-4 text-right font-bold text-trusta-teal tabular-nums text-lg whitespace-nowrap">Rp {{ \App\Support\Money::fmt($runningBalance) }}</td>
                         </tr>
                     </tfoot>
                 </table>

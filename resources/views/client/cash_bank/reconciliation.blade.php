@@ -2,7 +2,7 @@
     @section('title', 'Rekonsiliasi Bank')
     @section('subtitle', 'Cocokkan mutasi kas/bank di buku dengan rekening koran dari bank')
 
-    @php $rp = fn ($v) => number_format((float) $v, 2, ',', '.'); @endphp
+    @php $rp = fn ($v) => \App\Support\Money::fmt((float) $v); @endphp
 
     <p class="pay-flow">
         Langkah: <b>1.</b> Pilih rekening & tanggal rekening koran → <b>2.</b> Isi saldo akhir di rekening koran → <b>3.</b> Centang mutasi yang tercantum di rekening koran → <b>4.</b> Simpan bila selisihnya 0.

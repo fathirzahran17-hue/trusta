@@ -15,7 +15,7 @@
 <div class="related-panel no-print">
     <div class="related-panel-head">
         <span>{{ $isSales ? 'Pembayaran dari Pelanggan' : 'Pembayaran ke Pemasok' }}</span>
-        <span class="ri-meta">Dibayar Rp {{ number_format($invoice->amount_paid, 2, ',', '.') }} &bull; Sisa Rp {{ number_format($invoice->amount_due, 2, ',', '.') }}</span>
+        <span class="ri-meta">Dibayar Rp {{ \App\Support\Money::fmt($invoice->amount_paid) }} &bull; Sisa Rp {{ \App\Support\Money::fmt($invoice->amount_due) }}</span>
     </div>
 
     <div class="related-group">
@@ -23,7 +23,7 @@
         @forelse($payments as $p)
             <a href="{{ $p->journal_id ? route('client.journals.show', $p->journal_id) : '#' }}" class="related-item">
                 <span><span class="ri-main">{{ $p->payment_number }}</span> &middot; {{ optional($p->account)->name }}</span>
-                <span class="ri-meta">{{ $p->payment_date->format('d M Y') }} &bull; Rp {{ number_format($p->amount, 2, ',', '.') }}@if((float) $p->deduction_amount > 0) <span title="Bagian yang tidak lewat kas (potongan)">(potongan Rp {{ number_format($p->deduction_amount, 2, ',', '.') }})</span>@endif</span>
+                <span class="ri-meta">{{ $p->payment_date->format('d M Y') }} &bull; Rp {{ \App\Support\Money::fmt($p->amount) }}@if((float) $p->deduction_amount > 0) <span title="Bagian yang tidak lewat kas (potongan)">(potongan Rp {{ \App\Support\Money::fmt($p->deduction_amount) }})</span>@endif</span>
             </a>
         @empty
             <div class="related-empty">Belum ada pembayaran.</div>
@@ -36,7 +36,7 @@
             @foreach($dpApplications as $a)
                 <div class="related-item" style="justify-content:space-between;">
                     <span><span class="ri-main">{{ optional($a->downPayment)->payment_number }}</span> &middot; {{ $a->applied_date->format('d M Y') }}</span>
-                    <span class="ri-meta" style="display:flex; gap:10px; align-items:center;">Rp {{ number_format($a->amount, 2, ',', '.') }}
+                    <span class="ri-meta" style="display:flex; gap:10px; align-items:center;">Rp {{ \App\Support\Money::fmt($a->amount) }}
                         <form method="POST" action="{{ route('client.down-payment-applications.void', $a) }}" style="display:inline" onsubmit="return confirm('Batalkan pemakaian uang muka ini?')">@csrf
                             <button type="submit" class="text-xs text-red-400 hover:underline">Batalkan</button>
                         </form>

@@ -29,6 +29,12 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
+                        <label for="company_name" class="block">Perusahaan / Vendor</label>
+                        <input type="text" name="company_name" id="company_name" value="{{ old('company_name', $supplier->company_name ?? '') }}" maxlength="255" placeholder="Boleh dikosongkan bila perorangan">
+                        @error('company_name')<p class="field-msg">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
                         <label for="email" class="block">Email</label>
                         <input type="email" name="email" id="email" value="{{ old('email') }}"
                             placeholder="email@contoh.com">
@@ -75,6 +81,16 @@
                         @error('npwp')
                             <p class="field-msg">{{ $message }}</p>
                         @enderror
+                    </div>
+
+                    <div>
+                        <label for="supplier_category_id" class="block">Kategori Pemasok</label>
+                        <select name="supplier_category_id" id="supplier_category_id">
+                            <option value="">Tanpa kategori</option>
+                            @foreach($categories as $cat)<option value="{{ $cat->id }}" @selected(old('supplier_category_id', $supplier->supplier_category_id ?? null) == $cat->id)>{{ $cat->name }}</option>@endforeach
+                        </select>
+                        @if($categories->isEmpty())<p class="field-hint">Belum ada kategori. Buat di menu Kategori Pemasok.</p>@endif
+                        @error('supplier_category_id')<p class="field-msg">{{ $message }}</p>@enderror
                     </div>
 
                     <div>

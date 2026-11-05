@@ -119,7 +119,7 @@ class ItemReceiptController extends Controller
         $companyId = auth()->user()->company_id;
         $requested = \App\Services\OrderProgress::requested($request->products, $request->quantities);
         try {
-            [$rowOrders, $orders] = \App\Services\FulfilmentSources::resolve('purchase', $request, (int) $companyId, (int) $request->supplier_id, $request->status == 'received');
+            [$rowOrders, $orders] = \App\Services\FulfilmentSources::resolve('purchase', $request, (int) $companyId, (int) $request->supplier_id, $request->status == 'received' && auth()->user()->company?->prevent_over_receive);
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }

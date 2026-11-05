@@ -8,37 +8,56 @@ use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $customers = Customer::where('company_id', auth()->user()->company_id)->orderBy('name')->get();
-        return view('client.customers.index', compact('customers'));
+        $categories = $this->categoryOptions();
+        $customers = Customer::where('company_id', auth()->user()->company_id)->with('category')
+            ->when($request->filled('kategori'), fn ($q) => $q->where('customer_category_id', (int) $request->kategori))
+            ->orderBy('name')->get();
+        return view('client.customers.index', compact('customers', 'categories'));
+    }
+
+    private function categoryOptions()
+    {
+        return \App\Models\CustomerCategory::where('company_id', auth()->user()->company_id)->orderBy('name')->get();
+    }
+
+    private function categoryRule(): array
+    {
+        return ['nullable', \Illuminate\Validation\Rule::exists('customer_categories', 'id')->where('company_id', auth()->user()->company_id)];
     }
 
     public function create()
     {
-        return view('client.customers.create');
+        return view('client.customers.create', ['categories' => $this->categoryOptions()]);
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'npwp' => 'nullable|string|max:30',
             'default_term_days' => 'nullable|integer|min:0',
+            'custom_attr_1' => 'nullable|string|max:255',
+            'customer_category_id' => $this->categoryRule(),
             'is_active' => 'boolean',
         ]);
 
         Customer::create([
             'company_id' => auth()->user()->company_id,
             'name' => $request->name,
+            'company_name' => $request->company_name,
             'email' => $request->email,
             'phone' => $request->phone,
             'address' => $request->address,
             'npwp' => $request->npwp,
             'default_term_days' => $request->default_term_days ?? 30,
+            'customer_category_id' => $request->customer_category_id ?: null,
+            'custom_attr_1' => $request->custom_attr_1,
             'is_active' => $request->has('is_active') ? $request->is_active : true,
         ]);
 
@@ -48,7 +67,7 @@ class CustomerController extends Controller
     public function edit(Customer $customer)
     {
         if ($customer->company_id !== auth()->user()->company_id) abort(403);
-        return view('client.customers.edit', compact('customer'));
+        return view('client.customers.edit', ['customer' => $customer, 'categories' => $this->categoryOptions()]);
     }
 
     public function update(Request $request, Customer $customer)
@@ -57,21 +76,27 @@ class CustomerController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'npwp' => 'nullable|string|max:30',
             'default_term_days' => 'nullable|integer|min:0',
+            'custom_attr_1' => 'nullable|string|max:255',
+            'customer_category_id' => $this->categoryRule(),
             'is_active' => 'boolean',
         ]);
 
         $customer->update([
             'name' => $request->name,
+            'company_name' => $request->company_name,
             'email' => $request->email,
             'phone' => $request->phone,
             'address' => $request->address,
             'npwp' => $request->npwp,
             'default_term_days' => $request->default_term_days ?? 30,
+            'customer_category_id' => $request->customer_category_id ?: null,
+            'custom_attr_1' => $request->custom_attr_1,
             'is_active' => $request->has('is_active'),
         ]);
 

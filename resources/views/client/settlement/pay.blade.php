@@ -1,6 +1,6 @@
 @php
     $sales = $kind === 'sales';
-    $rp = fn ($n) => 'Rp ' . number_format($n, 2, ',', '.');
+    $rp = fn ($n) => 'Rp ' . \App\Support\Money::fmt($n);
     $partyLabel = $sales ? 'Pelanggan' : 'Pemasok';
     $storeUrl = $sales ? route('client.sales.receipts.store') : route('client.purchases.payments.store');
     $listUrl = $sales ? route('client.sales.settlement') : route('client.purchases.settlement');

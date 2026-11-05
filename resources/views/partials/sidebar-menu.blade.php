@@ -115,9 +115,10 @@
         ]],
         ['label' => '4. Laporan', 'items' => [
             ['title' => 'Laporan', 'icon' => 'chart', 'children' => [
-                $I('Laporan Keuangan & Lainnya', 'client.reports.index', ['client.reports.*'], ['client.reports.vat', 'client.reports.tax_calculator']),
+                $I('Laporan Keuangan & Lainnya', 'client.reports.index', ['client.reports.*'], ['client.reports.vat', 'client.reports.coretax', 'client.reports.coretax.*', 'client.reports.tax_calculator']),
                 $H('Pajak'),
                 $I('Laporan PPN', 'client.reports.vat'),
+                $I('Rekonsiliasi Coretax', 'client.reports.coretax', ['client.reports.coretax', 'client.reports.coretax.*']),
                 $I('Kalkulator Pajak', 'client.reports.tax_calculator'),
             ]],
         ]],

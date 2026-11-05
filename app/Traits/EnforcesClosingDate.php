@@ -26,7 +26,7 @@ trait EnforcesClosingDate
      */
     public function checkClosingDate(bool $deleting = false): void
     {
-        if (!PeriodLock::closingDate()) {
+        if (!PeriodLock::closingDate() && !PeriodLock::startDate()) {
             return;
         }
 

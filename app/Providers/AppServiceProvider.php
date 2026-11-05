@@ -11,7 +11,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->extend('validation.presence', fn ($verifier, $app) => new \App\Support\TenantPresenceVerifier($app['db']));
     }
 
     /**

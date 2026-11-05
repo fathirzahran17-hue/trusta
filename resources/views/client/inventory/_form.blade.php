@@ -46,6 +46,16 @@
                 @foreach($categories as $c)<option value="{{ $c->id }}" @selected(old('category_id', $p->category_id ?? null) == $c->id)>{{ $c->name }}</option>@endforeach
             </select>
         </div>
+        @if($kind === 'goods')
+        <div class="pay-field">
+            <label for="brand_id">Merek</label>
+            <select name="brand_id" id="brand_id">
+                <option value="">Tanpa merek</option>
+                @foreach($brands as $b)<option value="{{ $b->id }}" @selected(old('brand_id', $p->brand_id ?? null) == $b->id)>{{ $b->name }}</option>@endforeach
+            </select>
+            @error('brand_id')<p class="field-msg">{{ $message }}</p>@enderror
+        </div>
+        @endif
         <div class="pay-field">
             <label for="unit">Satuan</label>
             <select name="unit" id="unit">
@@ -143,6 +153,13 @@
         </div>
     </details>
 </div>
+@endif
+
+@if($itemAttrLabel = auth()->user()->company?->custom_item_attr_1)
+<div class="pay-card"><div style="padding:14px 18px" class="pay-field">
+    <label for="custom_attr_1">{{ $itemAttrLabel }}</label>
+    <input type="text" name="custom_attr_1" id="custom_attr_1" value="{{ old('custom_attr_1', $p->custom_attr_1 ?? '') }}" maxlength="255">
+</div></div>
 @endif
 
 <div class="pay-card"><div style="padding:14px 18px">

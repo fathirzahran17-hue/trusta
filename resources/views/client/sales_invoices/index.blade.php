@@ -59,9 +59,9 @@
                                 <div style="font-size: 0.65rem; color: #475569;">Jatuh tempo: {{ $invoice->due_date->format('d M Y') }}</div>
                             </td>
                             <td class="px-6 py-4 text-right font-bold text-trusta-teal" style="font-variant-numeric: tabular-nums;">
-                                Rp {{ number_format($invoice->total, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($invoice->total) }}
                             </td>
-                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">{{ $invoice->status === 'void' ? '-' : 'Rp ' . number_format($invoice->amount_due, 2, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right" style="font-variant-numeric: tabular-nums;">{{ $invoice->status === 'void' ? '-' : 'Rp ' . \App\Support\Money::fmt($invoice->amount_due) }}</td>
                             <td class="px-6 py-4 text-center">
                                 @include('partials.invoice-status', ['invoice' => $invoice])
                             </td>

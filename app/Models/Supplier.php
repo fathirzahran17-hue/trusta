@@ -10,7 +10,7 @@ class Supplier extends Model
     use \App\Models\Concerns\BelongsToCompany;
 
     protected $fillable = [
-        'company_id', 'name', 'address', 'tax_address', 'phone', 'email', 'npwp',
+        'company_name', 'supplier_category_id', 'company_id', 'name', 'address', 'tax_address', 'phone', 'email', 'npwp',
         'default_term_days', 'is_active',
     ];
 
@@ -31,5 +31,10 @@ class Supplier extends Model
     public function getSaldoAttribute()
     {
         return $this->purchaseInvoices()->where('status', '!=', 'void')->sum('amount_due');
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(SupplierCategory::class, 'supplier_category_id');
     }
 }

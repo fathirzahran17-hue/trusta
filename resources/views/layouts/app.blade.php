@@ -173,7 +173,7 @@
                         </button>
                         <div class="top-header-title">
                             <h1 class="font-poppins">@yield('title')</h1>
-                            <p>@yield('subtitle', 'Welcome back, ' . explode(' ', auth()->user()->name)[0])</p>
+                            <p>@yield('subtitle', 'Selamat datang kembali, ' . explode(' ', auth()->user()->name)[0])</p>
                         </div>
                     </div>
                     
@@ -192,6 +192,7 @@
                         @if(!auth()->user()->isSuperAdmin())
                             @include('partials.global-search')
                         @endif
+                        @include('partials.language-toggle')
                         @include('partials.theme-toggle')
 
                         <a href="{{ route('profile.edit') }}" class="header-icon-btn" data-tooltip="Profil Akun">

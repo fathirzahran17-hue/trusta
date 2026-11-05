@@ -2,7 +2,7 @@
     @section('title', 'Perintah Produksi')
     @section('subtitle', 'Olah bahan menjadi barang jadi: stok bahan berkurang, barang jadi bertambah, HPP produksi dijurnal otomatis')
 
-    @php $rp = fn ($v) => 'Rp ' . number_format((float) $v, 2, ',', '.'); @endphp
+    @php $rp = fn ($v) => 'Rp ' . \App\Support\Money::fmt((float) $v); @endphp
 
     <p class="pay-flow">
         Jurnal otomatis: <b>Debit</b> Persediaan Barang Jadi / <b>Kredit</b> Persediaan Bahan (nilai bahan) + <b>Kredit</b> akun biaya tambahan (mis. Biaya Tenaga Kerja / Overhead Dibebankan ke Produksi).

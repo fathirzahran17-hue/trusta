@@ -136,7 +136,7 @@
                 $totalCredit = $mutations->sum('credit');
                 $balance = $account->normal_balance === 'debit' ? ($account->opening_balance + $totalDebit - $totalCredit) : ($account->opening_balance + $totalCredit - $totalDebit);
             @endphp
-            <div style="font-size: 1.25rem; font-weight: 700; color: var(--trusta-text-primary);">Rp {{ number_format($balance, 2, ',', '.') }}</div>
+            <div style="font-size: 1.25rem; font-weight: 700; color: var(--trusta-text-primary);">Rp {{ \App\Support\Money::fmt($balance) }}</div>
         </div>
     </div>
 
@@ -157,8 +157,8 @@
                     <td>-</td>
                     <td>-</td>
                     <td style="font-style: italic;">Saldo Awal</td>
-                    <td class="text-right">{{ $account->normal_balance === 'debit' && $account->opening_balance > 0 ? 'Rp ' . number_format($account->opening_balance, 2, ',', '.') : '-' }}</td>
-                    <td class="text-right">{{ $account->normal_balance === 'credit' && $account->opening_balance > 0 ? 'Rp ' . number_format($account->opening_balance, 2, ',', '.') : '-' }}</td>
+                    <td class="text-right">{{ $account->normal_balance === 'debit' && $account->opening_balance > 0 ? 'Rp ' . \App\Support\Money::fmt($account->opening_balance) : '-' }}</td>
+                    <td class="text-right">{{ $account->normal_balance === 'credit' && $account->opening_balance > 0 ? 'Rp ' . \App\Support\Money::fmt($account->opening_balance) : '-' }}</td>
                 </tr>
 
                 @forelse($mutations as $mutation)
@@ -170,8 +170,8 @@
                             </a>
                         </td>
                         <td>{{ $mutation->description ?: $mutation->journal->description }}</td>
-                        <td class="text-right">{{ $mutation->debit > 0 ? 'Rp ' . number_format($mutation->debit, 2, ',', '.') : '-' }}</td>
-                        <td class="text-right">{{ $mutation->credit > 0 ? 'Rp ' . number_format($mutation->credit, 2, ',', '.') : '-' }}</td>
+                        <td class="text-right">{{ $mutation->debit > 0 ? 'Rp ' . \App\Support\Money::fmt($mutation->debit) : '-' }}</td>
+                        <td class="text-right">{{ $mutation->credit > 0 ? 'Rp ' . \App\Support\Money::fmt($mutation->credit) : '-' }}</td>
                     </tr>
                 @empty
                     <tr>
@@ -186,8 +186,8 @@
                 @if($mutations->count() > 0)
                 <tr style="background: rgba(0,0,0,0.02); font-weight: 600;">
                     <td colspan="3" class="text-right">Total Mutasi:</td>
-                    <td class="text-right">Rp {{ number_format($totalDebit, 2, ',', '.') }}</td>
-                    <td class="text-right">Rp {{ number_format($totalCredit, 2, ',', '.') }}</td>
+                    <td class="text-right">Rp {{ \App\Support\Money::fmt($totalDebit) }}</td>
+                    <td class="text-right">Rp {{ \App\Support\Money::fmt($totalCredit) }}</td>
                 </tr>
                 @endif
             </tbody>

@@ -12,7 +12,7 @@ class Account extends Model
 
     protected $fillable = [
         'company_id', 'parent_id', 'code', 'name', 'type', 'normal_balance',
-        'opening_balance', 'is_active', 'is_system', 'is_cash_bank', 'is_settlement_deduction',
+        'opening_balance', 'is_active', 'is_system', 'is_cash_bank', 'is_settlement_deduction', 'coretax_code',
     ];
 
     protected $appends = ['is_header'];

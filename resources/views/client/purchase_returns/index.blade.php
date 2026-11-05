@@ -37,7 +37,7 @@
                                 {{ $ret->purchaseInvoice->invoice_number ?? '-' }}
                             </td>
                             <td class="px-6 py-4 text-right font-bold text-trusta-teal" style="font-variant-numeric: tabular-nums;">
-                                Rp {{ number_format($ret->total, 2, ',', '.') }}
+                                Rp {{ \App\Support\Money::fmt($ret->total) }}
                             </td>
                         </tr>
                     @empty

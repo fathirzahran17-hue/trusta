@@ -46,7 +46,7 @@
             </div>
             <div class="mt-4 md:mt-0 text-right">
                 <div class="text-sm text-gray-400 mb-1">Total Saldo Hutang (Aktif)</div>
-                <div class="text-3xl font-bold text-red-400">Rp {{ number_format($totalHutang, 2, ',', '.') }}</div>
+                <div class="text-3xl font-bold text-red-400">Rp {{ \App\Support\Money::fmt($totalHutang) }}</div>
             </div>
         </div>
     </div>
@@ -86,9 +86,9 @@
                                     <span class="bg-red-500/10 text-red-400 border border-red-500/20 text-xs px-2.5 py-1 rounded-full">Belum Dibayar</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-right">Rp {{ number_format($inv->total, 2, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right">Rp {{ number_format($inv->amount_paid, 2, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right font-semibold text-red-400">Rp {{ number_format($inv->amount_due, 2, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">Rp {{ \App\Support\Money::fmt($inv->total) }}</td>
+                            <td class="px-6 py-4 text-right">Rp {{ \App\Support\Money::fmt($inv->amount_paid) }}</td>
+                            <td class="px-6 py-4 text-right font-semibold text-red-400">Rp {{ \App\Support\Money::fmt($inv->amount_due) }}</td>
                         </tr>
                         @php
                             $sumTotal += $inv->total;
@@ -106,9 +106,9 @@
                     @if(count($invoices) > 0)
                     <tr class="bg-gray-900/50 font-bold border-t-2 border-gray-700">
                         <td colspan="3" class="px-6 py-4 text-right text-white">TOTAL PERIODE INI</td>
-                        <td class="px-6 py-4 text-right text-white">Rp {{ number_format($sumTotal, 2, ',', '.') }}</td>
-                        <td class="px-6 py-4 text-right text-emerald-400">Rp {{ number_format($sumPaid, 2, ',', '.') }}</td>
-                        <td class="px-6 py-4 text-right text-red-400">Rp {{ number_format($sumDue, 2, ',', '.') }}</td>
+                        <td class="px-6 py-4 text-right text-white">Rp {{ \App\Support\Money::fmt($sumTotal) }}</td>
+                        <td class="px-6 py-4 text-right text-emerald-400">Rp {{ \App\Support\Money::fmt($sumPaid) }}</td>
+                        <td class="px-6 py-4 text-right text-red-400">Rp {{ \App\Support\Money::fmt($sumDue) }}</td>
                     </tr>
                     @endif
                 </tbody>

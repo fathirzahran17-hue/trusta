@@ -45,7 +45,7 @@
         <h3>{{ $supplier->name }}</h3>
         <p>Kontak: {{ $supplier->phone ?? '-' }} | {{ $supplier->email ?? '-' }}</p>
         <p>Alamat: {{ $supplier->address ?? '-' }}</p>
-        <h4 style="margin: 10px 0 0 0; color: #ef4444;">Total Saldo Hutang Saat Ini: Rp {{ number_format($totalHutang, 2, ',', '.') }}</h4>
+        <h4 style="margin: 10px 0 0 0; color: #ef4444;">Total Saldo Hutang Saat Ini: Rp {{ \App\Support\Money::fmt($totalHutang) }}</h4>
     </div>
 
     <table>
@@ -70,9 +70,9 @@
                         @elseif($inv->status == 'partially_paid') Dibayar Sebagian
                         @else Belum Dibayar @endif
                     </td>
-                    <td class="text-right">Rp {{ number_format($inv->total, 2, ',', '.') }}</td>
-                    <td class="text-right">Rp {{ number_format($inv->amount_paid, 2, ',', '.') }}</td>
-                    <td class="text-right font-bold" style="color: #ef4444;">Rp {{ number_format($inv->amount_due, 2, ',', '.') }}</td>
+                    <td class="text-right">Rp {{ \App\Support\Money::fmt($inv->total) }}</td>
+                    <td class="text-right">Rp {{ \App\Support\Money::fmt($inv->amount_paid) }}</td>
+                    <td class="text-right font-bold" style="color: #ef4444;">Rp {{ \App\Support\Money::fmt($inv->amount_due) }}</td>
                 </tr>
                 @php
                     $sumTotal += $inv->total;
@@ -88,9 +88,9 @@
             @if(count($invoices) > 0)
             <tr>
                 <td colspan="3" class="text-right font-bold grand-total" style="font-size: 14px;">TOTAL PERIODE INI</td>
-                <td class="text-right font-bold grand-total" style="font-size: 14px;">Rp {{ number_format($sumTotal, 2, ',', '.') }}</td>
-                <td class="text-right font-bold grand-total" style="font-size: 14px;">Rp {{ number_format($sumPaid, 2, ',', '.') }}</td>
-                <td class="text-right font-bold grand-total" style="font-size: 14px; color: #ef4444;">Rp {{ number_format($sumDue, 2, ',', '.') }}</td>
+                <td class="text-right font-bold grand-total" style="font-size: 14px;">Rp {{ \App\Support\Money::fmt($sumTotal) }}</td>
+                <td class="text-right font-bold grand-total" style="font-size: 14px;">Rp {{ \App\Support\Money::fmt($sumPaid) }}</td>
+                <td class="text-right font-bold grand-total" style="font-size: 14px; color: #ef4444;">Rp {{ \App\Support\Money::fmt($sumDue) }}</td>
             </tr>
             @endif
         </tbody>
