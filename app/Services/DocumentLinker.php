@@ -124,7 +124,7 @@ class DocumentLinker
     public static function prefillFromSources(string $kind, array $orderIds, array $docIds, int $companyId, string $mode = 'invoiced'): array
     {
         $sales = $kind === 'sales';
-        $empty = ['orders' => collect(), 'order' => null, 'rows' => [], 'party_id' => null, 'source' => null, 'sources' => [], 'ignored' => 0];
+        $empty = ['orders' => collect(), 'order' => null, 'rows' => [], 'party_id' => null, 'source' => null, 'sources' => [], 'ignored' => 0, 'tax_id' => null];
 
         $docs = collect();
         if ($docIds) {
@@ -204,6 +204,7 @@ class DocumentLinker
                     'quantity' => $q,
                     'price' => (float) ($line->unit_price ?? ($sales ? optional($x->product)->sell_price : optional($x->product)->buy_price) ?? 0),
                     'discount' => (float) ($line->discount_percent ?? 0),
+                    'taxable' => $line->is_taxable ?? null,
                     'doc_id' => $d->id,
                     'doc_no' => $sales ? $d->delivery_number : $d->receipt_number,
                 ];
@@ -224,6 +225,7 @@ class DocumentLinker
                 'quantity' => (float) $x->quantity,
                 'price' => (float) $x->unit_price,
                 'discount' => (float) ($x->discount_percent ?? 0),
+                'taxable' => (bool) $x->is_taxable,
             ])->all();
             // barang yang sudah ditarik dari pengiriman/penerimaan untuk pesanan yang sama tidak ditarik dua kali (dibatasi sisa)
             $take($cand, $o);
@@ -233,9 +235,13 @@ class DocumentLinker
 
         $usedOrders = $usedOrders->unique('id')->values();
 
+        // Semua pesanan memakai pajak yang sama: faktur langsung memakai pajak itu
+        $orderTaxes = $usedOrders->map(fn ($o) => $sales ? optional($o->details->first())->tax_id : $o->tax_id)->unique()->values();
+
         return [
             'orders' => $usedOrders, 'order' => $usedOrders->first(), 'rows' => $rows, 'party_id' => $party,
             'source' => implode(', ', $labels), 'sources' => $labels, 'ignored' => $ignored,
+            'tax_id' => $orderTaxes->count() === 1 ? $orderTaxes->first() : null,
         ];
     }
 

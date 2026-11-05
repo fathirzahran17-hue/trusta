@@ -9,12 +9,6 @@
         </a>
     </div>
 
-    @if(session('success'))
-        <div class="mb-3 bg-green-500/10 border-l-3 border-green-500 p-3 text-green-400 rounded-r-lg text-xs">
-            {{ session('success') }}
-        </div>
-    @endif
-
     <div style="background: rgba(30,41,59,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden;">
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-300">
@@ -34,7 +28,7 @@
                                 {{ $ret->return_number }}
                             </td>
                             <td class="px-6 py-4">
-                                <div class="text-white">{{ $ret->customer->name ?? '-' }}</div>
+                                <div class="text-white">{{ $ret->salesInvoice->customer->name ?? '-' }}</div>
                             </td>
                             <td class="px-6 py-4">
                                 {{ $ret->return_date->format('d M Y') }}

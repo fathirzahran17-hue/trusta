@@ -62,11 +62,13 @@
             rows().forEach((tr) => {
                 const sel = tr.querySelector('.product-select'), val = sel.value, o = sel.options[sel.selectedIndex];
                 const keep = val && o && layoutOf(o) !== k ? o.outerHTML : '';
+                if (window.TrustaSelect) window.TrustaSelect.detach(sel);
                 sel.innerHTML = placeholder(k) + tpl(k) + keep;
                 sel.value = val;
                 const unit = tr.querySelector('.row-unit');
                 if (unit && !val) unit.textContent = k === 'biaya' ? '-' : 'pcs';
                 updateRow(tr);
+                if (window.TrustaSelect) window.TrustaSelect.attach(sel);
             });
             syncReceived();
         }

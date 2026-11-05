@@ -9,24 +9,18 @@
         </a>
     </div>
 
-    @if(session('error'))
-        <div class="mb-3 bg-red-500/10 border-l-3 border-red-500 p-3 text-red-400 rounded-r-lg text-xs">
-            {{ session('error') }}
-        </div>
-    @endif
-
     <form action="{{ route('client.cash-bank.transfers.store') }}" method="POST">
         @csrf
         
-        <div style="background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden; margin-bottom: 14px; max-width: 800px;">
-            <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.06);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h3 style="font-size: 0.82rem; font-weight: 600; color: #fff; margin: 0;">Rincian Transfer</h3>
+        <div class="doc-card doc-card-narrow">
+            <div class="doc-section">
+                <div class="doc-section-head">
+                    <h3 class="doc-section-title">Rincian Transfer</h3>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="form-grid form-cols-2">
                     <div>
-                        <label for="from_account">Dari Rekening (Sumber) <span style="color:#f87171">*</span></label>
+                        <label for="from_account">Dari Rekening (Sumber) <span class="req">*</span></label>
                         <select name="from_account" id="from_account" required>
                             <option value="">-- Pilih Akun Sumber --</option>
                             @foreach($cashAccounts as $acc)
@@ -35,7 +29,7 @@
                         </select>
                     </div>
                     <div>
-                        <label for="to_account">Ke Rekening (Tujuan) <span style="color:#f87171">*</span></label>
+                        <label for="to_account">Ke Rekening (Tujuan) <span class="req">*</span></label>
                         <select name="to_account" id="to_account" required>
                             <option value="">-- Pilih Akun Tujuan --</option>
                             @foreach($cashAccounts as $acc)
@@ -45,9 +39,9 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="form-grid form-cols-2">
                     <div>
-                        <label for="transaction_date">Tanggal Transfer <span style="color:#f87171">*</span></label>
+                        <label for="transaction_date">Tanggal Transfer <span class="req">*</span></label>
                         <input type="date" name="transaction_date" id="transaction_date" value="{{ old('transaction_date', date('Y-m-d')) }}" required>
                     </div>
                     <div>
@@ -56,10 +50,10 @@
                     </div>
                 </div>
 
-                <div style="margin-bottom: 12px;">
-                    <label for="amount_display">Jumlah Transfer (Rp) <span style="color:#f87171">*</span></label>
+                <div class="form-block">
+                    <label for="amount_display">Jumlah Transfer (Rp) <span class="req">*</span></label>
                     <input type="hidden" name="amount" id="amount" value="{{ old('amount', 0) }}">
-                    <input type="text" id="amount_display" style="font-size: 1.2rem; font-weight: 700; color: #fff; padding: 10px; width: 100%; text-align: right;" required placeholder="0" onkeyup="formatRupiah(this, document.getElementById('amount'))" value="{{ old('amount') }}">
+                    <input type="text" id="amount_display" class="input-lg" required placeholder="0" onkeyup="formatRupiah(this, document.getElementById('amount'))" value="{{ old('amount') }}">
                 </div>
 
                 <div>
@@ -68,12 +62,12 @@
                 </div>
             </div>
 
-            <div style="padding: 10px 18px; background: rgba(30,41,59,0.4); border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center;">
-                <div style="font-size: 0.68rem; color: #475569;">
-                    <span style="color: var(--trusta-teal); font-weight: 600;">INFO:</span> Dana akan dipindahkan antar akun tanpa melibatkan biaya/pendapatan.
+            <div class="doc-actions">
+                <div class="doc-actions-info">
+                    Dana akan dipindahkan antar akun tanpa melibatkan biaya/pendapatan.
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <button type="submit" class="btn-primary" style="background: rgba(59,130,246,0.2); color: #60a5fa; border-color: rgba(59,130,246,0.3);">
+                <div class="doc-actions-buttons">
+                    <button type="submit" class="btn-primary">
                         Proses Transfer
                     </button>
                 </div>

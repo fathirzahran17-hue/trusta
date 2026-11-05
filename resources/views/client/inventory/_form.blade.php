@@ -145,6 +145,14 @@
 </div>
 @endif
 
+<div class="pay-card"><div style="padding:14px 18px">
+    <label style="display:flex;gap:10px;align-items:center;cursor:pointer;font-size:.85rem;color:var(--text-strong)">
+        <input type="hidden" name="is_taxable" value="0">
+        <input type="checkbox" name="is_taxable" value="1" @checked(old('is_taxable', $p ? $p->is_taxable : true)) style="width:17px;height:17px;accent-color:var(--accent)"> Kena PPN
+    </label>
+    <div style="font-size:.72rem;color:var(--text-dim);margin-top:5px;line-height:1.4">Terpilih otomatis di baris dokumen saat pajak dipakai. Hilangkan centang untuk {{ $isService ? 'jasa' : 'barang' }} yang tidak kena PPN.</div>
+</div></div>
+
 @if($p)
 <div class="pay-card"><div style="padding:14px 18px">
     <label style="display:flex;gap:10px;align-items:center;cursor:pointer;font-size:.85rem;color:var(--text-strong)">

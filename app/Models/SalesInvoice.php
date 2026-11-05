@@ -14,7 +14,7 @@ class SalesInvoice extends Model
     protected $fillable = [
         'company_id', 'invoice_number', 'customer_id', 'quote_id', 'sales_order_id',
         'invoice_date', 'due_date', 'status', 'subtotal',
-        'discount_percent', 'discount_amount', 'tax_id', 'tax_percent', 'tax_amount',
+        'discount_percent', 'discount_amount', 'tax_id', 'tax_percent', 'tax_base', 'tax_amount', 'tax_invoice_number',
         'total', 'amount_paid', 'amount_due', 'notes', 'journal_id', 'created_by'
     ];
 

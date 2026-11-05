@@ -142,9 +142,10 @@ class ReportXlsx
         // ---- Catatan & penutup
         foreach ($doc['notes'] ?? [] as $note) {
             $r++;
-            $ws->setCellValue("A{$r}", $note);
+            $tone = is_array($note) ? $note['tone'] : ($doc['notes_tone'] ?? '');
+            $ws->setCellValue("A{$r}", is_array($note) ? $note['text'] : $note);
             $ws->mergeCells("A{$r}:{$last}{$r}");
-            $ws->getStyle("A{$r}")->getFont()->setItalic(true)->getColor()->setRGB(($doc['notes_tone'] ?? '') === 'bad' ? 'B91C1C' : '047857');
+            $ws->getStyle("A{$r}")->getFont()->setItalic(true)->getColor()->setRGB(['bad' => 'B91C1C', 'info' => '475569'][$tone] ?? '047857');
         }
         $r += 2;
         $ws->setCellValue("A{$r}", 'Dicetak oleh ' . $printedBy . ' pada ' . now()->format('d/m/Y H:i') . ' — TRUSTA Accounting');

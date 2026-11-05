@@ -10,9 +10,6 @@
 
     <div class="mb-4"><a href="{{ route('client.fixed_assets.index') }}" class="text-trusta-teal hover:text-white flex items-center text-sm transition-colors">&larr; Kembali ke Daftar Aset Tetap</a></div>
 
-    @if(session('error'))<div class="mb-4 bg-red-500/10 border-l-4 border-red-500 p-4 text-red-400 rounded-r-lg">{{ session('error') }}</div>@endif
-    @if($errors->any())<div class="mb-4 bg-red-500/10 border-l-4 border-red-500 p-4 text-red-400 rounded-r-lg">{{ $errors->first() }}</div>@endif
-
     <form method="GET" action="{{ route('client.fixed_assets.depreciation') }}" class="pay-card" id="monthForm" style="margin-bottom:14px">
         <div class="pay-card-head"><h3>Periode</h3><span class="sub">Ganti bulan untuk mengejar bulan yang terlewat atau menyusutkan bulan berjalan.</span></div>
         <div class="pay-form-grid">

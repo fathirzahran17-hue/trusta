@@ -4,11 +4,16 @@ namespace App\Services\Reports;
 
 use App\Models\Account;
 use App\Models\Customer;
+use App\Models\DownPayment;
+use App\Models\DownPaymentApplication;
 use App\Models\JournalDetail;
 use App\Models\Product;
 use App\Models\PurchaseInvoice;
+use App\Models\PurchaseReturn;
 use App\Models\SalesInvoice;
+use App\Models\SalesReturn;
 use App\Models\Supplier;
+use App\Services\AccountResolver;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -509,6 +514,264 @@ class ReportBuilder
 
     public function salesReport(Request $r): array { return $this->invoiceList($r, 'ar'); }
     public function purchaseReport(Request $r): array { return $this->invoiceList($r, 'ap'); }
+
+    /* --------------------------------------------------------------- pajak */
+
+    /**
+     * Baris PPN satu sisi: faktur, retur, uang muka, dan pemakaian uang muka pada periode.
+     *
+     * @return array{lines: array, base: float, tax: float, free: float, missing: int, journals: array}
+     */
+    private function vatSide(string $kind, string $start, string $end): array
+    {
+        $sales = $kind === 'sales';
+        $partyRel = $sales ? 'customer' : 'supplier';
+        $period = fn ($q, string $col) => $q->where('company_id', $this->companyId)->whereDate($col, '>=', $start)->whereDate($col, '<=', $end);
+        $rate = fn ($p) => rtrim(rtrim(number_format((float) $p, 2, ',', ''), '0'), ',') . '%';
+        $lines = [];
+        $journals = [];
+        $free = 0.0;
+        $missing = 0;
+        // Pajak selain PPN (mis. PPh yang terlanjur dipilih di faktur) tidak dihitung sebagai PPN
+        $notVat = \App\Models\Tax::where('company_id', $this->companyId)->get()->reject->isVat()->pluck('id')->map(fn ($i) => (int) $i)->all();
+        $isVat = fn ($taxId) => ! in_array((int) $taxId, $notVat, true);
+        $add = function ($date, string $doc, ?string $fp, $party, string $type, float $base, $percent, float $tax) use (&$lines, $rate) {
+            $lines[] = ['date' => Carbon::parse($date)->toDateString(), 'doc' => $doc, 'fp' => $fp ?: '', 'party' => $party->name ?? '', 'npwp' => $party->npwp ?? '',
+                'type' => $type, 'base' => round($base, 2), 'rate' => (float) $percent > 0 ? $rate($percent) : '', 'tax' => round($tax, 2)];
+        };
+
+        $invoices = $period(($sales ? SalesInvoice::query() : PurchaseInvoice::query())->with($partyRel), 'invoice_date')->where('status', '!=', 'void')->get();
+        foreach ($invoices as $i) {
+            $after = (float) $i->subtotal - (float) $i->discount_amount;
+            if ((float) $i->tax_amount <= 0 || ! $isVat($i->tax_id)) {
+                $free += $after;
+                continue;
+            }
+            $free += $after - (float) $i->tax_base;
+            $journals[] = $i->journal_id;
+            $missing += $i->tax_invoice_number ? 0 : 1;
+            $add($i->invoice_date, $i->invoice_number, $i->tax_invoice_number, $i->{$partyRel}, 'Faktur', (float) $i->tax_base, $i->tax_percent, (float) $i->tax_amount);
+        }
+
+        $invoiceRel = $sales ? 'salesInvoice' : 'purchaseInvoice';
+        $returns = $period(($sales ? SalesReturn::query() : PurchaseReturn::query())->with($invoiceRel . '.' . $partyRel), 'return_date')->where('tax_amount', '>', 0)->get();
+        foreach ($returns as $r) {
+            $inv = $r->{$invoiceRel};
+            if (! $isVat($inv?->tax_id)) {
+                continue;
+            }
+            $journals[] = $r->journal_id;
+            $add($r->return_date, $r->return_number, $inv?->tax_invoice_number, $inv?->{$partyRel}, 'Retur', -1 * (float) $r->tax_base, $inv?->tax_percent, -1 * (float) $r->tax_amount);
+        }
+
+        $advances = $period(DownPayment::query()->with($partyRel)->where('type', $kind), 'payment_date')->where('tax_amount', '>', 0)->get();
+        foreach ($advances as $d) {
+            if (! $isVat($d->tax_id)) {
+                continue;
+            }
+            $journals[] = $d->journal_id;
+            $missing += $d->tax_invoice_number ? 0 : 1;
+            $add($d->payment_date, $d->payment_number, $d->tax_invoice_number, $d->{$partyRel}, 'Uang Muka', (float) $d->tax_base, $d->tax_percent, (float) $d->tax_amount);
+        }
+
+        $fk = $sales ? 'sales_invoice_id' : 'purchase_invoice_id';
+        $used = $period(DownPaymentApplication::query()->with(['downPayment.' . $partyRel, $invoiceRel]), 'applied_date')
+            ->whereNull('voided_at')->whereNotNull($fk)->where('tax_amount', '>', 0)->get();
+        foreach ($used as $a) {
+            $d = $a->downPayment;
+            if (! $isVat($d?->tax_id)) {
+                continue;
+            }
+            $journals[] = $a->journal_id;
+            $add($a->applied_date, (string) $d?->payment_number, $d?->tax_invoice_number, $d?->{$partyRel}, 'Pakai Uang Muka ' . $a->{$invoiceRel}?->invoice_number,
+                -1 * ((float) $a->amount - (float) $a->tax_amount), $d?->tax_percent, -1 * (float) $a->tax_amount);
+        }
+
+        usort($lines, fn ($x, $y) => [$x['date'], $x['doc']] <=> [$y['date'], $y['doc']]);
+
+        return ['lines' => $lines, 'base' => round(array_sum(array_column($lines, 'base')), 2), 'tax' => round(array_sum(array_column($lines, 'tax')), 2),
+            'free' => round($free, 2), 'missing' => $missing, 'journals' => array_values(array_filter($journals))];
+    }
+
+    /**
+     * Mutasi akun PPN pada Buku Besar dan jurnal lain di luar dokumen ber-PPN (jurnal manual, kas, pembatalan setelah tutup buku).
+     * Jurnal dan pembaliknya dalam periode yang sama saling meniadakan, jadi tidak ditampilkan.
+     *
+     * @param  bool  $creditNormal  true untuk Pajak Keluaran, false untuk Pajak Masukan
+     * @return array{amount: float, others: array}
+     */
+    private function vatLedger(array $accountIds, string $start, string $end, bool $creditNormal, array $documentJournals): array
+    {
+        $details = JournalDetail::query()->join('journals', 'journals.id', '=', 'journal_details.journal_id')
+            ->where('journals.company_id', $this->companyId)->where('journals.status', 'posted')
+            ->whereDate('journals.transaction_date', '>=', $start)->whereDate('journals.transaction_date', '<=', $end)
+            ->whereIn('journal_details.account_id', $accountIds)
+            ->get(['journal_details.debit', 'journal_details.credit', 'journals.id as jid', 'journals.ref_number', 'journals.transaction_date', 'journals.description as jdesc', 'journals.reverses_journal_id']);
+        $signed = fn ($d) => $creditNormal ? (float) $d->credit - (float) $d->debit : (float) $d->debit - (float) $d->credit;
+
+        $rest = $details->reject(fn ($d) => in_array((int) $d->jid, $documentJournals, true));
+        $ids = $rest->pluck('jid')->map(fn ($i) => (int) $i)->all();
+        $cancelled = [];
+        foreach ($rest as $d) {
+            if ($d->reverses_journal_id && in_array((int) $d->reverses_journal_id, $ids, true)) {
+                $cancelled[] = (int) $d->jid;
+                $cancelled[] = (int) $d->reverses_journal_id;
+            }
+        }
+        $others = $rest->reject(fn ($d) => in_array((int) $d->jid, $cancelled, true))->groupBy('jid')->map(fn ($g) => [
+            'date' => Carbon::parse($g->first()->transaction_date)->toDateString(), 'ref' => $g->first()->ref_number,
+            'desc' => $g->first()->jdesc, 'amount' => round($g->sum($signed), 2),
+        ])->filter(fn ($o) => abs($o['amount']) > 0.004)->sortBy('date')->values()->all();
+
+        return ['amount' => round($details->sum($signed), 2), 'others' => $others];
+    }
+
+    /** Akun PPN perusahaan: yang dipetakan di master Pajak dan akun standar di Bagan Akun. */
+    private function vatAccounts(): array
+    {
+        $taxes = \App\Models\Tax::where('company_id', $this->companyId)->get()->filter->isVat();
+        $pick = fn (string $col, $fallback) => $taxes->pluck($col)->filter()->push(optional($fallback)->id)->filter()->map(fn ($i) => (int) $i)->unique()->values()->all();
+
+        return [$pick('sales_tax_account_id', AccountResolver::outputTax($this->companyId)), $pick('purchase_tax_account_id', AccountResolver::inputTax($this->companyId))];
+    }
+
+    /** Kertas kerja PPN: daftar Pajak Keluaran dan Masukan, kurang atau lebih bayar, dan kecocokannya dengan Buku Besar. */
+    public function vat(Request $r): array
+    {
+        $start = $r->input('start_date', Carbon::now()->startOfMonth()->toDateString());
+        $end = $r->input('end_date', Carbon::now()->endOfMonth()->toDateString());
+        $jenis = in_array($r->input('jenis'), ['keluaran', 'masukan'], true) ? $r->input('jenis') : 'semua';
+
+        $out = $this->vatSide('sales', $start, $end);
+        $in = $this->vatSide('purchase', $start, $end);
+        [$outAccounts, $inAccounts] = $this->vatAccounts();
+        // Satu akun untuk keluaran dan masukan: mutasinya tidak bisa dipisah per sisi, jadi dicocokkan selisih bersihnya.
+        $shared = (bool) array_intersect($outAccounts, $inAccounts);
+        $documentJournals = array_map('intval', array_merge($out['journals'], $in['journals']));
+
+        $net = round($out['tax'] - $in['tax'], 2);
+        $cols = [
+            ['key' => 'date', 'label' => 'Tanggal', 'width' => 12, 'format' => 'date', 'nowrap' => true],
+            ['key' => 'doc', 'label' => 'No. Dokumen', 'width' => 20, 'nowrap' => true],
+            ['key' => 'fp', 'label' => 'No. Faktur Pajak', 'width' => 22, 'nowrap' => true],
+            ['key' => 'party', 'label' => 'Pelanggan / Pemasok', 'width' => 30],
+            ['key' => 'npwp', 'label' => 'NPWP', 'width' => 20, 'nowrap' => true],
+            ['key' => 'type', 'label' => 'Jenis', 'width' => 15],
+            ['key' => 'base', 'label' => 'DPP (Rp)', 'width' => 17, 'align' => 'right', 'format' => 'money'],
+            ['key' => 'rate', 'label' => 'Tarif', 'width' => 7, 'align' => 'right'],
+            ['key' => 'tax', 'label' => 'PPN (Rp)', 'width' => 16, 'align' => 'right', 'format' => 'money'],
+        ];
+        $n = count($cols);
+        $labelRow = function (string $type, string $label, $base, $tax, bool $italic = false) use ($n) {
+            $cells = array_fill(0, $n, '');
+            $cells[3] = $label;
+            $cells[6] = $base;
+            $cells[8] = $tax;
+
+            return ['type' => $type, 'cells' => $cells, 'italic' => $italic];
+        };
+        $lineRow = fn (array $l) => $this->row([$l['date'], $l['doc'], $l['fp'], $l['party'], $l['npwp'], $l['type'], $l['base'], $l['rate'], $l['tax']]);
+        $side = function (string $title, array $data, string $freeLabel) use ($labelRow, $lineRow) {
+            $rows = [$this->sec($title)];
+            foreach ($data['lines'] as $l) {
+                $rows[] = $lineRow($l);
+            }
+            if (! $data['lines']) {
+                $rows[] = $labelRow('row', 'Tidak ada transaksi ber-PPN pada periode ini.', '', '', true);
+            }
+            $rows[] = $labelRow('subtotal', 'Total ' . ucwords(strtolower($title)), $data['base'], $data['tax']);
+            if ($data['free'] > 0.004) {
+                $rows[] = $labelRow('row', $freeLabel . ' (informasi, tidak dihitung)', $data['free'], '', true);
+            }
+
+            return [...$rows, ['type' => 'spacer']];
+        };
+        $reconcile = function (string $label, float $doc, array $ledger) use ($labelRow) {
+            $diff = round($doc - $ledger['amount'], 2);
+            $rows = [
+                $labelRow('row', $label . ' menurut dokumen', '', $doc),
+                $labelRow('row', $label . ' menurut Buku Besar', '', $ledger['amount']),
+            ];
+            // Pemetaan akun yang keliru bisa memunculkan banyak jurnal; yang tampil dibatasi agar laporan tetap terbaca
+            foreach (array_slice($ledger['others'], 0, 30) as $o) {
+                $cells = array_fill(0, 9, '');
+                $cells[0] = $o['date'];
+                $cells[1] = $o['ref'];
+                $cells[3] = $o['desc'];
+                $cells[5] = 'Jurnal lain';
+                $cells[8] = $o['amount'];
+                $rows[] = ['type' => 'row', 'cells' => $cells, 'italic' => true];
+            }
+            if (($more = count($ledger['others']) - 30) > 0) {
+                $rows[] = $labelRow('row', 'Dan ' . $more . ' jurnal lain. Lihat Buku Besar akun PPN untuk rincian lengkapnya.', '', '', true);
+            }
+            $rows[] = $labelRow('subtotal', 'Selisih ' . $label, '', $diff);
+
+            return [$rows, $diff];
+        };
+
+        $rows = [];
+        if ($jenis !== 'masukan') {
+            $rows = [...$rows, ...$side('PAJAK KELUARAN', $out, 'Penjualan tanpa PPN')];
+        }
+        if ($jenis !== 'keluaran') {
+            $rows = [...$rows, ...$side('PAJAK MASUKAN', $in, 'Pembelian tanpa PPN')];
+        }
+        if ($jenis === 'semua') {
+            $rows[] = $this->sec('RINGKASAN');
+            $rows[] = $labelRow('row', 'Pajak Keluaran', $out['base'], $out['tax']);
+            $rows[] = $labelRow('row', 'Pajak Masukan', $in['base'], $in['tax']);
+            $rows[] = $labelRow('grand', $net >= 0 ? 'KURANG BAYAR' : 'LEBIH BAYAR', '', abs($net));
+            $rows[] = ['type' => 'spacer'];
+        }
+
+        // Rekonsiliasi
+        $diffs = [];
+        $recon = [];
+        if ($shared) {
+            $ledger = $this->vatLedger(array_values(array_unique([...$outAccounts, ...$inAccounts])), $start, $end, true, $documentJournals);
+            [$recon, $d] = $reconcile('PPN bersih', $net, $ledger);
+            $diffs[] = $d;
+        } else {
+            if ($jenis !== 'masukan') {
+                [$rs, $d] = $reconcile('Pajak Keluaran', $out['tax'], $this->vatLedger($outAccounts, $start, $end, true, $documentJournals));
+                $recon = [...$recon, ...$rs];
+                $diffs[] = $d;
+            }
+            if ($jenis !== 'keluaran') {
+                [$rs, $d] = $reconcile('Pajak Masukan', $in['tax'], $this->vatLedger($inAccounts, $start, $end, false, $documentJournals));
+                $recon = [...$recon, ...$rs];
+                $diffs[] = $d;
+            }
+        }
+        $rows = [...$rows, $this->sec('KECOCOKAN DENGAN BUKU BESAR'), ...$recon];
+
+        $totalDiff = round(array_sum(array_map('abs', $diffs)), 2);
+        $missing = ($jenis !== 'masukan' ? $out['missing'] : 0) + ($jenis !== 'keluaran' ? $in['missing'] : 0);
+        $notes = [];
+        $notes[] = $totalDiff > 0.004
+            ? ['tone' => 'bad', 'text' => 'Ada selisih dengan Buku Besar. Lihat bagian Kecocokan dengan Buku Besar: selisih biasanya berasal dari jurnal manual, pembayaran kas yang memakai akun PPN, pembatalan setelah tutup buku, atau akun di menu Pajak yang bukan akun PPN.']
+            : ['tone' => 'good', 'text' => 'PPN pada dokumen cocok dengan Buku Besar.'];
+        if ($missing) {
+            $notes[] = ['tone' => 'bad', 'text' => $missing . ' dokumen ber-PPN belum punya No. Faktur Pajak. Isi dari halaman detail dokumennya atau daftar uang muka.'];
+        }
+        $notes[] = ['tone' => 'info', 'text' => 'Laporan ini kertas kerja untuk membantu pengisian SPT Masa PPN, bukan pengganti pelaporan di Coretax. Kompensasi lebih bayar dari masa sebelumnya belum diperhitungkan.'];
+
+        return [
+            'key' => 'vat', 'title' => 'Laporan PPN', 'subtitle' => $this->period($start, $end),
+            'file' => "Laporan_PPN_{$start}_sd_{$end}", 'orientation' => 'landscape',
+            'filters' => [...$this->dateFilters($start, $end), ['name' => 'jenis', 'label' => 'Jenis', 'type' => 'select', 'value' => $jenis,
+                'options' => ['semua' => 'Keluaran & Masukan', 'keluaran' => 'Pajak Keluaran', 'masukan' => 'Pajak Masukan']]],
+            'columns' => $cols, 'rows' => $rows,
+            'summary' => [
+                ['label' => 'PPN Keluaran', 'value' => $out['tax'], 'format' => 'money'],
+                ['label' => 'PPN Masukan', 'value' => $in['tax'], 'format' => 'money'],
+                ['label' => $net >= 0 ? 'Kurang Bayar' : 'Lebih Bayar', 'value' => abs($net), 'format' => 'money'],
+                ['label' => 'Selisih dengan Buku Besar', 'value' => $totalDiff, 'format' => 'money', 'tone' => $totalDiff > 0.004 ? 'bad' : 'good'],
+            ],
+            'notes' => $notes,
+        ];
+    }
 
     /* ---------------------------------------------------------- persediaan */
 

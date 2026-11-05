@@ -16,24 +16,24 @@
                         @method('PUT')
                         
                         <div class="mb-4">
-                            <label class="block text-sm font-medium mb-1">Kode Job</label>
-                            <input type="text" name="code" class="w-full rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-900 focus:border-trusta-teal focus:ring focus:ring-trusta-teal focus:ring-opacity-50" value="{{ old('code', $projectJob->code) }}" placeholder="Opsional (Misal: JOB-01)">
+                            <label class="block">Kode Job</label>
+                            <input type="text" name="code" value="{{ old('code', $projectJob->code) }}" placeholder="Opsional (Misal: JOB-01)">
                             @error('code')
                                 <span class="text-red-500 text-xs">{{ $message }}</span>
                             @enderror
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium mb-1">Nama Job <span class="text-red-500">*</span></label>
-                            <input type="text" name="name" class="w-full rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-900 focus:border-trusta-teal focus:ring focus:ring-trusta-teal focus:ring-opacity-50" value="{{ old('name', $projectJob->name) }}" required placeholder="Misal: Proyek Gedung A">
+                            <label class="block">Nama Job <span class="text-red-500">*</span></label>
+                            <input type="text" name="name" value="{{ old('name', $projectJob->name) }}" required placeholder="Misal: Proyek Gedung A">
                             @error('name')
                                 <span class="text-red-500 text-xs">{{ $message }}</span>
                             @enderror
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium mb-1">Keterangan</label>
-                            <textarea name="description" rows="3" class="w-full rounded-md border-slate-300 dark:border-slate-700 dark:bg-slate-900 focus:border-trusta-teal focus:ring focus:ring-trusta-teal focus:ring-opacity-50" placeholder="Opsional">{{ old('description', $projectJob->description) }}</textarea>
+                            <label class="block">Keterangan</label>
+                            <textarea name="description" rows="3" placeholder="Opsional">{{ old('description', $projectJob->description) }}</textarea>
                             @error('description')
                                 <span class="text-red-500 text-xs">{{ $message }}</span>
                             @enderror
@@ -48,7 +48,7 @@
 
                         <div class="flex items-center justify-end">
                             <a href="{{ route('client.project-jobs.index') }}" class="mr-4 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">Batal</a>
-                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-trusta-teal border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-teal-600 active:bg-teal-700 focus:outline-none focus:border-teal-700 focus:ring ring-teal-300 disabled:opacity-25 transition ease-in-out duration-150">
+                            <button type="submit" class="btn-primary">
                                 Simpan Perubahan
                             </button>
                         </div>

@@ -23,13 +23,13 @@
                     
                     <div class="space-y-4">
                         <div>
-                            <label for="name" class="block text-sm font-medium text-gray-300 mb-1">Nama Kategori <span class="text-red-400">*</span></label>
+                            <label for="name" class="block">Nama Kategori <span class="req">*</span></label>
                             <input type="text" name="name" id="name" required placeholder="Misal: Kendaraan, Gedung"
                                 class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm text-sm">
                         </div>
                         
                         <div>
-                            <label for="depreciation_method" class="block text-sm font-medium text-gray-300 mb-1">Metode Penyusutan Default <span class="text-red-400">*</span></label>
+                            <label for="depreciation_method" class="block">Metode Penyusutan Default <span class="req">*</span></label>
                             <select name="depreciation_method" id="depreciation_method" required
                                 class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm text-sm">
                                 <option value="straight_line">Garis Lurus (Straight Line)</option>
@@ -38,13 +38,13 @@
                         </div>
                         
                         <div>
-                            <label for="useful_life_years" class="block text-sm font-medium text-gray-300 mb-1">Umur Manfaat Default (Tahun) <span class="text-red-400">*</span></label>
+                            <label for="useful_life_years" class="block">Umur Manfaat Default (Tahun) <span class="req">*</span></label>
                             <input type="number" name="useful_life_years" id="useful_life_years" required min="1" max="50" value="4"
                                 class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm text-sm">
                         </div>
                     </div>
                     
-                    <button type="submit" class="w-full mt-6 px-4 py-2 bg-trusta-teal hover:bg-teal-400 text-navy-900 font-semibold rounded-lg text-sm transition-colors shadow-lg shadow-teal-900/50">
+                    <button type="submit" class="btn-primary w-full mt-6">
                         Simpan Kategori
                     </button>
                 </form>

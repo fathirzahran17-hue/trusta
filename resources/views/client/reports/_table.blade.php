@@ -27,7 +27,7 @@
                             $right = ($c['align'] ?? 'left') === 'right';
                             $neg = $fmt === 'money' && is_numeric($v) && $v < 0;
                         @endphp
-                        <td class="{{ $right ? 'r' : '' }} {{ $neg ? 'neg' : '' }}"
+                        <td class="{{ $right ? 'r' : '' }} {{ $neg ? 'neg' : '' }} {{ !empty($c['nowrap']) ? 'nowrap' : '' }}"
                             @if($i === $indentCol && ($row['indent'] ?? 0) > 0) style="padding-left: {{ 10 + $row['indent'] * 18 }}px" @endif>{{ RF::cell($v, $fmt) }}</td>
                     @endforeach
                 </tr>
@@ -38,5 +38,5 @@
     </tbody>
 </table>
 @foreach($doc['notes'] ?? [] as $note)
-    <div class="rpt-note {{ $doc['notes_tone'] ?? 'good' }}">{{ $note }}</div>
+    <div class="rpt-note {{ is_array($note) ? $note['tone'] : ($doc['notes_tone'] ?? 'good') }}">{{ is_array($note) ? $note['text'] : $note }}</div>
 @endforeach

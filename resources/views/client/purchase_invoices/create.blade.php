@@ -12,32 +12,25 @@
         </a>
     </div>
 
-    @if(session('error'))
-        <div class="mb-4 bg-red-500/10 border-l-4 border-red-500 p-4 text-red-400 rounded-r-lg">
-            {{ session('error') }}
-        </div>
-    @endif
-
     @include('partials.pull-multi', ['label' => 'Tarik dari Penerimaan Barang / Pesanan Pembelian (PO)', 'partyWord' => 'pemasok', 'options' => array_merge($receipts, $sourceOrders), 'checked' => $checked, 'baseUrl' => route('client.purchase-invoices.create'), 'sourceText' => $prefill['source'], 'notice' => $prefill['ignored'] ? $prefill['ignored'] . ' dokumen dilewati karena beda pemasok.' : (($prefill['source'] && empty($prefill['rows'])) ? 'Semua barang pada dokumen yang dipilih sudah ditagih.' : null)])
 
     <form action="{{ route('client.purchase-invoices.store') }}" method="POST" id="invoiceForm">
         @csrf
         
-        <div class="bg-[#1E293B] border border-gray-800 shadow-2xl rounded-2xl overflow-hidden mb-6">
-            <div class="p-6 md:p-8 border-b border-gray-700/50">
-                <div class="flex justify-between items-start mb-6">
-                    <h3 class="text-lg font-medium text-white">Informasi Pemasok & Dokumen</h3>
-                    <div class="text-right">
-                        <span class="text-sm text-gray-400 block mb-1">Nomor Internal (Auto)</span>
-                        <span class="text-xl font-bold text-trusta-teal">{{ $invoiceNumber }}</span>
+        <div class="doc-card">
+            <div class="doc-section">
+                <div class="doc-section-head">
+                    <h3 class="doc-section-title">Informasi Pemasok & Dokumen</h3>
+                    <div class="doc-number">
+                        <span class="doc-number-label">Nomor Internal (Auto)</span>
+                        <span class="doc-number-value">{{ $invoiceNumber }}</span>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="form-grid form-cols-4">
                     <div>
-                        <label for="supplier_id" class="block text-sm font-medium text-gray-300 mb-2">Pemasok (Supplier) <span class="text-red-400">*</span></label>
-                        <select name="supplier_id" id="supplier_id" required
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="supplier_id">Pemasok (Supplier) <span class="req">*</span></label>
+                        <select name="supplier_id" id="supplier_id" required>
                             <option value="">-- Pilih Pemasok --</option>
                             @foreach($suppliers as $sup)
                                 <option value="{{ $sup->id }}" {{ old('supplier_id', $prefill['party_id']) == $sup->id ? 'selected' : '' }}>{{ $sup->name }}</option>
@@ -46,30 +39,27 @@
                     </div>
 
                     <div>
-                        <label for="supplier_invoice_no" class="block text-sm font-medium text-gray-300 mb-2">No. Faktur Pemasok</label>
+                        <label for="supplier_invoice_no">No. Faktur Pemasok</label>
                         <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" value="{{ old('supplier_invoice_no') }}"
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm"
                             placeholder="Contoh: INV-VEN-001">
-                        <p class="text-xs text-gray-500 mt-1">Sesuai nota fisik/PDF dari vendor.</p>
+                        <p class="field-hint">Sesuai nota fisik/PDF dari vendor.</p>
                     </div>
                     
                     <div>
-                        <label for="invoice_date" class="block text-sm font-medium text-gray-300 mb-2">Tanggal Faktur <span class="text-red-400">*</span></label>
-                        <input type="date" name="invoice_date" id="invoice_date" value="{{ old('invoice_date', date('Y-m-d')) }}" required
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="invoice_date">Tanggal Faktur <span class="req">*</span></label>
+                        <input type="date" name="invoice_date" id="invoice_date" value="{{ old('invoice_date', date('Y-m-d')) }}" required>
                     </div>
 
                     <div>
-                        <label for="due_date" class="block text-sm font-medium text-gray-300 mb-2">Jatuh Tempo <span class="text-red-400">*</span></label>
-                        <input type="date" name="due_date" id="due_date" value="{{ old('due_date', date('Y-m-d', strtotime('+30 days'))) }}" required
-                            class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                        <label for="due_date">Jatuh Tempo <span class="req">*</span></label>
+                        <input type="date" name="due_date" id="due_date" value="{{ old('due_date', date('Y-m-d', strtotime('+30 days'))) }}" required>
                     </div>
                 </div>
             </div>
 
             <!-- Detail Barang/Jasa -->
-            <div class="p-6 md:p-8 bg-gray-900/50">
-                <h3 class="text-lg font-medium text-white mb-1">{{ $mode === 'biaya' ? 'Rincian Biaya / Akun Lawan' : 'Item Produk / Layanan / Biaya yang Dibeli' }}</h3>
+            <div class="doc-section">
+                <h3 class="doc-section-title">{{ $mode === 'biaya' ? 'Rincian Biaya / Akun Lawan' : 'Item Produk / Layanan / Biaya yang Dibeli' }}</h3>
                 @include('partials.invoice-layout', [
                     'layouts' => $layouts, 'layout' => $layout,
                     'itemHeads' => array_intersect_key(['barang' => 'Barang', 'jasa' => 'Jasa', 'biaya' => 'Akun Biaya'], $layouts),
@@ -83,103 +73,65 @@
                 <template id="opts-jasa">@include('partials.product-options', ['products' => $products->where('type', '!=', 'goods'), 'context' => 'purchase', 'priceField' => 'buy_price'])</template>
                 <template id="opts-biaya">{!! $__acctOpts !!}</template>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left" id="itemsTable">
-                        <thead class="text-xs uppercase bg-gray-800/80 text-gray-400 border-b border-gray-700">
+                <div class="line-wrap">
+                    <table class="line-items" id="itemsTable">
+                        <thead>
                             <tr>
-                                <th class="px-3 py-3 col-item" style="width: 30%;">Barang</th>
-                                <th class="px-4 py-3 col-desc" style="width: 16%;">Keterangan</th>
-                                <th class="px-2 py-3 text-right col-stock" style="width: 76px;">Stok</th>
-                                <th class="px-2 py-3 text-right" style="width: 76px;">Qty</th>
-                                <th class="px-2 py-3 text-center" style="width: 54px;">Satuan</th>
-                                <th class="px-2 py-3 text-right" style="width: 156px; min-width: 156px;">Harga Satuan</th>
-                                <th class="px-2 py-3 text-right" style="width: 84px; min-width: 84px;">Disk (%)</th>
-                                <th class="px-3 py-3 text-right" style="width: 124px;">Jumlah</th>
-                                <th class="px-1 py-3" style="width: 36px;"></th>
+                                <th class="col-item" style="width: 30%;">Barang</th>
+                                <th class="col-desc" style="width: 16%;">Keterangan</th>
+                                <th class="col-stock r" style="width: 76px;">Stok</th>
+                                <th class="r" style="width: 76px;">Qty</th>
+                                <th class="c" style="width: 54px;">Satuan</th>
+                                <th class="r" style="width: 156px; min-width: 156px;">Harga Satuan</th>
+                                <th class="r" style="width: 84px; min-width: 84px;">Disk (%)</th>
+                                <th class="col-tax c" style="width: 52px;" title="Centang bila baris ini kena PPN">PPN</th>
+                                <th class="r" style="width: 124px;">Jumlah</th>
+                                <th style="width: 40px;"></th>
                             </tr>
                         </thead>
-                        <tbody id="itemsBody" class="divide-y divide-gray-700/50">
+                        <tbody id="itemsBody">
                             <tr class="group item-row">
-                                <td class="px-2 py-3">
-                                                                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" style="min-width: 150px;" required></select>
+                                <td class="col-item">
+                                                                        <select name="products[]" class="product-select" style="min-width: 150px;" required></select>
                                 </td>
-                                <td class="px-2 py-3 col-desc">
-                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
+                                <td class="col-desc">
+                                    <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]"  placeholder="Opsional">
                                 </td>
-                                <td class="px-2 py-3 text-right col-stock"><span class="row-stock">-</span></td>
-                                <td class="px-2 py-3">
-                                    <input type="number" step="0.01" name="quantities[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-qty" value="1" min="0.01" required>
+                                <td class="col-stock"><span class="row-stock">-</span></td>
+                                <td class="col-qty">
+                                    <input type="number" step="0.01" name="quantities[]" class="input-qty" value="1" min="0.01" required>
                                 </td>
-                                <td class="px-2 py-3 text-center">
-                                    <span class="row-unit text-gray-400 text-xs">pcs</span>
+                                <td class="col-unit">
+                                    <span class="row-unit">pcs</span>
                                 </td>
-                                <td class="px-2 py-3 relative">
+                                <td class="col-price">
                                     <input type="hidden" name="prices[]" class="input-price" value="0">
-                                    <input type="text" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-price-display" value="0" required onkeyup="formatRupiah(this, this.previousElementSibling); calculateTotals()">
+                                    <input type="text" class="input-price-display" value="0" required onkeyup="formatRupiah(this, this.previousElementSibling); calculateTotals()">
                                 </td>
-                                <td class="px-2 py-3">
-                                    <input type="number" step="0.01" name="discounts[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-discount" value="0" min="0" max="100">
+                                <td class="col-disc">
+                                    <input type="number" step="0.01" name="discounts[]" class="input-discount" value="0" min="0" max="100">
                                 </td>
-                                <td class="px-2 py-3 text-right font-medium text-white row-total">
+                                @include('partials.line-tax-cell')
+                                <td class="col-total row-total">
                                     0.00
                                 </td>
-                                <td class="px-2 py-3 text-center">
-                                    <button type="button" class="text-gray-500 hover:text-red-400 transition-colors btn-remove-row" disabled>
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                <td class="col-act">
+                                    <button type="button" class="btn-remove-row" disabled>
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                     </button>
                                 </td>
                             </tr>
                         </tbody>
-                        <tfoot class="border-t border-gray-700 bg-gray-800/30">
-                            <tr>
-                                <td colspan="3" class="px-4 py-4">
-                                    <button type="button" id="btnAddRow" class="text-trusta-teal hover:text-white text-sm font-medium flex items-center transition-colors">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        </table>
+                </div>
+                <button type="button" id="btnAddRow" class="line-add">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                                         Tambah Baris
                                     </button>
-                                </td>
-                                <td colspan="3" class="px-4 py-3 text-right text-gray-400 font-medium">Subtotal</td>
-                                <td class="px-4 py-3 text-right font-bold text-white text-lg" id="displaySubtotal">0,00</td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <td colspan="3"></td>
-                                <td colspan="3" class="px-4 py-3 text-right">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <span class="text-gray-400 font-medium">Diskon Keseluruhan (%)</span>
-                                        <input type="number" step="0.01" name="discount_percent" id="discount_percent" value="0" min="0" max="100" class="w-20 text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" onchange="calculateTotals()" onkeyup="calculateTotals()">
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-right font-bold text-yellow-400 text-lg" id="displayDiscount">0,00</td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <td colspan="3"></td>
-                                <td colspan="3" class="px-4 py-3 text-right">
-                                    <div class="flex items-center justify-end">
-                                        <span class="text-gray-400 font-medium mr-3">Pajak (Tax)</span>
-                                        <select name="tax_id" id="tax_id" class="w-40 text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
-                                            <option value="" data-rate="0">Tanpa Pajak</option>
-                                            @foreach($taxes as $tax)
-                                                <option value="{{ $tax->id }}" data-rate="{{ $tax->rate }}">{{ $tax->name }} ({{ (float)$tax->rate }}%)</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-right font-bold text-red-400 text-lg" id="displayTax">0,00</td>
-                                <td></td>
-                            </tr>
-                            <tr class="bg-gray-800/80">
-                                <td colspan="3"></td>
-                                <td colspan="3" class="px-4 py-5 text-right text-white font-bold text-xl uppercase tracking-wider">Grand Total</td>
-                                <td class="px-4 py-5 text-right font-bold text-trusta-teal text-2xl" id="displayGrandTotal">0,00</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
 
-                @if($hasStock)
+                <div class="doc-summary">
+                    <div>
+                        @if($hasStock)
                     <div class="recv-box" id="receivedBox" style="display:none">
                         <label class="recv-check"><input type="checkbox" name="received_now" value="1" checked> <span><b>Barang sudah diterima</b> (stok langsung bertambah)</span></label>
                         @if($warehouses->count() > 1)
@@ -190,22 +142,24 @@
                         <p class="recv-off" style="display:none">Stok belum bertambah sampai Penerimaan Barang dicatat dan ditautkan ke faktur ini.</p>
                     </div>
                 @endif
-
-                <div class="mt-8">
-                    <label for="notes" class="block text-sm font-medium text-gray-300 mb-2">Catatan Tambahan (Opsional)</label>
-                    <textarea name="notes" id="notes" rows="3" class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Catatan internal terkait pembelian ini"></textarea>
+                        <label for="notes">Catatan Tambahan (Opsional)</label>
+                        <textarea name="notes" id="notes" rows="3" placeholder="Catatan internal terkait pembelian ini">{{ old('notes') }}</textarea>
+                        @include('partials.tax-number-field', ['label' => 'No. Faktur Pajak Pemasok', 'hint' => 'Sesuai Faktur Pajak dari pemasok. Bisa diisi nanti dari halaman detail faktur.'])
+                    </div>
+                    @include('partials.doc-totals', ['taxes' => $taxes, 'editTaxId' => $prefill['tax_id'] ?? null, 'taxFromSource' => !empty($prefill['rows'])])
                 </div>
             </div>
 
-            <div class="px-8 py-5 bg-gray-800/50 border-t border-gray-700/50 flex justify-between items-center">
-                <div class="text-xs text-gray-500">
-                    <span class="text-trusta-teal font-semibold">INFO:</span> Menyimpan faktur otomatis membuat jurnal hutang dan persediaan atau biaya.
+            <div class="doc-actions">
+                <div class="doc-actions-info">
+                    Menyimpan faktur otomatis membuat jurnal hutang dan persediaan atau biaya.
                 </div>
-                <div class="flex space-x-3">
-                    <a href="{{ route('client.purchase-invoices.index') }}" class="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm font-medium">
+                <span class="doc-actions-total">Total <b data-total-mirror>0,00</b></span>
+                <div class="doc-actions-buttons">
+                    <a href="{{ route('client.purchase-invoices.index') }}" class="btn-secondary">
                         Batal
                     </a>
-                    <button type="submit" id="btnSubmit" class="px-6 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50 flex items-center">
+                    <button type="submit" id="btnSubmit" class="btn-primary">
                         Simpan & Bukukan
                     </button>
                 </div>
@@ -226,7 +180,7 @@
 
 
             window.calculateTotals = function() {
-                let subtotal = 0;
+                let subtotal = 0, taxableSubtotal = 0;
                 
                 document.querySelectorAll('.item-row').forEach(row => {
                     const qty = parseFloat(row.querySelector('.input-qty').value) || 0;
@@ -238,6 +192,7 @@
                     
                     row.querySelector('.row-total').textContent = total.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     subtotal += total;
+                    if (window.LineTax.isTaxable(row)) taxableSubtotal += total;
                 });
 
                 const overallDiscPct = parseFloat(discountInput.value) || 0;
@@ -246,7 +201,7 @@
 
                 const selectedTax = taxSelect.options[taxSelect.selectedIndex];
                 const taxRate = selectedTax ? parseFloat(selectedTax.dataset.rate) || 0 : 0;
-                const taxAmount = afterDiscount * (taxRate / 100);
+                const taxAmount = window.LineTax.apply(taxableSubtotal * (1 - overallDiscPct / 100), taxRate, afterDiscount);
                 
                 const grandTotal = afterDiscount + taxAmount;
 
@@ -260,32 +215,33 @@
                 const tr = document.createElement('tr');
                 tr.className = 'group item-row';
                 tr.innerHTML = `
-                    <td class="px-2 py-3">
-                        <select name="products[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm product-select" style="min-width: 150px;" required>${window.InvoiceLayout.options()}</select>
+                    <td class="col-item">
+                        <select name="products[]" class="product-select" style="min-width: 150px;" required>${window.InvoiceLayout.options()}</select>
                     </td>
-                    <td class="px-2 py-3 col-desc">
-                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]" class="w-full text-sm bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm" placeholder="Opsional">
+                    <td class="col-desc">
+                        <input type="hidden" name="row_orders[]" class="input-row-order" value=""><input type="hidden" name="row_docs[]" class="input-row-doc" value=""><input type="text" name="row_descriptions[]"  placeholder="Opsional">
                     </td>
-                    <td class="px-2 py-3 text-right col-stock"><span class="row-stock">-</span></td>
-                                <td class="px-2 py-3">
-                        <input type="number" step="0.01" name="quantities[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-qty" value="1" min="0.01" required>
+                    <td class="col-stock"><span class="row-stock">-</span></td>
+                                <td class="col-qty">
+                        <input type="number" step="0.01" name="quantities[]" class="input-qty" value="1" min="0.01" required>
                     </td>
-                    <td class="px-2 py-3 text-center">
-                        <span class="row-unit text-gray-400 text-xs">pcs</span>
+                    <td class="col-unit">
+                        <span class="row-unit">pcs</span>
                     </td>
-                    <td class="px-2 py-3 relative">
+                    <td class="col-price">
                         <input type="hidden" name="prices[]" class="input-price" value="0">
-                        <input type="text" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-price-display" value="0" required onkeyup="formatRupiah(this, this.previousElementSibling); calculateTotals()">
+                        <input type="text" class="input-price-display" value="0" required onkeyup="formatRupiah(this, this.previousElementSibling); calculateTotals()">
                     </td>
-                    <td class="px-2 py-3">
-                        <input type="number" step="0.01" name="discounts[]" class="w-full text-sm text-right bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm input-discount" value="0" min="0" max="100">
+                    <td class="col-disc">
+                        <input type="number" step="0.01" name="discounts[]" class="input-discount" value="0" min="0" max="100">
                     </td>
-                    <td class="px-2 py-3 text-right font-medium text-white row-total">
+                    @include('partials.line-tax-cell')
+                    <td class="col-total row-total">
                         0.00
                     </td>
-                    <td class="px-2 py-3 text-center">
-                        <button type="button" class="text-gray-500 hover:text-red-400 transition-colors btn-remove-row">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    <td class="col-act">
+                        <button type="button" class="btn-remove-row">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                     </td>
                 `;

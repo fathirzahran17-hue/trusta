@@ -12,20 +12,20 @@
         </p>
     </div>
     <a href="{{ route('client.accounts.index') }}"
-        class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-xl transition-colors flex items-center gap-2 flex-shrink-0">
+        class="btn-secondary">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
         Kembali ke Akun
     </a>
 </div>
 
-<div class="bg-[#1E293B] border border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+<div class="doc-card">
     <form action="{{ route('client.accounts.store_beginning_balance') }}" method="POST">
         @csrf
 
         {{-- Header form --}}
         <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center gap-4">
             <div>
-                <label class="block text-xs text-gray-400 mb-1">Tanggal Saldo Awal</label>
+                <label class="block">Tanggal Saldo Awal</label>
                 <input type="date" name="date" required
                     value="{{ old('date', date('Y-m-d')) }}"
                     class="bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-trusta-teal focus:border-trusta-teal">
@@ -90,11 +90,11 @@
         {{-- Footer actions --}}
         <div class="px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
             <a href="{{ route('client.accounts.index') }}"
-                class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium rounded-xl text-sm transition-colors">
+                class="btn-secondary">
                 Batal
             </a>
             <button type="submit"
-                class="px-5 py-2.5 bg-trusta-teal hover:bg-teal-400 text-navy-900 font-bold rounded-xl text-sm transition-colors shadow-lg flex items-center gap-2">
+                class="btn-primary">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>

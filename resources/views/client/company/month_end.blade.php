@@ -4,7 +4,7 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     {{-- LEFT: Proses Tutup Buku --}}
-    <div class="bg-[#1E293B] border border-gray-800 rounded-2xl p-6 shadow-2xl">
+    <div class="doc-card doc-pad">
         <div class="flex items-center gap-4 mb-6">
             <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
                 <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,7 +39,7 @@
               onsubmit="return confirm('Yakin ingin mengunci transaksi? Transaksi pada atau sebelum tanggal itu tidak bisa dibuat/diubah/dihapus sampai kunci dibuka admin.')">
             @csrf
             <div class="mb-5">
-                <label class="block text-sm font-semibold text-gray-300 mb-2">Pilih Tanggal Cut-off</label>
+                <label class="block">Pilih Tanggal Cut-off</label>
                 <input type="date" name="closing_date" required
                     value="{{ date('Y-m-t', strtotime('-1 month')) }}"
                     class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-4 py-3 focus:ring-trusta-teal focus:border-trusta-teal">
@@ -59,7 +59,7 @@
               onsubmit="return confirm('Buka kunci periode? Semua tanggal bisa diubah kembali.')">
             @csrf
             <input type="hidden" name="action" value="unlock">
-            <button type="submit" class="w-full py-2.5 border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 font-semibold rounded-xl transition-all text-sm">Buka Kunci Periode</button>
+            <button type="submit" class="btn-secondary w-full">Buka Kunci Periode</button>
         </form>
         @endif
     </div>
@@ -67,7 +67,7 @@
     {{-- RIGHT: Info cards --}}
     <div class="space-y-5">
         {{-- Card Penyusutan --}}
-        <div class="bg-[#1E293B] border border-gray-800 rounded-2xl p-6 shadow-2xl">
+        <div class="doc-card doc-pad">
             <div class="flex items-start gap-4">
                 <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
                     <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,7 +87,7 @@
         </div>
 
         {{-- Card Laba Ditahan --}}
-        <div class="bg-[#1E293B] border border-gray-800 rounded-2xl p-6 shadow-2xl">
+        <div class="doc-card doc-pad">
             <div class="flex items-start gap-4">
                 <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                     <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

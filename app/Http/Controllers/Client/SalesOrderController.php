@@ -123,6 +123,7 @@ class SalesOrderController extends Controller
                     'discount_percent' => $lineDiscPct,
                     'discount_amount' => $lineDiscAmt,
                     'subtotal' => $total,
+                    'is_taxable' => \App\Services\DocumentTax::lineFlag($request->taxable[$index] ?? null, Product::find($productId)),
                     'description' => $request->row_descriptions[$index] ?? null,
                 ];
             }
@@ -131,13 +132,9 @@ class SalesOrderController extends Controller
             $overallDiscAmt = $subtotal * ($overallDiscPct / 100);
             $afterDiscount = $subtotal - $overallDiscAmt;
             
-            $taxAmount = 0;
-            if ($request->tax_id) {
-                $tax = Tax::find($request->tax_id);
-                if ($tax) {
-                    $taxAmount = $afterDiscount * ($tax->rate / 100);
-                }
-            }
+            $tax = $request->tax_id ? Tax::find($request->tax_id) : null;
+            $taxAmount = \App\Services\DocumentTax::compute($items, $overallDiscPct, (float) ($tax?->rate ?? 0), auth()->user()->company?->tax_rounding, 'subtotal')['amount'];
+            $taxableTotal = collect($items)->where('is_taxable', true)->sum('subtotal');
             
             $grandTotal = $afterDiscount + $taxAmount;
 
@@ -159,8 +156,8 @@ class SalesOrderController extends Controller
             foreach ($items as $item) {
                 SalesOrderDetail::create(array_merge($item, [
                     'sales_order_id' => $salesOrder->id,
-                    'tax_id' => $request->tax_id,
-                    'tax_amount' => ($subtotal > 0 ? $item['subtotal'] / $subtotal : 0) * $taxAmount, // proportional tax per item
+                    'tax_id' => $tax?->id,
+                    'tax_amount' => ($item['is_taxable'] && $taxableTotal > 0 ? $item['subtotal'] / $taxableTotal : 0) * $taxAmount, // dibagi ke baris kena pajak
                 ]));
             }
 
@@ -223,7 +220,7 @@ class SalesOrderController extends Controller
         $orderNumber = $salesOrder->order_number;
         $prefillRows = $salesOrder->details->map(fn ($d) => [
             'product_id' => $d->product_id, 'description' => $d->description, 'quantity' => (float) $d->quantity,
-            'price' => (float) $d->unit_price, 'discount' => (float) ($d->discount_percent ?? 0),
+            'price' => (float) $d->unit_price, 'discount' => (float) ($d->discount_percent ?? 0), 'taxable' => (bool) $d->is_taxable,
         ])->values()->all();
         $lines = (float) $salesOrder->details->sum('subtotal');
         $editDiscPct = $lines > 0 ? round((float) $salesOrder->discount_amount / $lines * 100, 2) : 0;
@@ -268,14 +265,14 @@ class SalesOrderController extends Controller
                 $total = $gross - $gross * ($pct / 100);
                 $subtotal += $total;
                 $items[] = ['product_id' => $productId, 'quantity' => $qty, 'unit_price' => $price, 'discount_percent' => $pct,
-                    'discount_amount' => $gross * ($pct / 100), 'subtotal' => $total, 'description' => $request->row_descriptions[$i] ?? null];
+                    'discount_amount' => $gross * ($pct / 100), 'subtotal' => $total, 'description' => $request->row_descriptions[$i] ?? null,
+                    'is_taxable' => \App\Services\DocumentTax::lineFlag($request->taxable[$i] ?? null, Product::find($productId))];
             }
             $overallDiscAmt = $subtotal * ((float) ($request->discount_percent ?? 0) / 100);
             $after = $subtotal - $overallDiscAmt;
-            $taxAmount = 0;
-            if ($request->tax_id && ($tax = Tax::find($request->tax_id))) {
-                $taxAmount = $after * ($tax->rate / 100);
-            }
+            $tax = $request->tax_id ? Tax::find($request->tax_id) : null;
+            $taxAmount = \App\Services\DocumentTax::compute($items, (float) ($request->discount_percent ?? 0), (float) ($tax?->rate ?? 0), auth()->user()->company?->tax_rounding, 'subtotal')['amount'];
+            $taxableTotal = collect($items)->where('is_taxable', true)->sum('subtotal');
 
             $salesOrder->update([
                 'customer_id' => $request->customer_id, 'order_number' => $request->order_number, 'order_date' => $request->order_date,
@@ -285,8 +282,8 @@ class SalesOrderController extends Controller
             SalesOrderDetail::where('sales_order_id', $salesOrder->id)->delete();
             foreach ($items as $item) {
                 SalesOrderDetail::create(array_merge($item, [
-                    'sales_order_id' => $salesOrder->id, 'tax_id' => $request->tax_id,
-                    'tax_amount' => ($subtotal > 0 ? $item['subtotal'] / $subtotal : 0) * $taxAmount,
+                    'sales_order_id' => $salesOrder->id, 'tax_id' => $tax?->id,
+                    'tax_amount' => ($item['is_taxable'] && $taxableTotal > 0 ? $item['subtotal'] / $taxableTotal : 0) * $taxAmount,
                 ]));
             }
             DB::commit();

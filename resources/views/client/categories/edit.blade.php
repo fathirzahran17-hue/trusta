@@ -14,32 +14,30 @@
             @csrf
             @method('PUT')
             
-            <div class="p-8 space-y-6">
+            <div class="doc-section doc-stack">
                 <div>
-                    <label for="name" class="block text-sm font-medium text-gray-300 mb-2">Nama Kategori <span class="text-red-400">*</span></label>
-                    <input type="text" name="name" id="name" value="{{ old('name', $category->name) }}" required
-                        class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">
+                    <label for="name" class="block">Nama Kategori <span class="req">*</span></label>
+                    <input type="text" name="name" id="name" value="{{ old('name', $category->name) }}" required>
                     @error('name')
-                        <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                        <p class="field-msg">{{ $message }}</p>
                     @enderror
                 </div>
                 
                 <div>
-                    <label for="description" class="block text-sm font-medium text-gray-300 mb-2">Deskripsi Kategori (Opsional)</label>
-                    <textarea name="description" id="description" rows="3"
-                        class="w-full bg-gray-800 border-gray-700 text-white focus:border-trusta-teal focus:ring-trusta-teal rounded-lg shadow-sm">{{ old('description', $category->description) }}</textarea>
+                    <label for="description" class="block">Deskripsi Kategori (Opsional)</label>
+                    <textarea name="description" id="description" rows="3">{{ old('description', $category->description) }}</textarea>
                     @error('description')
-                        <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                        <p class="field-msg">{{ $message }}</p>
                     @enderror
                 </div>
             </div>
 
             <!-- Footer Buttons -->
-            <div class="px-8 py-4 bg-gray-800/50 border-t border-gray-700/50 flex justify-end space-x-3">
-                <a href="{{ route('client.inventory.categories') }}" class="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm font-medium">
+            <div class="doc-actions doc-actions-end">
+                <a href="{{ route('client.inventory.categories') }}" class="btn-secondary">
                     Batal
                 </a>
-                <button type="submit" class="px-6 py-2 bg-trusta-teal text-navy-900 font-medium rounded-lg text-sm hover:bg-teal-400 transition-colors shadow-lg shadow-teal-900/50">
+                <button type="submit" class="btn-primary">
                     Simpan Perubahan
                 </button>
             </div>

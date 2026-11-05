@@ -21,6 +21,11 @@ class DownPayment extends Model
         'payment_number',
         'payment_date',
         'amount',
+        'tax_id',
+        'tax_percent',
+        'tax_base',
+        'tax_amount',
+        'tax_invoice_number',
         'notes',
         'journal_id',
         'created_by'
@@ -53,6 +58,11 @@ class DownPayment extends Model
     public function purchaseOrder()
     {
         return $this->belongsTo(PurchaseOrder::class);
+    }
+
+    public function tax()
+    {
+        return $this->belongsTo(Tax::class);
     }
 
     public function journal()

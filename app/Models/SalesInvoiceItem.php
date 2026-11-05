@@ -11,7 +11,7 @@ class SalesInvoiceItem extends Model
 
     protected $fillable = [
         'sales_invoice_id', 'sales_order_id', 'delivery_order_id', 'product_id', 'description', 'quantity',
-        'unit_price', 'discount_percent', 'total'
+        'unit_price', 'discount_percent', 'total', 'is_taxable'
     ];
 
     protected $casts = [

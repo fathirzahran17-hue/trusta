@@ -45,7 +45,9 @@ class SalesDownPaymentController extends Controller
         // Auto number
         $paymentNumber = \App\Services\DocumentNumber::next(\App\Models\DownPayment::class, 'payment_number', 'DP-S-', (int) $companyId, null, fn($q) => $q->where('type', 'sales'));
             
-        return view('client.sales_down_payments.create', compact('customers', 'salesOrders', 'accounts', 'paymentNumber'));
+        $taxes = \App\Models\Tax::where('company_id', $companyId)->where('is_active', true)->get()->filter->isVat()->values();
+
+        return view('client.sales_down_payments.create', compact('customers', 'salesOrders', 'accounts', 'paymentNumber', 'taxes'));
     }
 
     public function store(Request $request)
@@ -55,13 +57,19 @@ class SalesDownPaymentController extends Controller
             'customer_id' => 'required|exists:customers,id',
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:1',
-            'account_id' => 'required|exists:accounts,id'
-        ]);
+            'account_id' => 'required|exists:accounts,id',
+            'tax_id' => 'nullable|exists:taxes,id',
+            'tax_invoice_number' => \App\Services\DocumentTax::numberRules(),
+        ], \App\Services\DocumentTax::NUMBER_MESSAGES);
 
         try {
             DB::beginTransaction();
 
             $companyId = auth()->user()->company_id;
+
+            // Jumlah uang muka sudah termasuk PPN bila pajak dipilih
+            $taxModel = $request->filled('tax_id') ? \App\Models\Tax::find($request->tax_id) : null;
+            $tax = \App\Services\DocumentTax::fromGross((float) $request->amount, (float) ($taxModel?->rate ?? 0), auth()->user()->company?->tax_rounding);
 
             $downPayment = DownPayment::create([
                 'company_id' => $companyId,
@@ -72,6 +80,11 @@ class SalesDownPaymentController extends Controller
                 'payment_date' => $request->payment_date,
                 'payment_method' => 'bank_transfer',
                 'amount' => $request->amount,
+                'tax_id' => $taxModel?->id,
+                'tax_percent' => $tax['percent'],
+                'tax_base' => $tax['base'],
+                'tax_amount' => $tax['amount'],
+                'tax_invoice_number' => $request->tax_invoice_number,
                 'notes' => $request->notes,
                 'created_by' => auth()->id(),
             ]);
@@ -108,8 +121,21 @@ class SalesDownPaymentController extends Controller
                     'account_id' => $receivableAccount->id,
                     'description' => 'Uang Muka Penjualan ' . $downPayment->payment_number,
                     'debit' => 0,
-                    'credit' => $request->amount,
+                    'credit' => round((float) $request->amount - $tax['amount'], 2),
                 ]);
+
+                // Credit Pajak Keluaran: PPN terutang saat uang muka diterima
+                if ($tax['amount'] > 0) {
+                    $taxAccount = \App\Services\AccountResolver::outputTax($companyId, $taxModel);
+                    if (!$taxAccount) throw new \Exception('Akun Pajak Keluaran belum diatur untuk pajak "' . $taxModel->name . '". Atur di menu Pajak.');
+                    JournalDetail::create([
+                        'journal_id' => $journal->id,
+                        'account_id' => $taxAccount->id,
+                        'description' => 'Pajak Keluaran Uang Muka ' . $downPayment->payment_number,
+                        'debit' => 0,
+                        'credit' => $tax['amount'],
+                    ]);
+                }
 
                 \App\Services\JournalGuard::assertBalanced($journal);
                 $downPayment->update(['journal_id' => $journal->id]);

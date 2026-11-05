@@ -100,8 +100,7 @@
             });
         </script>
     </head>
-    <body class="font-sans antialiased" x-data="{ sidebarOpen: true }" x-init="
-        if (window.innerWidth < 768) sidebarOpen = false;
+    <body class="font-sans antialiased" x-data="{ sidebarOpen: window.innerWidth >= 768 }" x-init="
         window.addEventListener('resize', () => {
             if (window.innerWidth < 768) sidebarOpen = false;
         });
@@ -112,7 +111,7 @@
             <div class="sidebar-overlay" :class="{ 'show': sidebarOpen }" @click="sidebarOpen = false"></div>
 
             <!-- Sidebar Navigation -->
-            <aside class="sidebar" :class="{ 'collapsed': !sidebarOpen }">
+            <aside class="sidebar" :class="{ 'collapsed': !sidebarOpen, 'is-open': sidebarOpen }">
                 <div class="sidebar-inner">
                     <!-- Logo -->
                     <div class="sidebar-logo">
@@ -325,6 +324,18 @@
                         <div class="alert-error">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             <p>{{ session('error') }}@if(session('premium_denied') && auth()->user() && !auth()->user()->isSuperAdmin()) <a href="{{ route('client.billing') }}" class="inline-flex items-center ml-2 px-3 py-1 bg-red-700 hover:bg-red-600 text-white text-xs font-semibold rounded-md transition-colors">Aktifkan / Perpanjang Langganan</a>@endif</p>
+                        </div>
+                    @endif
+
+                    @if ($errors->any())
+                        <div class="alert-error">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div>
+                                <p>Ada isian yang perlu diperbaiki:</p>
+                                <ul class="alert-list">
+                                    @foreach (array_slice($errors->all(), 0, 6) as $message)<li>{{ $message }}</li>@endforeach
+                                </ul>
+                            </div>
                         </div>
                     @endif
 

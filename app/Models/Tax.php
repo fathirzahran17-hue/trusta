@@ -32,4 +32,10 @@ class Tax extends Model
     {
         return $this->belongsTo(Account::class, 'purchase_tax_account_id');
     }
+
+    /** PPh dipotong dari pembayaran, bukan pajak yang dipungut seperti PPN, jadi tidak ikut Laporan PPN dan uang muka ber-PPN. */
+    public function isVat(): bool
+    {
+        return ! preg_match('/\bpph\b|penghasilan/i', (string) $this->name);
+    }
 }

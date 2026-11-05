@@ -30,12 +30,6 @@
         }
     </script>
 
-    @if(session('success'))
-        <div class="mb-3 bg-green-500/10 border-l-3 border-green-500 p-3 text-green-400 rounded-r-lg text-xs">
-            {{ session('success') }}
-        </div>
-    @endif
-
     <div style="background: rgba(30,41,59,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden;">
         <div class="overflow-x-auto">
             <table id="table-delivery-orders" class="w-full text-sm text-left text-gray-300">

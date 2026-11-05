@@ -111,8 +111,20 @@
     
     .pref-form-group {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         margin-bottom: 16px;
+    }
+    .pref-hint {
+        flex-basis: 100%;
+        max-width: 580px;
+        margin: 6px 0 0 180px;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: var(--text-dim);
+    }
+    @media (max-width: 640px) {
+        .pref-hint { margin-left: 0; }
     }
     
     .pref-label {
@@ -190,7 +202,6 @@
         <div class="pref-sidebar-item" :class="activeMenu === 'persetujuan' ? 'active' : ''" @click="activeMenu = 'persetujuan'">Persetujuan</div>
         <div class="pref-sidebar-item" :class="activeMenu === 'lampiran' ? 'active' : ''" @click="activeMenu = 'lampiran'">Lampiran</div>
         <div class="pref-sidebar-item" :class="activeMenu === 'atribut' ? 'active' : ''" @click="activeMenu = 'atribut'">Atribut Tambahan</div>
-        <div class="pref-sidebar-item" :class="activeMenu === 'akun' ? 'active' : ''" @click="activeMenu = 'akun'">Akun Perkiraan</div>
         <div class="pref-sidebar-item" :class="activeMenu === 'lainnya' ? 'active' : ''" @click="activeMenu = 'lainnya'">Lain-lain</div>
     </div>
 
@@ -254,7 +265,7 @@
                     </div>
                     
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Info</button>
+                        <button type="submit" class="btn-primary">Simpan Info</button>
                     </div>
                 </form>
 
@@ -266,7 +277,7 @@
                     </div>
                     
                     <div style="margin-top: 20px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Alamat</button>
+                        <button type="submit" class="btn-primary">Simpan Alamat</button>
                     </div>
                 </form>
 
@@ -299,60 +310,29 @@
                 
                 <div class="pref-form-group">
                     <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
-                        <input type="checkbox" checked disabled style="margin-right: 12px; width: 16px; height: 16px;" />
-                        <span>Pencatatan Multi Mata Uang</span>
+                        <input type="checkbox" @checked(\App\Support\BusinessType::hasStock($company->business_type)) disabled style="margin-right: 12px; width: 16px; height: 16px;" />
+                        <span>Persediaan &amp; Multi Gudang</span>
                     </label>
                 </div>
-                
+
                 <div class="pref-form-group">
                     <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
-                        <input type="checkbox" checked disabled style="margin-right: 12px; width: 16px; height: 16px;" />
-                        <span>Manajemen Persediaan & Multi Gudang</span>
+                        <input type="checkbox" @checked(\App\Support\BusinessType::hasProduction($company->business_type)) disabled style="margin-right: 12px; width: 16px; height: 16px;" />
+                        <span>Produksi (Resep dan Perintah Produksi)</span>
                     </label>
                 </div>
 
                 <div class="pref-form-group">
                     <label style="display: flex; align-items: center; cursor: pointer; color: var(--trusta-text-primary);">
                         <input type="checkbox" checked disabled style="margin-right: 12px; width: 16px; height: 16px;" />
-                        <span>Perhitungan Pajak Pertambahan Nilai (PPN)</span>
+                        <span>Pajak Pertambahan Nilai (PPN) dan Laporan PPN</span>
                     </label>
                 </div>
                 
-                <p style="margin-top: 30px; font-size: 0.85rem; color: var(--trusta-text-muted);">* Fitur dikendalikan oleh paket langganan Anda.</p>
+                <p style="margin-top: 30px; font-size: 0.85rem; color: var(--trusta-text-muted);">* Persediaan dan Produksi mengikuti Jenis Usaha, yang bisa diubah di menu Perusahaan.</p>
             </div>
         </template>
         
-        <template x-if="activeMenu === 'akun'">
-            <div class="pref-form-area">
-                <h3 style="font-size: 1.1rem; font-weight: 600; color: var(--trusta-teal); margin-bottom: 20px;">Akun Perkiraan Default</h3>
-                
-                <div class="pref-form-group">
-                    <div class="pref-label">Akun Hutang</div>
-                    <select class="pref-input">
-                        <option>2110.01 - Hutang Usaha IDR</option>
-                    </select>
-                </div>
-                
-                <div class="pref-form-group">
-                    <div class="pref-label">Akun Piutang</div>
-                    <select class="pref-input">
-                        <option>1130.01 - Piutang Usaha IDR</option>
-                    </select>
-                </div>
-                
-                <div class="pref-form-group">
-                    <div class="pref-label">Akun Selisih Kurs</div>
-                    <select class="pref-input">
-                        <option>7110.01 - Laba/Rugi Selisih Kurs Belum Terealisasi</option>
-                    </select>
-                </div>
-                
-                <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                    <button class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pemetaan</button>
-                </div>
-            </div>
-        </template>
-
         <template x-if="activeMenu === 'pajak'">
             <form action="{{ route('client.settings.preferences.update') }}" method="POST" class="pref-form-area">
                 @csrf
@@ -361,6 +341,7 @@
                     <div class="pref-form-group">
                         <div class="pref-label">Tarif PPN Default (%)</div>
                         <input type="number" name="default_tax_rate" class="pref-input" value="{{ old('default_tax_rate', $company->default_tax_rate) }}" style="max-width: 100px;" step="0.01" />
+                    <div class="pref-hint">Pajak dengan tarif ini langsung terpilih di dokumen baru. Isi 0 agar dokumen baru dimulai tanpa pajak.</div>
                     </div>
                     <div class="pref-form-group">
                         <div class="pref-label">Sistem Pembulatan Pajak</div>
@@ -369,9 +350,10 @@
                             <option value="Pembulatan Ke Atas" {{ old('tax_rounding', $company->tax_rounding) == 'Pembulatan Ke Atas' ? 'selected' : '' }}>Pembulatan Ke Atas</option>
                             <option value="Pembulatan Ke Bawah" {{ old('tax_rounding', $company->tax_rounding) == 'Pembulatan Ke Bawah' ? 'selected' : '' }}>Pembulatan Ke Bawah</option>
                         </select>
+                    <div class="pref-hint">Normal menyimpan dua desimal. Ke Atas dan Ke Bawah membulatkan PPN ke rupiah penuh. Berlaku untuk dokumen baru.</div>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan Pajak</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan Pajak</button>
                     </div>
                 </div>
             </form>
@@ -397,7 +379,7 @@
                         </label>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -425,14 +407,18 @@
                     
                     <div class="pref-form-group" style="margin-top: 20px;">
                         <div class="pref-label">Metode Penilaian Persediaan (HPP)</div>
-                        <select name="inventory_costing_method" class="pref-input">
+                        <select name="inventory_costing_method" class="pref-input" @disabled($costingLocked)>
                             <option value="average" {{ old('inventory_costing_method', $company->inventory_costing_method ?? 'average') == 'average' ? 'selected' : '' }}>Rata-rata Bergerak (Moving Average)</option>
                             <option value="fifo" {{ old('inventory_costing_method', $company->inventory_costing_method ?? 'average') == 'fifo' ? 'selected' : '' }}>Masuk Pertama Keluar Pertama (FIFO)</option>
                         </select>
-                        <p style="font-size: 0.8rem; color: #9ca3af; margin-top: 5px;">*Perubahan metode ini akan mempengaruhi perhitungan HPP di setiap faktur penjualan ke depan.</p>
+                        @if($costingLocked)
+                            <p class="pref-hint">Terkunci karena sudah ada mutasi stok. Nilai persediaan dan HPP yang tercatat memakai metode ini.</p>
+                        @else
+                            <p class="pref-hint">Tentukan sebelum transaksi pertama. Setelah ada mutasi stok, metode ini tidak bisa diganti.</p>
+                        @endif
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -451,11 +437,14 @@
                         </label>
                     </div>
                     <div class="pref-form-group">
-                        <div class="pref-label" style="width: 250px;">Batas Akhir Kunci Periode Transaksi</div>
-                        <input type="date" name="closing_date" value="{{ old('closing_date', $company->closing_date) }}" class="pref-input" style="max-width: 150px;" />
+                        <div class="pref-label" style="width: 250px;">Kunci Periode Transaksi</div>
+                        <div style="flex: 1; min-width: 220px; font-size: 0.875rem; color: var(--text); line-height: 1.5;">
+                            {{ $company->closing_date ? 'Terkunci sampai ' . \App\Support\ReportFormat::date($company->closing_date) . '.' : 'Belum ada periode yang dikunci.' }}
+                            <a href="{{ route('client.company.month_end') }}" style="color: var(--accent); font-weight: 600;">Atur di Tutup Buku Bulanan</a>
+                        </div>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -475,7 +464,7 @@
                         </label>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -495,7 +484,7 @@
                         <input type="text" name="allowed_attachment_types" class="pref-input" value="{{ old('allowed_attachment_types', $company->allowed_attachment_types) }}" />
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -516,7 +505,7 @@
                         <input type="text" name="custom_item_attr_1" class="pref-input" value="{{ old('custom_item_attr_1', $company->custom_item_attr_1) }}" placeholder="Misal: Nomor Rak" />
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>
@@ -542,7 +531,7 @@
                         </select>
                     </div>
                     <div style="margin-top: 30px; display: flex; justify-content: flex-end; max-width: 580px;">
-                        <button type="submit" class="btn-primary" style="background: var(--trusta-teal); color: var(--trusta-darker); padding: 8px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">Simpan Pengaturan</button>
+                        <button type="submit" class="btn-primary">Simpan Pengaturan</button>
                     </div>
                 </div>
             </form>

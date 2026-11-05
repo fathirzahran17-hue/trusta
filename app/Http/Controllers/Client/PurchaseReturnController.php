@@ -18,7 +18,7 @@ class PurchaseReturnController extends Controller
 {
     public function index()
     {
-        $returns = PurchaseReturn::with(['supplier', 'purchaseInvoice'])
+        $returns = PurchaseReturn::with('purchaseInvoice.supplier')
             ->where('company_id', auth()->user()->company_id)
             ->orderBy('return_date', 'desc')
             ->paginate(20);
@@ -31,7 +31,7 @@ class PurchaseReturnController extends Controller
         $companyId = auth()->user()->company_id;
         $suppliers = Supplier::where('company_id', $companyId)->orderBy('name')->get();
         
-        $invoices = PurchaseInvoice::where('company_id', $companyId)
+        $invoices = PurchaseInvoice::with('items')->where('company_id', $companyId)
             ->whereIn('status', ['unpaid', 'paid'])
             ->orderBy('invoice_date', 'desc')
             ->get();
@@ -123,19 +123,20 @@ class PurchaseReturnController extends Controller
                 $total = $qty * $price;
                 $subtotal += $total;
                 $items[] = ['product_id' => $productId, 'account_id' => $rowAccounts[$index] ?? null, 'quantity' => $qty, 'unit_price' => $price, 'total' => $total,
+                    'is_taxable' => $invoice ? \App\Services\DocumentTax::invoiceLineFlag($invoice->items, $productId, $rowAccounts[$index] ?? null) : true,
                     'description' => ($request->row_descriptions[$index] ?? null) ?: (isset($rowAccounts[$index]) ? \App\Models\Account::find($rowAccounts[$index])?->name : null)];
             }
 
             $discPct = (float) ($invoice?->discount_percent ?? 0);
             $net = $subtotal * (1 - $discPct / 100);
-            $taxPct = (float) ($invoice?->tax_percent ?? 0);
-            $taxAmount = $net * $taxPct / 100;
+            $tax = \App\Services\DocumentTax::compute($items, $discPct, (float) ($invoice?->tax_percent ?? 0), auth()->user()->company?->tax_rounding);
+            $taxAmount = $tax['amount'];
             $grand = $net + $taxAmount;
 
             $purchaseReturn = PurchaseReturn::create([
                 'company_id' => $companyId, 'supplier_id' => $request->supplier_id, 'purchase_invoice_id' => $invoice?->id,
                 'return_number' => $request->return_number, 'return_date' => $request->return_date, 'status' => 'approved',
-                'subtotal' => $subtotal, 'total' => $grand, 'notes' => $request->notes, 'created_by' => auth()->id(),
+                'subtotal' => $subtotal, 'total' => $grand, 'tax_base' => $tax['base'], 'tax_amount' => $taxAmount, 'reason' => $request->notes ? mb_substr($request->notes, 0, 255) : null, 'created_by' => auth()->id(),
             ]);
 
             $inv = \App\Services\AccountResolver::inventory($companyId);

@@ -1,4 +1,15 @@
 {{-- Mengisi baris barang dari dokumen asal (SO/PO). Bekerja dengan form yang punya #btnAddRow, .item-row, select[name="products[]"], input[name="quantities[]"]. --}}
+@php
+    // Validasi gagal: isi baris yang sudah diketik dikembalikan, bukan hilang.
+    $oldProducts = old('products');
+    if (is_array($oldProducts) && count($oldProducts)) {
+        $rows = [];
+        foreach (array_values($oldProducts) as $i => $productId) {
+            $rows[] = ['product_id' => $productId ?? '', 'quantity' => old("quantities.$i", 1), 'price' => old("prices.$i", 0), 'discount' => old("discounts.$i", 0),
+                'description' => old("row_descriptions.$i"), 'order_id' => old("row_orders.$i"), 'doc_id' => old("row_docs.$i"), 'taxable' => old("taxable.$i")];
+        }
+    }
+@endphp
 @if(!empty($rows))
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -28,7 +39,7 @@
             var desc = tr.querySelector('input[name="row_descriptions[]"]');
             if (desc && r.description) desc.value = r.description;
             var price = tr.querySelector('.input-price');
-            if (price) {
+            if (price && r.price !== undefined && r.price !== null) {
                 price.value = r.price;
                 var disp = tr.querySelector('.input-price-display');
                 if (disp) {
@@ -37,7 +48,8 @@
                 }
             }
             var disc = tr.querySelector('.input-discount');
-            if (disc) { disc.value = r.discount; disc.dispatchEvent(new Event('input', { bubbles: true })); }
+            if (disc && r.discount !== undefined && r.discount !== null) { disc.value = r.discount; disc.dispatchEvent(new Event('input', { bubbles: true })); }
+            if (r.taxable !== undefined && r.taxable !== null && window.LineTax) window.LineTax.set(tr, r.taxable);
         });
         if (typeof window.calculateTotals === 'function') window.calculateTotals();
     });

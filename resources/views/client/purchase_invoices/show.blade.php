@@ -9,7 +9,7 @@
         </a>
         
         <div class="flex space-x-3">
-            <button onclick="window.print()" class="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm font-medium flex items-center">
+            <button onclick="window.print()" class="btn-secondary">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                 Cetak (Print)
             </button>
@@ -83,6 +83,11 @@
                         <div class="text-gray-500 font-medium text-left">No. Faktur Vendor:</div>
                         <div class="text-gray-900 font-bold">{{ $purchase_invoice->supplier_invoice_no ?: '-' }}</div>
 
+                        @if($purchase_invoice->tax_invoice_number)
+                            <div class="text-gray-500 font-medium text-left">No. Faktur Pajak:</div>
+                            <div class="text-gray-900 font-bold">{{ $purchase_invoice->tax_invoice_number }}</div>
+                        @endif
+
                         <div class="text-gray-500 font-medium text-left">Tanggal Faktur:</div>
                         <div class="text-gray-900 font-bold">{{ $purchase_invoice->invoice_date->format('d F Y') }}</div>
                         
@@ -137,6 +142,12 @@
                             <span class="text-red-600 font-medium">-Rp {{ number_format($purchase_invoice->discount_amount, 2, ',', '.') }}</span>
                         </div>
                     @endif
+                    @if($purchase_invoice->tax_amount > 0 && abs(((float) $purchase_invoice->subtotal - (float) $purchase_invoice->discount_amount) - (float) $purchase_invoice->tax_base) > 0.004)
+                        <div class="flex justify-between py-2 text-sm">
+                            <span class="text-gray-500 font-medium">DPP (baris kena PPN)</span>
+                            <span class="text-gray-900 font-medium">Rp {{ number_format($purchase_invoice->tax_base, 2, ',', '.') }}</span>
+                        </div>
+                    @endif
                     @if($purchase_invoice->tax_amount > 0)
                         <div class="flex justify-between py-2 text-sm border-b border-gray-200">
                             <span class="text-gray-500 font-medium">Pajak ({{ $purchase_invoice->tax ? $purchase_invoice->tax->name : 'Tax' }} {{ (float)$purchase_invoice->tax_percent }}%)</span>
@@ -175,6 +186,9 @@
         </div>
     </div>
     <div class="max-w-4xl mx-auto mt-6">
+        @if((float) $purchase_invoice->tax_amount > 0 && $purchase_invoice->status !== 'void')
+            @include('partials.tax-number-form', ['action' => route('client.purchase-invoices.tax-number', $purchase_invoice), 'number' => $purchase_invoice->tax_invoice_number, 'label' => 'No. Faktur Pajak Pemasok'])
+        @endif
         @include('partials.invoice-payment-panel', ['invoice' => $purchase_invoice, 'kind' => 'purchase'])
         @include('partials.related-docs', ['groups' => \App\Services\DocumentLinker::relatedForPurchaseInvoice($purchase_invoice)])
     </div>

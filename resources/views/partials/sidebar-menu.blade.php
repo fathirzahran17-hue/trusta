@@ -115,9 +115,9 @@
         ]],
         ['label' => '4. Laporan', 'items' => [
             ['title' => 'Laporan', 'icon' => 'chart', 'children' => [
-                $I('Laporan Keuangan & Lainnya', 'client.reports.index', ['client.reports.*'], ['client.reports.spt_ppn', 'client.reports.tax_calculator']),
+                $I('Laporan Keuangan & Lainnya', 'client.reports.index', ['client.reports.*'], ['client.reports.vat', 'client.reports.tax_calculator']),
                 $H('Pajak'),
-                $I('SPT PPN / PPNBM', 'client.reports.spt_ppn'),
+                $I('Laporan PPN', 'client.reports.vat'),
                 $I('Kalkulator Pajak', 'client.reports.tax_calculator'),
             ]],
         ]],
