@@ -2056,6 +2056,15 @@ input.input-lg { min-height: 52px; font-size: 1.25rem !important; font-weight: 7
 .line-items tbody td { padding: 10px 6px !important; vertical-align: top; border-bottom: 1px solid var(--border); }
 .line-items input[type="number"], .line-items .input-price-display, .line-items .input-amount-display, .line-items .input-debit-display, .line-items .input-credit-display { text-align: right; font-variant-numeric: tabular-nums; }
 .line-items .input-discount { padding-left: 8px; padding-right: 8px; }
+/* Subtotal yang bisa diketik dan diskon persen atau rupiah */
+.line-items .input-subtotal-display, .line-items .input-disc-display { text-align: right; font-variant-numeric: tabular-nums; }
+.disc-wrap { display: flex; align-items: center; gap: 4px; }
+.disc-wrap .input-disc-display { flex: 1 1 auto; min-width: 0; padding-left: 8px; padding-right: 8px; }
+.disc-mode { flex: 0 0 auto; min-width: 36px; height: var(--ctl-h, 38px); padding: 0 6px; font-size: 0.74rem; font-weight: 700; color: var(--text-muted); background: var(--hover-bg); border: 1px solid var(--border-strong); border-radius: 8px; cursor: pointer; }
+.disc-mode:hover { color: var(--accent); border-color: var(--accent); }
+.disc-mode.is-rp { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-border); }
+.input-disc-display.is-invalid { border-color: var(--danger) !important; box-shadow: 0 0 0 3px var(--danger-soft); }
+.disc-wrap-total { width: 150px; }
 .line-items tbody .col-unit { padding-top: 20px !important; text-align: center; font-size: 0.82rem; color: var(--text-dim); }
 .line-items tbody .col-stock { padding-top: 20px !important; text-align: right; }
 .line-items tbody .col-total { padding-top: 19px !important; padding-right: 8px !important; text-align: right; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-strong); }
@@ -2160,7 +2169,8 @@ input.input-lg { min-height: 52px; font-size: 1.25rem !important; font-weight: 7
     .line-items .col-qty::before { content: "Jumlah"; }
     .line-items .col-unit::before { content: "Satuan"; }
     .line-items .col-price::before { content: "Harga Satuan"; }
-    .line-items .col-disc::before { content: "Diskon (%)"; }
+    .line-items .col-subtotal::before { content: "Subtotal"; }
+    .line-items .col-disc::before { content: "Diskon (% atau Rp)"; }
     .line-items .col-debit::before { content: "Debit (Rp)"; }
     .line-items .col-credit::before { content: "Kredit (Rp)"; }
     .line-items .col-amount { grid-column: 1 / -1; }

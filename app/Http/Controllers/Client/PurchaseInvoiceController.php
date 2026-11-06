@@ -119,6 +119,8 @@ class PurchaseInvoiceController extends Controller
             'prices.*' => 'required|numeric|min:0',
             'discounts' => 'nullable|array',
             'discounts.*' => 'nullable|numeric|min:0|max:100',
+            'line_totals' => 'nullable|array',
+            'line_totals.*' => 'nullable|numeric|min:0',
             'discount_percent' => 'nullable|numeric|min:0|max:100',
             'tax_id' => 'nullable|exists:taxes,id',
             'taxable' => 'nullable|array',
@@ -150,8 +152,8 @@ class PurchaseInvoiceController extends Controller
                 $price = floatval($request->prices[$index]);
                 $lineDiscPct = floatval($request->discounts[$index] ?? 0);
                 $lineTotal = $qty * $price;
+                $total = \App\Support\LineAmount::net($qty, $price, $lineDiscPct, $request->line_totals[$index] ?? null);
                 $lineDiscAmt = $lineTotal * ($lineDiscPct / 100);
-                $total = $lineTotal - $lineDiscAmt;
                 $subtotal += $total;
                 
                 $items[] = [

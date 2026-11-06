@@ -15,6 +15,7 @@ function messageFor(el) {
     }
     if (v.typeMismatch) return el.type === 'email' ? 'Format email belum benar, contoh: nama@perusahaan.com.' : 'Format isian belum benar.';
     if (v.badInput) return 'Isi dengan angka.';
+    if ((v.rangeUnderflow || v.rangeOverflow) && el.type === 'date' && el.dataset.yearGuard) return 'Tahunnya belum benar. Ketik 4 digit, misalnya 2026.';
     if (v.rangeUnderflow) return `Nilai minimal ${el.min}.`;
     if (v.rangeOverflow) return `Nilai maksimal ${el.max}.`;
     if (v.stepMismatch) return 'Angka di belakang koma terlalu banyak.';
@@ -163,7 +164,8 @@ function initKeyboardComfort() {
     document.addEventListener('focusin', (e) => {
         const el = e.target;
         if (el.tagName !== 'INPUT' || el.readOnly) return;
-        if (el.type === 'number' || el.classList.contains('input-price-display') || el.classList.contains('input-amount-display')) {
+        if (el.type === 'number' || el.classList.contains('input-price-display') || el.classList.contains('input-amount-display')
+            || el.classList.contains('input-subtotal-display') || el.classList.contains('input-disc-display')) {
             el.select();
             clickedInto = el;
         }
@@ -302,3 +304,161 @@ export function initForms() {
     initLineTax();
     document.addEventListener('DOMContentLoaded', initTotalMirror);
 }
+
+/*
+ * Nilai baris di form faktur dan pesanan.
+ * - Subtotal bisa diketik langsung: harga satuan = subtotal / jumlah barang.
+ * - Diskon bisa persen atau rupiah (tombol di sebelahnya). Server tetap menerima persen di discounts[] seperti sebelumnya.
+ * - Nilai baris yang tampil ikut dikirim di line_totals[], supaya tidak selisih sen karena harga satuan dibulatkan.
+ * Yang terakhir diketik yang dipegang: setelah subtotal diketik, mengubah jumlah barang mengubah harga satuan.
+ */
+(function () {
+    const num = (v) => (window.parseMoney ? window.parseMoney(v) : parseFloat(v) || 0);
+    const money = (n) => (window.fmtMoney ? window.fmtMoney(n) : String(n));
+    const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const percentText = (n) => String(Math.round(n * 10000) / 10000).replace('.', ',');
+    const parts = (row) => ({
+        qty: row.querySelector('.input-qty'),
+        price: row.querySelector('.input-price'),
+        priceShow: row.querySelector('.input-price-display'),
+        sub: row.querySelector('.input-subtotal-display'),
+        pct: row.querySelector('.input-discount'),
+        disc: row.querySelector('.input-disc-display'),
+        mode: row.querySelector('.disc-mode'),
+        total: row.querySelector('.input-line-total'),
+    });
+    const editing = (el) => el && document.activeElement === el;
+    const recalc = () => { if (typeof window.calculateTotals === 'function') window.calculateTotals(); };
+
+    function gross(row, p) {
+        const qty = parseFloat(p.qty && p.qty.value) || 0;
+        if (row.dataset.anchor === 'subtotal') {
+            const sub = parseFloat(row.dataset.subtotal) || 0;
+            const price = qty > 0 ? round2(sub / qty) : 0;
+            if (p.price) p.price.value = price;
+            if (p.priceShow && !editing(p.priceShow)) p.priceShow.value = money(price);
+            return sub;
+        }
+        const value = qty * (parseFloat(p.price && p.price.value) || 0);
+        if (p.sub && !editing(p.sub)) p.sub.value = money(round2(value));
+        return value;
+    }
+
+    /** Diskon dalam rupiah, sambil menulis persennya ke discounts[]. Isian di luar batas diberi tanda dan dibatasi. */
+    function discount(p, base, el, hidden, modeOf) {
+        if (!el) return base * (parseFloat(hidden && hidden.value) || 0) / 100;
+        const raw = num(el.value);
+        const rupiah = modeOf === 'rp';
+        const max = rupiah ? base : 100;
+        const invalid = raw < 0 || raw > max + 0.000001 || /-/.test(el.value);
+        const message = invalid ? (rupiah ? 'Diskon tidak boleh lebih dari subtotal.' : 'Diskon 0 sampai 100%.') : '';
+        el.classList.toggle('is-invalid', invalid);
+        el.title = message;
+        // Menahan tombol simpan: diskon yang salah tidak boleh tersimpan diam-diam sebagai 0 atau 100%
+        el.setCustomValidity(message);
+        const value = Math.min(Math.max(raw, 0), max);
+        const percent = rupiah ? (base > 0 ? value / base * 100 : 0) : value;
+        if (hidden) hidden.value = percent;
+        return rupiah ? value : base * percent / 100;
+    }
+
+    function net(row) {
+        const p = parts(row);
+        const base = gross(row, p);
+        const cut = discount(p, base, p.disc, p.pct, row.dataset.discMode);
+        const total = round2(base - cut);
+        if (p.total) p.total.value = total.toFixed(2);
+        return total;
+    }
+
+    function overallPct(subtotal) {
+        const hidden = document.getElementById('discount_percent');
+        const shown = document.getElementById('discount_display');
+        if (!shown) return parseFloat(hidden && hidden.value) || 0;
+        discount(null, subtotal, shown, hidden, shown.dataset.mode);
+        return parseFloat(hidden.value) || 0;
+    }
+
+    /** Ganti persen <-> rupiah tanpa mengubah besar diskonnya. */
+    function toggle(button) {
+        const row = button.closest('.item-row');
+        const shown = row ? row.querySelector('.input-disc-display') : document.getElementById('discount_display');
+        const hidden = row ? row.querySelector('.input-discount') : document.getElementById('discount_percent');
+        if (!shown || !hidden) return;
+        const holder = row ? row.dataset : shown.dataset;
+        const key = row ? 'discMode' : 'mode';
+        const base = row ? gross(row, parts(row)) : num(document.getElementById('displaySubtotal')?.textContent);
+        const percent = parseFloat(hidden.value) || 0;
+        if (holder[key] === 'rp') {
+            holder[key] = 'pct';
+            shown.value = percentText(percent);
+        } else {
+            holder[key] = 'rp';
+            shown.value = money(round2(base * percent / 100));
+        }
+        button.textContent = holder[key] === 'rp' ? 'Rp' : '%';
+        button.classList.toggle('is-rp', holder[key] === 'rp');
+        recalc();
+    }
+
+    document.addEventListener('input', (e) => {
+        const el = e.target;
+        const row = el.closest && el.closest('.item-row');
+        if (el.classList.contains('input-subtotal-display') && row) {
+            row.dataset.anchor = 'subtotal';
+            row.dataset.subtotal = String(num(el.value));
+            recalc();
+        } else if (el.classList.contains('input-price-display') && row) {
+            row.dataset.anchor = 'price';
+        } else if (el.classList.contains('input-disc-display')) {
+            recalc();
+        }
+    });
+    // Diisi dari dokumen asal, halaman ubah, atau isian yang dikembalikan validasi: selalu persen.
+    // Harus berjalan sebelum pendengar di baris itu sendiri, yang langsung menghitung ulang dan akan membaca kotak yang masih 0.
+    document.addEventListener('input', (e) => {
+        const el = e.target;
+        if (!el.classList || !el.classList.contains('input-discount') || e.isTrusted) return;
+        const row = el.closest('.item-row');
+        if (!row) return;
+        row.dataset.discMode = 'pct';
+        const shown = row.querySelector('.input-disc-display');
+        const button = row.querySelector('.disc-mode');
+        if (shown) shown.value = percentText(parseFloat(el.value) || 0);
+        if (button) { button.textContent = '%'; button.classList.remove('is-rp'); }
+    }, true);
+    document.addEventListener('change', (e) => {
+        if (e.target.classList && e.target.classList.contains('product-select')) {
+            const row = e.target.closest('.item-row');
+            if (row) { row.dataset.anchor = 'price'; recalc(); }
+        }
+    });
+    document.addEventListener('click', (e) => {
+        const button = e.target.closest && e.target.closest('.disc-mode');
+        if (button) { e.preventDefault(); toggle(button); }
+    });
+    document.addEventListener('focusout', (e) => {
+        const el = e.target;
+        if (!el.classList || !el.classList.contains('input-disc-display') || !el.value.trim()) return;
+        const row = el.closest('.item-row');
+        const rupiah = (row ? row.dataset.discMode : el.dataset.mode) === 'rp';
+        el.value = rupiah ? money(num(el.value)) : percentText(num(el.value));
+    });
+
+    // Tahun tanggal: 0026 karena salah ketik ditolak sebelum dikirim
+    function guardDates(root) {
+        (root.querySelectorAll ? root.querySelectorAll('input[type="date"]') : []).forEach((el) => {
+            if (el.dataset.yearGuard) return;
+            el.dataset.yearGuard = '1';
+            if (!el.min) el.min = '1900-01-01';
+            if (!el.max) el.max = '2099-12-31';
+        });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        guardDates(document);
+        new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach((n) => n.nodeType === 1 && guardDates(n))))
+            .observe(document.body, { childList: true, subtree: true });
+    });
+
+    window.LineAmount = { net, overallPct };
+})();

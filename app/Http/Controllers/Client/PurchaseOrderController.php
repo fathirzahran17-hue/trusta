@@ -99,6 +99,8 @@ class PurchaseOrderController extends Controller
             'prices.*' => 'required|numeric|min:0',
             'discounts' => 'nullable|array',
             'discounts.*' => 'nullable|numeric|min:0|max:100',
+            'line_totals' => 'nullable|array',
+            'line_totals.*' => 'nullable|numeric|min:0',
         ]);
 
         try {
@@ -118,8 +120,8 @@ class PurchaseOrderController extends Controller
                 $price = floatval($request->prices[$index]);
                 $lineDiscPct = floatval($request->discounts[$index] ?? 0);
                 $lineTotal = $qty * $price;
+                $total = \App\Support\LineAmount::net($qty, $price, $lineDiscPct, $request->line_totals[$index] ?? null);
                 $lineDiscAmt = $lineTotal * ($lineDiscPct / 100);
-                $total = $lineTotal - $lineDiscAmt;
                 $subtotal += $total;
                 
                 $items[] = [
@@ -250,6 +252,8 @@ class PurchaseOrderController extends Controller
             'prices.*' => 'required|numeric|min:0',
             'discounts' => 'nullable|array',
             'discounts.*' => 'nullable|numeric|min:0|max:100',
+            'line_totals' => 'nullable|array',
+            'line_totals.*' => 'nullable|numeric|min:0',
         ]);
         try {
             \App\Services\ServiceLines::assertPriced($request->products, $request->prices);
@@ -266,7 +270,7 @@ class PurchaseOrderController extends Controller
                 $price = (float) $request->prices[$i];
                 $pct = (float) ($request->discounts[$i] ?? 0);
                 $gross = $qty * $price;
-                $total = $gross - $gross * ($pct / 100);
+                $total = \App\Support\LineAmount::net($qty, $price, $pct, $request->line_totals[$i] ?? null);
                 $subtotal += $total;
                 $items[] = ['product_id' => $productId, 'quantity' => $qty, 'unit_price' => $price, 'discount_percent' => $pct, 'total' => $total,
                     'is_taxable' => \App\Services\DocumentTax::lineFlag($request->taxable[$i] ?? null, Product::find($productId)),

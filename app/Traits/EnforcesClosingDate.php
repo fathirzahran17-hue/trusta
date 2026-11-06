@@ -26,12 +26,20 @@ trait EnforcesClosingDate
      */
     public function checkClosingDate(bool $deleting = false): void
     {
+        $field = $this->getDateField();
+        $label = \App\Support\PeriodLock::label(class_basename($this));
+        // Tahun yang salah ketik (mis. 0026) akan menaruh jurnal di luar semua laporan
+        if (!$deleting && $this->{$field}) {
+            $year = (int) \Carbon\Carbon::parse($this->{$field})->format('Y');
+            if ($year < 1900 || $year > 2099) {
+                throw new \App\Exceptions\PeriodClosedException($label . ' bertanggal ' . \Carbon\Carbon::parse($this->{$field})->format('d/m/Y')
+                    . ' ditolak karena tahunnya tidak wajar. Periksa tahunnya, ketik 4 digit seperti 2026.');
+            }
+        }
+
         if (!PeriodLock::closingDate() && !PeriodLock::startDate()) {
             return;
         }
-
-        $field = $this->getDateField();
-        $label = \App\Support\PeriodLock::label(class_basename($this));
 
         if ($deleting || !$this->exists) {
             PeriodLock::assertOpen($this->{$field} ?? null, $label);

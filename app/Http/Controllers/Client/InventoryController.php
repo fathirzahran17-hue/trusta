@@ -127,7 +127,8 @@ class InventoryController extends Controller
             'category_id' => ['nullable', \Illuminate\Validation\Rule::exists('product_categories', 'id')->where('company_id', $cid)],
             'brand_id' => ['nullable', \Illuminate\Validation\Rule::exists('brands', 'id')->where('company_id', $cid)],
             'unit' => 'nullable|string|max:20',
-            'sell_price' => ($kind === 'service' ? 'nullable' : 'required') . '|numeric|min:0',
+            // Harga jual hanya angka awal di faktur: boleh kosong, harga sebenarnya bisa diketik saat menjual
+            'sell_price' => 'nullable|numeric|min:0',
             'buy_price' => 'nullable|numeric|min:0',
             'revenue_account_id' => ['nullable', $accountRule()],
             'expense_account_id' => ['nullable', $accountRule()],

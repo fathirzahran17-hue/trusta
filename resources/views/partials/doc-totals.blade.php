@@ -22,7 +22,11 @@
         <div class="doc-total-row">
             <label for="discount_percent">Diskon</label>
             <span class="doc-total-input">
-                <span class="input-affix"><input type="number" step="0.01" name="discount_percent" id="discount_percent" value="{{ old('discount_percent', $editDiscPct ?? 0) }}" min="0" max="100" onchange="calculateTotals()" onkeyup="calculateTotals()"><i>%</i></span>
+                <span class="disc-wrap disc-wrap-total">
+                    <input type="hidden" name="discount_percent" id="discount_percent" value="{{ old('discount_percent', $editDiscPct ?? 0) }}">
+                    <input type="text" inputmode="decimal" autocomplete="off" id="discount_display" class="input-disc-display" value="{{ rtrim(rtrim(number_format((float) old('discount_percent', $editDiscPct ?? 0), 4, ',', ''), '0'), ',') }}" aria-label="Diskon keseluruhan">
+                    <button type="button" class="disc-mode" id="discount_mode" title="Ganti diskon persen atau rupiah" aria-label="Ganti diskon persen atau rupiah">%</button>
+                </span>
                 <b id="displayDiscount">0,00</b>
             </span>
         </div>
