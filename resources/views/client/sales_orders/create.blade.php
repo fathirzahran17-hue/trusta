@@ -61,7 +61,8 @@
                                 <th style="width: 70px;" class="r">Qty</th>
                                 <th style="width: 50px;" class="c">Satuan</th>
                                 <th style="width: 120px;" class="r">Harga Satuan</th>
-                                <th style="width: 84px; min-width: 84px;" class="r">Disk (%)</th>
+                                <th class="r" style="width: 136px; min-width: 136px;">Subtotal</th>
+                                <th class="r" style="width: 128px; min-width: 128px;">Diskon</th>
                                 <th class="col-tax c" style="width: 52px;" title="Centang bila baris ini kena PPN">PPN</th>
                                 <th style="width: 120px;" class="r">Jumlah</th>
                                 <th style="width: 36px;"></th>
@@ -88,8 +89,16 @@
                                     <input type="hidden" name="prices[]" class="input-price" value="0">
                                     <input type="text" class="input-price-display" value="0" required onkeyup="formatRupiah(this, this.previousElementSibling); calculateTotals()">
                                 </td>
+                                <td class="col-subtotal">
+                                    <input type="text" inputmode="decimal" autocomplete="off" class="input-subtotal-display money-in" value="0" aria-label="Subtotal baris">
+                                </td>
                                 <td class="col-disc">
-                                    <input type="number" step="0.01" name="discounts[]" class="input-discount" value="0" min="0" max="100">
+                                    <span class="disc-wrap">
+                                        <input type="hidden" name="discounts[]" class="input-discount" value="0">
+                                        <input type="text" inputmode="decimal" autocomplete="off" class="input-disc-display" value="0" aria-label="Diskon baris">
+                                        <button type="button" class="disc-mode" title="Ganti diskon persen atau rupiah" aria-label="Ganti diskon persen atau rupiah">%</button>
+                                    </span>
+                                    <input type="hidden" name="line_totals[]" class="input-line-total" value="">
                                 </td>
                                 @include('partials.line-tax-cell')
                                 <td class="col-total row-total">
@@ -155,11 +164,8 @@
                 
                 document.querySelectorAll('.item-row').forEach(row => {
                     const qty = parseFloat(row.querySelector('.input-qty').value) || 0;
-                    const price = parseFloat(row.querySelector('.input-price').value) || 0;
-                    const discPct = parseFloat(row.querySelector('.input-discount').value) || 0;
-                    const lineTotal = qty * price;
-                    const discountAmt = lineTotal * (discPct / 100);
-                    const total = lineTotal - discountAmt;
+                    // Subtotal, diskon persen atau rupiah, dan harga satuan saling menghitung (window.LineAmount di forms.js)
+                    const total = window.LineAmount.net(row);
                     
                     row.querySelector('.row-total').textContent = window.fmtAmount(total);
                     subtotal += total;
@@ -167,7 +173,7 @@
                 });
 
                 // Overall discount
-                const overallDiscPct = parseFloat(discountInput.value) || 0;
+                const overallDiscPct = window.LineAmount.overallPct(subtotal);
                 const overallDiscAmt = subtotal * (overallDiscPct / 100);
                 const afterDiscount = subtotal - overallDiscAmt;
 
@@ -207,9 +213,17 @@
                         <input type="hidden" name="prices[]" class="input-price" value="0">
                         <input type="text" class="input-price-display" value="0" required onkeyup="formatRupiah(this, this.previousElementSibling); calculateTotals()">
                     </td>
-                    <td class="col-disc">
-                        <input type="number" step="0.01" name="discounts[]" class="input-discount" value="0" min="0" max="100">
-                    </td>
+                    <td class="col-subtotal">
+                                    <input type="text" inputmode="decimal" autocomplete="off" class="input-subtotal-display money-in" value="0" aria-label="Subtotal baris">
+                                </td>
+                                <td class="col-disc">
+                                    <span class="disc-wrap">
+                                        <input type="hidden" name="discounts[]" class="input-discount" value="0">
+                                        <input type="text" inputmode="decimal" autocomplete="off" class="input-disc-display" value="0" aria-label="Diskon baris">
+                                        <button type="button" class="disc-mode" title="Ganti diskon persen atau rupiah" aria-label="Ganti diskon persen atau rupiah">%</button>
+                                    </span>
+                                    <input type="hidden" name="line_totals[]" class="input-line-total" value="">
+                                </td>
                     @include('partials.line-tax-cell')
                     <td class="col-total row-total">
                         0.00
